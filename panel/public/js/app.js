@@ -250,11 +250,19 @@ async function loadTrafficStats() {
   try {
     const r = await fetch('/api/traffic');
     const d = await r.json();
-    document.getElementById('trafficTotal').textContent = d.daily?.totalFormatted || '—';
-    document.getElementById('trafficRx').textContent = d.daily?.rxFormatted || '—';
-    document.getElementById('trafficTx').textContent = d.daily?.txFormatted || '—';
-    document.getElementById('trafficNaiveConns').textContent = d.connections?.naive ?? '—';
-    document.getElementById('trafficHy2Conns').textContent = d.connections?.hy2 ?? '—';
+    const pp = d.perProto || {};
+
+    const naive = pp.naive || {};
+    document.getElementById('naiveTrafficRx').textContent = naive.rxFormatted || '—';
+    document.getElementById('naiveTrafficTx').textContent = naive.txFormatted || '—';
+    document.getElementById('naiveTrafficTotal').textContent = naive.totalFormatted || '—';
+    document.getElementById('naiveTrafficConns').textContent = d.connections?.naive ?? '—';
+
+    const hy2 = pp.hy2 || {};
+    document.getElementById('hy2TrafficRx').textContent = hy2.rxFormatted || '—';
+    document.getElementById('hy2TrafficTx').textContent = hy2.txFormatted || '—';
+    document.getElementById('hy2TrafficTotal').textContent = hy2.totalFormatted || '—';
+    document.getElementById('hy2TrafficConns').textContent = d.connections?.hy2 ?? '—';
   } catch { /* ignore */ }
 }
 

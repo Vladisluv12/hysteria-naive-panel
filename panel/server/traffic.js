@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const { spawn } = require('child_process');
+const trafficMonitor = require('./trafficMonitor.js');
 
 const TEST_MODE = process.env.NODE_ENV === 'test' || process.env.VITEST;
 const TEST_CONFIG_DIR = process.env.TEST_CONFIG_DIR || '';
@@ -121,6 +122,19 @@ async function getTraffic() {
   const traffic = collectTraffic();
   const connections = await collectActiveConnections();
 
+  const perProtoRaw = await trafficMonitor.readCounters();
+
+  function protoInfo(raw) {
+    const total = raw.rx + raw.tx;
+    return {
+      rx: raw.rx,
+      tx: raw.tx,
+      rxFormatted: formatBytes(raw.rx),
+      txFormatted: formatBytes(raw.tx),
+      totalFormatted: formatBytes(total),
+    };
+  }
+
   return {
     daily: traffic ? {
       rx: traffic.daily.rx,
@@ -129,6 +143,10 @@ async function getTraffic() {
       txFormatted: formatBytes(traffic.daily.tx),
       totalFormatted: formatBytes(traffic.daily.rx + traffic.daily.tx),
     } : null,
+    perProto: {
+      naive: protoInfo(perProtoRaw.naive),
+      hy2: protoInfo(perProtoRaw.hy2),
+    },
     connections,
     hourly: traffic ? traffic.hourly : [],
     lastReset: traffic ? traffic.lastReset : null,

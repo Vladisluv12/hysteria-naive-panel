@@ -347,6 +347,14 @@ body {
 .stat-value { font-size: 1rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 7px; }
 .mono { font-family: var(--font-mono); font-size: 0.85rem; }
 
+.traffic-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.traffic-group { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.traffic-group-title { font-size: 0.8rem; font-weight: 600; color: var(--text-primary); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.traffic-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; }
+.traffic-label { font-size: 0.78rem; color: var(--text-muted); }
+.traffic-value { font-size: 0.85rem; font-weight: 500; color: var(--text-primary); }
+@media (max-width: 600px) { .traffic-grid { grid-template-columns: 1fr; } }
+
 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 .dot-green  { background: var(--success); box-shadow: 0 0 6px var(--success); animation: pulse 2s infinite; }
 .dot-red    { background: var(--danger); }

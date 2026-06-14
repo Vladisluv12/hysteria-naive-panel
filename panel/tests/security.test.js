@@ -16,40 +16,44 @@ function extractCookies(res) {
 }
 
 describe('CSRF protection', () => {
-  it('rejects POST /api/login without CSRF token with 403', async () => {
+  it('allows POST /api/login without CSRF token (login is excluded from CSRF)', async () => {
     const res = await supertest(app)
       .post('/api/login')
       .send({ username: 'admin', password: 'admin' })
-    expect(res.status).toBe(403)
-    expect(res.body).toHaveProperty('error')
+    expect(res.status).toBe(200)
+    expect(res.body.success).toBe(true)
+  })
+
+  it('allows POST /api/config/change-password without CSRF but requires correct password', async () => {
+    const loginRes = await supertest(app)
+      .post('/api/login')
+      .send({ username: 'admin', password: 'admin' })
+    const cookies = extractCookies(loginRes)
+
+    const res = await supertest(app)
+      .post('/api/config/change-password')
+      .set('Cookie', cookies)
+      .send({ currentPassword: 'wrong', newPassword: 'newpass' })
+    expect(res.status).toBe(200)
+    expect(res.body.success).toBe(false)
+    expect(res.body.message).toMatch(/неверен/i)
   })
 })
 
 describe('Default password flow', () => {
   it('returns mustChangePassword flag when logging in with admin/admin', async () => {
-    const csrfRes = await supertest(app).get('/api/csrf-token')
-    const csrfToken = csrfRes.body?.csrfToken
-    const cookie = extractCookies(csrfRes)
-
-    const res = await supertest(app)
+    const loginRes = await supertest(app)
       .post('/api/login')
-      .set('Cookie', cookie)
-      .set('X-CSRF-Token', csrfToken || '')
       .send({ username: 'admin', password: 'admin' })
-    expect(res.body).toHaveProperty('mustChangePassword')
-    expect(res.body.mustChangePassword).toBe(true)
+    expect(loginRes.body).toHaveProperty('mustChangePassword')
+    expect(loginRes.body.mustChangePassword).toBe(true)
   })
 
   it('returns mustChangePassword on /api/me after login with admin/admin', async () => {
-    const csrfRes = await supertest(app).get('/api/csrf-token')
-    const csrfToken = csrfRes.body?.csrfToken
-    const cookie = extractCookies(csrfRes)
-
-    await supertest(app)
+    const loginRes = await supertest(app)
       .post('/api/login')
-      .set('Cookie', cookie)
-      .set('X-CSRF-Token', csrfToken || '')
       .send({ username: 'admin', password: 'admin' })
+    const cookie = extractCookies(loginRes)
 
     const meRes = await supertest(app)
       .get('/api/me')

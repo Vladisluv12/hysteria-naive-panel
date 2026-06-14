@@ -293,38 +293,46 @@
       <!-- Traffic & Connections (#43) -->
       <div class="card" style="margin-top:16px">
         <div class="card-header">
-          <h3 class="card-title">Трафик и подключения</h3>
+          <h3 class="card-title">Трафик</h3>
         </div>
         <div class="card-body">
-          <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
-            <div class="stat-card">
-              <div class="stat-body">
-                <div class="stat-label">Сегодня (RX + TX)</div>
-                <div class="stat-value" id="trafficTotal">—</div>
+          <div class="traffic-grid">
+            <div class="traffic-group">
+              <div class="traffic-group-title">NaiveProxy (TCP/443)</div>
+              <div class="traffic-row">
+                <span class="traffic-label">Принято (RX)</span>
+                <span class="traffic-value mono" id="naiveTrafficRx">—</span>
+              </div>
+              <div class="traffic-row">
+                <span class="traffic-label">Отправлено (TX)</span>
+                <span class="traffic-value mono" id="naiveTrafficTx">—</span>
+              </div>
+              <div class="traffic-row">
+                <span class="traffic-label">Всего</span>
+                <span class="traffic-value mono" id="naiveTrafficTotal">—</span>
+              </div>
+              <div class="traffic-row">
+                <span class="traffic-label">Активных</span>
+                <span class="traffic-value" id="naiveTrafficConns">—</span>
               </div>
             </div>
-            <div class="stat-card">
-              <div class="stat-body">
-                <div class="stat-label">Принято (RX)</div>
-                <div class="stat-value" id="trafficRx">—</div>
+            <div class="traffic-group">
+              <div class="traffic-group-title">Hysteria2 (UDP/443)</div>
+              <div class="traffic-row">
+                <span class="traffic-label">Принято (RX)</span>
+                <span class="traffic-value mono" id="hy2TrafficRx">—</span>
               </div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-body">
-                <div class="stat-label">Отправлено (TX)</div>
-                <div class="stat-value" id="trafficTx">—</div>
+              <div class="traffic-row">
+                <span class="traffic-label">Отправлено (TX)</span>
+                <span class="traffic-value mono" id="hy2TrafficTx">—</span>
               </div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-body">
-                <div class="stat-label">Naive активных</div>
-                <div class="stat-value" id="trafficNaiveConns">—</div>
+              <div class="traffic-row">
+                <span class="traffic-label">Всего</span>
+                <span class="traffic-value mono" id="hy2TrafficTotal">—</span>
               </div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-body">
-                <div class="stat-label">Hy2 сессий</div>
-                <div class="stat-value" id="trafficHy2Conns">—</div>
+              <div class="traffic-row">
+                <span class="traffic-label">Сессий</span>
+                <span class="traffic-value" id="hy2TrafficConns">—</span>
               </div>
             </div>
           </div>

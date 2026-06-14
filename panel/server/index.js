@@ -15,6 +15,7 @@ const http = require('http');
 const WebSocket = require('ws');
 const { extractCustomBlocks } = require('./caddyfile.js');
 const { getTraffic } = require('./traffic.js');
+const trafficMonitor = require('./trafficMonitor.js');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -1515,6 +1516,11 @@ app.get(/^(?!\/api).*/, (req, res) => {
 });
 
 if (process.env.NODE_ENV !== 'test') {
+  trafficMonitor.ensureRules().then(ok => {
+    if (ok) console.log('[traffic] iptables rules ready');
+    else console.log('[traffic] iptables rules not set (not root or error)');
+  }).catch(() => {});
+
   server.listen(PORT, LISTEN_HOST, () => {
     const isLocal = LISTEN_HOST === '127.0.0.1' || LISTEN_HOST === 'localhost';
     console.log(`\n╔═══════════════════════════════════════════════╗`);
