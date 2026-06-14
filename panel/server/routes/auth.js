@@ -3,27 +3,9 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { loadUsers, saveUsers } = require('../services/storage.js');
-const { loginLimiter, generateCsrfToken, csrfCookieName, requireAuth } = require('../middleware/auth.js');
+const { loginLimiter, requireAuth } = require('../middleware/auth.js');
 
 const router = express.Router();
-
-router.get('/csrf-token', (req, res) => {
-  if (!req.session) {
-    return res.status(500).json({ error: 'Session not ready' });
-  }
-  if (!req.session.csrfToken) {
-    req.session.csrfToken = generateCsrfToken();
-  }
-  const token = req.session.csrfToken;
-  const isSecure = req.get('X-Forwarded-Proto') === 'https';
-  res.cookie(csrfCookieName, token, {
-    httpOnly: false,
-    sameSite: 'lax',
-    secure: isSecure,
-    maxAge: 24 * 60 * 60 * 1000,
-  });
-  res.json({ csrfToken: token });
-});
 
 router.post('/login', loginLimiter, (req, res) => {
   const { username, password } = req.body || {};

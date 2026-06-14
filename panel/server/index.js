@@ -56,7 +56,7 @@ try {
 }
 
 const { loadConfig, saveConfig, loadUsers, saveUsers, defaultConfig } = require('./services/storage.js');
-const { loginLimiter, generateCsrfToken, csrfMiddleware, requireAuth, csrfCookieName } = require('./middleware/auth.js');
+const { loginLimiter, requireAuth } = require('./middleware/auth.js');
 const { isValidDomain, isValidEmail, isValidUsername, isValidPassword, isValidExpireDays, computeExpiresAt, isExpired, remainingSeconds } = require('./utils/validators.js');
 
 app.set('trust proxy', 1);
@@ -89,7 +89,7 @@ app.use((req, res, next) => {
   next()
 })
 app.use(express.static(path.join(__dirname, '../public')));
-app.use(csrfMiddleware);
+
 const authRoutes = require('./routes/auth.js');
 app.use('/api', authRoutes);
 

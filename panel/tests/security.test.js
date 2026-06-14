@@ -15,30 +15,12 @@ function extractCookies(res) {
   return cookies.map(c => c.split(';')[0]).join('; ')
 }
 
-describe('CSRF protection', () => {
-  it('allows POST /api/login without CSRF token (login is excluded from CSRF)', async () => {
-    const res = await supertest(app)
-      .post('/api/login')
-      .send({ username: 'admin', password: 'admin' })
-    expect(res.status).toBe(200)
-    expect(res.body.success).toBe(true)
-  })
-
-  it('allows POST /api/config/change-password without CSRF but requires correct password', async () => {
-    const loginRes = await supertest(app)
-      .post('/api/login')
-      .send({ username: 'admin', password: 'admin' })
-    const cookies = extractCookies(loginRes)
-
-    const res = await supertest(app)
-      .post('/api/config/change-password')
-      .set('Cookie', cookies)
-      .send({ currentPassword: 'wrong', newPassword: 'newpass' })
-    expect(res.status).toBe(200)
-    expect(res.body.success).toBe(false)
-    expect(res.body.message).toMatch(/неверен/i)
-  })
-})
+async function loginAsAdmin() {
+  const res = await supertest(app)
+    .post('/api/login')
+    .send({ username: 'admin', password: 'admin' })
+  return extractCookies(res)
+}
 
 describe('Default password flow', () => {
   it('returns mustChangePassword flag when logging in with admin/admin', async () => {
@@ -50,10 +32,7 @@ describe('Default password flow', () => {
   })
 
   it('returns mustChangePassword on /api/me after login with admin/admin', async () => {
-    const loginRes = await supertest(app)
-      .post('/api/login')
-      .send({ username: 'admin', password: 'admin' })
-    const cookie = extractCookies(loginRes)
+    const cookie = await loginAsAdmin()
 
     const meRes = await supertest(app)
       .get('/api/me')
@@ -78,8 +57,9 @@ describe('Security headers', () => {
 describe('Cookie security', () => {
   it('sets Secure flag on session cookie when behind HTTPS proxy', async () => {
     const res = await supertest(app)
-      .get('/api/csrf-token')
+      .post('/api/login')
       .set('X-Forwarded-Proto', 'https')
+      .send({ username: 'admin', password: 'admin' })
     const cookies = res.headers['set-cookie']
     expect(cookies).toBeDefined()
     const hasSecure = cookies.some(c => c.includes('Secure'))
@@ -89,28 +69,17 @@ describe('Cookie security', () => {
 
 describe('Rate limiting on /api/login', () => {
   it('blocks after 5 rapid login attempts', async () => {
-    // Reset rate limiter state for this test by using a unique IP via X-Forwarded-For
     const ip = '10.0.0.1'
-
-    const csrfRes = await supertest(app)
-      .get('/api/csrf-token')
-      .set('X-Forwarded-For', ip)
-    const csrfToken = csrfRes.body?.csrfToken
-    const cookie = extractCookies(csrfRes)
 
     for (let i = 0; i < 5; i++) {
       await supertest(app)
         .post('/api/login')
-        .set('Cookie', cookie)
-        .set('X-CSRF-Token', csrfToken || '')
         .set('X-Forwarded-For', ip)
         .send({ username: 'admin', password: 'wrong' })
     }
 
     const res = await supertest(app)
       .post('/api/login')
-      .set('Cookie', cookie)
-      .set('X-CSRF-Token', csrfToken || '')
       .set('X-Forwarded-For', ip)
       .send({ username: 'admin', password: 'wrong' })
     expect(res.status).toBe(429)
