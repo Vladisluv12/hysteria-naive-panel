@@ -127,7 +127,25 @@ case "$STACK_MODE" in
   *) INSTALL_NAIVE=1; INSTALL_HY2=1 ;;
 esac
 
-# ── A2. Способ доступа к панели ─────────────────────────────────────────
+# ── A2. Хранилище настроек ──────────────────────────────────────────────
+echo ""
+echo -e "${BOLD}Хранилище настроек панели:${RESET}"
+echo ""
+echo -e "  ${CYAN}1)${RESET} ${BOLD}JSON-файлы${RESET}        — config.json / users.json ${GREEN}(по умолчанию)${RESET}"
+echo -e "  ${CYAN}2)${RESET} ${BOLD}SQLite${RESET}            — panel.db, быстрее и надёжнее"
+echo ""
+echo -e "  ${YELLOW}  SQLite рекомендуется для активной эксплуатации.${RESET}"
+echo -e "  ${YELLOW}  Переключить можно позже через переменную USE_SQLITE.${RESET}"
+echo ""
+read -rp "Ваш выбор [1/2]: " STORAGE_MODE
+STORAGE_MODE="${STORAGE_MODE:-1}"
+if [[ "$STORAGE_MODE" == "2" ]]; then
+  USE_SQLITE=true
+else
+  USE_SQLITE=false
+fi
+
+# ── A3. Способ доступа к панели ─────────────────────────────────────────
 echo ""
 echo -e "${BOLD}Способ доступа к панели управления:${RESET}"
 echo ""
@@ -965,7 +983,7 @@ sleep 1
 # LISTEN_HOST: 0.0.0.0 (по умолчанию) или 127.0.0.1 (SSH-only режим).
 # Прокидываем через --update-env, чтобы PM2 запомнил env при pm2 save / restart.
 PM2_ENV_LISTEN="LISTEN_HOST=${LISTEN_HOST:-0.0.0.0}"
-LISTEN_HOST="${LISTEN_HOST:-0.0.0.0}" \
+LISTEN_HOST="${LISTEN_HOST:-0.0.0.0}" USE_SQLITE="${USE_SQLITE:-false}" \
 pm2 start server/index.js \
   --name "${SERVICE_NAME}" \
   --time \
@@ -1000,6 +1018,7 @@ RestartSec=5
 Environment=NODE_ENV=production
 Environment=PORT=${INTERNAL_PORT}
 Environment=LISTEN_HOST=${LISTEN_HOST:-0.0.0.0}
+Environment=USE_SQLITE=${USE_SQLITE:-false}
 StandardOutput=journal
 StandardError=journal
 
