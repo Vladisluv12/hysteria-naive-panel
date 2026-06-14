@@ -2,9 +2,9 @@
 
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 const yaml = require('js-yaml');
 const { loadConfig, saveConfig } = require('../services/storage.js');
+const { buildHysteriaConfigObject } = require('../services/configBuilder.js');
 const { isValidUsername, isValidPassword, isValidExpireDays, computeExpiresAt, isExpired, remainingSeconds } = require('../utils/validators.js');
 const { restartHysteria, findCertFile } = require('../services/systemAdapter.js');
 const { AtomicFileTransaction, yamlSelfValidator } = require('../services/atomicConfig.js');
@@ -63,62 +63,20 @@ function applyBypassAcl(base) {
 function writeHysteriaConfig(cfg) {
   if (!cfg.stack.hy2 || !cfg.domain) return false;
 
-  const userpass = {};
-  (cfg.hy2Users || []).forEach(u => {
-    if (u.username && u.password && !isExpired(u)) userpass[u.username] = u.password;
-  });
-  if (Object.keys(userpass).length === 0) {
-    userpass.default = crypto.randomBytes(16).toString('base64url');
-  }
-
   const hyCfgPath = testPath('/etc/hysteria/config.yaml');
-  let base = null;
-
+  let existing = null;
   try {
     const raw = fs.readFileSync(hyCfgPath, 'utf8');
-    base = yaml.load(raw);
-  } catch {
-    base = null;
-  }
+    existing = yaml.load(raw);
+  } catch {}
 
-  if (base && typeof base === 'object') {
-    if (!base.auth) base.auth = { type: 'userpass' };
-    base.auth.type = 'userpass';
-    base.auth.userpass = userpass;
+  const tlsBlock = findCertFile(cfg.domain);
+  const configObj = buildHysteriaConfigObject(cfg, existing, tlsBlock);
+  if (!configObj) return false;
 
-    if (cfg.masqueradeMode === 'mirror' && cfg.masqueradeUrl) {
-      base.masquerade = { type: 'proxy', proxy: { url: cfg.masqueradeUrl, rewriteHost: true } };
-    } else if (cfg.masqueradeMode === 'local') {
-      base.masquerade = { type: 'file', file: { dir: '/var/www/html' } };
-    }
-    applyBypassAcl(base);
-  } else {
-    console.warn('[writeHysteriaConfig] /etc/hysteria/config.yaml not found — creating minimal config.');
-    const tlsBlock = findCertFile(cfg.domain);
-    if (!tlsBlock) {
-      console.warn('[writeHysteriaConfig] No Caddy cert found. Hysteria2 will NOT start until TLS is configured manually.');
-    }
+  applyBypassAcl(configObj);
 
-    const masqueradeBlock = (cfg.masqueradeMode === 'mirror' && cfg.masqueradeUrl)
-      ? { type: 'proxy', proxy: { url: cfg.masqueradeUrl, rewriteHost: true } }
-      : { type: 'file', file: { dir: '/var/www/html' } };
-
-    base = {
-      listen: ':443',
-      auth: { type: 'userpass', userpass },
-      masquerade: masqueradeBlock,
-      ignoreClientBandwidth: true,
-      quic: {
-        initStreamReceiveWindow: 8388608, maxStreamReceiveWindow: 8388608,
-        initConnReceiveWindow: 20971520, maxConnReceiveWindow: 20971520,
-        maxIdleTimeout: '30s', keepAlivePeriod: '10s', disablePathMTUDiscovery: false
-      }
-    };
-    if (tlsBlock) base.tls = tlsBlock;
-    applyBypassAcl(base);
-  }
-
-  const newContent = yaml.dump(base, { lineWidth: 120, quotingType: '"' });
+  const newContent = yaml.dump(configObj, { lineWidth: 120, quotingType: '"' });
   const tx = new AtomicFileTransaction(hyCfgPath);
   return tx.execute(newContent, (tmpPath) => yamlSelfValidator(fs.readFileSync(tmpPath, 'utf8')));
 }

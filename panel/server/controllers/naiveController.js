@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const { loadConfig, saveConfig } = require('../services/storage.js');
+const { buildCaddyContent } = require('../services/configBuilder.js');
 const { isValidUsername, isValidPassword, isValidExpireDays, computeExpiresAt, isExpired, remainingSeconds } = require('../utils/validators.js');
 const { reloadCaddy } = require('../services/systemAdapter.js');
 const { AtomicFileTransaction, caddyValidator } = require('../services/atomicConfig.js');
@@ -14,47 +15,21 @@ function testPath(systemPath) {
   return systemPath;
 }
 
-function buildCaddyfileContent(cfg) {
-  const lines = (cfg.naiveUsers || [])
-    .filter(u => !isExpired(u))
-    .map(u => `    basic_auth ${u.username} ${u.password}`)
-    .join('\n');
+function writeCaddyfile(cfg) {
+  if (!cfg.stack.naive || !cfg.domain) return false;
 
-  const disableH3 = cfg.stack && cfg.stack.hy2;
-  const globalBlock = disableH3
-    ? `{\n  order forward_proxy before file_server\n  servers {\n    protocols h1 h2\n  }\n}`
-    : `{\n  order forward_proxy before file_server\n}`;
-
-  const masqueradeBlock = (cfg.masqueradeMode === 'mirror' && cfg.masqueradeUrl)
-    ? `  reverse_proxy ${cfg.masqueradeUrl} {\n    header_up Host {upstream_hostport}\n    transport http {\n      tls_insecure_skip_verify\n    }\n  }`
-    : `  file_server {\n    root /var/www/html\n  }`;
-
-  let content = `${globalBlock}\n\n:443, ${cfg.domain} {\n  tls ${cfg.email}\n\n  forward_proxy {\n${lines || '    # no users yet'}\n    hide_ip\n    hide_via\n    probe_resistance\n  }\n\n${masqueradeBlock}\n}\n`;
-
-  const internalPort = process.env.PORT || 3000;
-  if (cfg.panelDomain && cfg.panelDomain !== cfg.domain && cfg.sshOnly !== 1) {
-    const panelEmail = cfg.panelEmail || cfg.email;
-    content += `\n${cfg.panelDomain} {\n  tls ${panelEmail}\n  encode gzip\n  reverse_proxy 127.0.0.1:${internalPort}\n}\n`;
-  }
-
+  let customBlocks = '';
   try {
     const existingPath = testPath('/etc/caddy/Caddyfile');
     if (fs.existsSync(existingPath)) {
       const existing = fs.readFileSync(existingPath, 'utf8');
-      const custom = extractCustomBlocks(existing, cfg.domain, cfg.panelDomain);
-      if (custom) content += '\n\n' + custom;
+      customBlocks = extractCustomBlocks(existing, cfg.domain, cfg.panelDomain);
     }
   } catch (e) {
     console.warn('[writeCaddyfile] could not preserve custom blocks:', e.message);
   }
 
-  return content;
-}
-
-function writeCaddyfile(cfg) {
-  if (!cfg.stack.naive || !cfg.domain) return false;
-
-  const content = buildCaddyfileContent(cfg);
+  const content = buildCaddyContent(cfg, customBlocks);
   const targetPath = testPath('/etc/caddy/Caddyfile');
 
   const tx = new AtomicFileTransaction(targetPath);

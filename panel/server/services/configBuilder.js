@@ -1,0 +1,101 @@
+'use strict';
+
+const crypto = require('crypto');
+const yaml = require('js-yaml');
+
+function buildCaddyContent(cfg, customBlocks) {
+  if (!cfg.stack || !cfg.stack.naive || !cfg.domain) return '';
+
+  const lines = (cfg.naiveUsers || [])
+    .filter(u => !isExpired(u))
+    .map(u => `    basic_auth ${u.username} ${u.password}`)
+    .join('\n');
+
+  const disableH3 = cfg.stack && cfg.stack.hy2;
+  const globalBlock = disableH3
+    ? `{\n  order forward_proxy before file_server\n  servers {\n    protocols h1 h2\n  }\n}`
+    : `{\n  order forward_proxy before file_server\n}`;
+
+  const masqueradeBlock = (cfg.masqueradeMode === 'mirror' && cfg.masqueradeUrl)
+    ? `  reverse_proxy ${cfg.masqueradeUrl} {\n    header_up Host {upstream_hostport}\n    transport http {\n      tls_insecure_skip_verify\n    }\n  }`
+    : `  file_server {\n    root /var/www/html\n  }`;
+
+  let content = `${globalBlock}\n\n:443, ${cfg.domain} {\n  tls ${cfg.email}\n\n  forward_proxy {\n${lines || '    # no users yet'}\n    hide_ip\n    hide_via\n    probe_resistance\n  }\n\n${masqueradeBlock}\n}\n`;
+
+  const internalPort = process.env.PORT || 3000;
+  if (cfg.panelDomain && cfg.panelDomain !== cfg.domain && cfg.sshOnly !== 1) {
+    const panelEmail = cfg.panelEmail || cfg.email;
+    content += `\n${cfg.panelDomain} {\n  tls ${panelEmail}\n  encode gzip\n  reverse_proxy 127.0.0.1:${internalPort}\n}\n`;
+  }
+
+  if (customBlocks) {
+    content += '\n\n' + customBlocks;
+  }
+
+  return content;
+}
+
+function buildHysteriaConfigObject(cfg, existingYaml, tlsBlock) {
+  if (!cfg.stack || !cfg.stack.hy2 || !cfg.domain) return null;
+
+  const userpass = {};
+  (cfg.hy2Users || []).forEach(u => {
+    if (u.username && u.password && !isExpired(u)) userpass[u.username] = u.password;
+  });
+  if (Object.keys(userpass).length === 0) {
+    userpass.default = crypto.randomBytes(16).toString('base64url');
+  }
+
+  if (existingYaml && typeof existingYaml === 'object') {
+    if (!existingYaml.auth) existingYaml.auth = { type: 'userpass' };
+    existingYaml.auth.type = 'userpass';
+    existingYaml.auth.userpass = userpass;
+
+    if (cfg.masqueradeMode === 'mirror' && cfg.masqueradeUrl) {
+      existingYaml.masquerade = { type: 'proxy', proxy: { url: cfg.masqueradeUrl, rewriteHost: true } };
+    } else if (cfg.masqueradeMode === 'local') {
+      existingYaml.masquerade = { type: 'file', file: { dir: '/var/www/html' } };
+    }
+
+    return existingYaml;
+  }
+
+  const masqueradeBlock = (cfg.masqueradeMode === 'mirror' && cfg.masqueradeUrl)
+    ? { type: 'proxy', proxy: { url: cfg.masqueradeUrl, rewriteHost: true } }
+    : { type: 'file', file: { dir: '/var/www/html' } };
+
+  const base = {
+    listen: ':443',
+    auth: { type: 'userpass', userpass },
+    masquerade: masqueradeBlock,
+    ignoreClientBandwidth: true,
+    quic: {
+      initStreamReceiveWindow: 8388608, maxStreamReceiveWindow: 8388608,
+      initConnReceiveWindow: 20971520, maxConnReceiveWindow: 20971520,
+      maxIdleTimeout: '30s', keepAlivePeriod: '10s', disablePathMTUDiscovery: false,
+    },
+  };
+
+  if (tlsBlock) {
+    base.tls = { cert: tlsBlock.cert, key: tlsBlock.key };
+  }
+
+  return base;
+}
+
+function buildHysteriaConfigYaml(cfg, existingYaml, tlsBlock) {
+  const obj = buildHysteriaConfigObject(cfg, existingYaml, tlsBlock);
+  if (!obj) return null;
+  return yaml.dump(obj, { lineWidth: 120, quotingType: '"' });
+}
+
+function isExpired(u) {
+  if (!u || !u.expiresAt) return false;
+  return Date.now() > new Date(u.expiresAt).getTime();
+}
+
+module.exports = {
+  buildCaddyContent,
+  buildHysteriaConfigObject,
+  buildHysteriaConfigYaml,
+};
