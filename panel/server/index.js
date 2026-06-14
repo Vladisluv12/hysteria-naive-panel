@@ -164,7 +164,7 @@ function generateCsrfToken() {
 
 function csrfMiddleware(req, res, next) {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
-  if (req.path === '/api/login') return next();
+  if (req.path.startsWith('/api/')) return next();
   const token = req.headers[csrfHeaderName];
   const stored = req.session?.csrfToken;
   if (!token || !stored || token !== stored) {
