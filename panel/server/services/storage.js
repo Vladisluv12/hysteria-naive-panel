@@ -29,6 +29,7 @@ function defaultConfig() {
 }
 
 function loadConfig() {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   if (!fs.existsSync(CONFIG_FILE)) {
     const cfg = defaultConfig();
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2));
@@ -69,11 +70,13 @@ function loadConfig() {
 }
 
 function saveConfig(cfg) {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2));
 }
 
 function loadUsers() {
   const bcrypt = require('bcryptjs');
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   if (!fs.existsSync(USERS_FILE)) {
     const users = { admin: { password: bcrypt.hashSync('admin', 10), role: 'admin' } };
     fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), { mode: 0o600 });
@@ -83,6 +86,7 @@ function loadUsers() {
 }
 
 function saveUsers(users) {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), { mode: 0o600 });
 }
 

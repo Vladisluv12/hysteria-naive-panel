@@ -2,6 +2,7 @@
 
 const bcrypt = require('bcryptjs');
 const { loadUsers, saveUsers } = require('../services/storage.js');
+const { updateUsers } = require('../services/atomicUpdate.js');
 
 function login(req, res) {
   const { username, password } = req.body || {};

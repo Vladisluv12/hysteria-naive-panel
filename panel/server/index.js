@@ -56,6 +56,7 @@ try {
 }
 
 const { loadConfig, saveConfig, loadUsers, saveUsers, defaultConfig } = require('./services/storage.js');
+const { updateConfig } = require('./services/atomicUpdate.js');
 const { loginLimiter, requireAuth } = require('./middleware/auth.js');
 const { isValidDomain, isValidEmail, isValidUsername, isValidPassword, isValidExpireDays, computeExpiresAt, isExpired, remainingSeconds } = require('./utils/validators.js');
 
@@ -193,9 +194,10 @@ function persistServerIp(cfg) {
   p.stdout.on('data', d => ip += d.toString().trim());
   p.on('close', () => {
     if (ip) {
-      cfg.serverIp = ip;
-      cfg.arch = require('os').arch();
-      saveConfig(cfg);
+      updateConfig(c => {
+        c.serverIp = ip;
+        c.arch = require('os').arch();
+      });
     }
   });
 }
@@ -207,15 +209,15 @@ function handleInstallNaive(ws, data) {
   if (!isValidUsername(login)) return ws.send(JSON.stringify({ type: 'install_error', message: 'Неверный логин' }));
   if (!isValidPassword(password)) return ws.send(JSON.stringify({ type: 'install_error', message: 'Пароль минимум 8 символов' }));
 
-  const cfg = loadConfig();
-  cfg.domain = domain;
-  cfg.email = email;
-  cfg.stack.naive = true;
-  if (!cfg.naiveUsers.find(u => u.username === login)) {
-    cfg.naiveUsers.push({ username: login, password, createdAt: new Date().toISOString() });
-  }
-  saveConfig(cfg);
-  persistServerIp(cfg);
+  updateConfig(c => {
+    c.domain = domain;
+    c.email = email;
+    c.stack.naive = true;
+    if (!c.naiveUsers.find(u => u.username === login)) {
+      c.naiveUsers.push({ username: login, password, createdAt: new Date().toISOString() });
+    }
+  });
+  persistServerIp();
 
   sendLog(ws, '🚀 Запуск установки NaiveProxy...', 'init', 2, 'info');
   runScript(ws, 'install_naiveproxy.sh', {
@@ -223,8 +225,7 @@ function handleInstallNaive(ws, data) {
     NAIVE_LOGIN: login, NAIVE_PASSWORD: password
   }, (code) => {
     if (code === 0) {
-      cfg.installed = true;
-      saveConfig(cfg);
+      updateConfig(c => { c.installed = true; });
       sendLog(ws, '✅ NaiveProxy готов!', 'done', 100, 'success');
       ws.send(JSON.stringify({
         type: 'install_done',
@@ -244,17 +245,18 @@ function handleInstallHy2(ws, data) {
   if (!isValidEmail(email)) return ws.send(JSON.stringify({ type: 'install_error', message: 'Неверный email' }));
   if (!isValidPassword(password)) return ws.send(JSON.stringify({ type: 'install_error', message: 'Пароль минимум 8 символов' }));
 
-  const cfg = loadConfig();
-  cfg.domain = domain;
-  cfg.email = email;
-  cfg.stack.hy2 = true;
-  if (!cfg.hy2Users.find(u => u.username === 'default')) {
-    cfg.hy2Users.push({ username: 'default', password, createdAt: new Date().toISOString() });
-  } else {
-    cfg.hy2Users.find(u => u.username === 'default').password = password;
-  }
-  saveConfig(cfg);
-  persistServerIp(cfg);
+  updateConfig(c => {
+    c.domain = domain;
+    c.email = email;
+    c.stack.hy2 = true;
+    const defUser = c.hy2Users.find(u => u.username === 'default');
+    if (defUser) {
+      defUser.password = password;
+    } else {
+      c.hy2Users.push({ username: 'default', password, createdAt: new Date().toISOString() });
+    }
+  });
+  persistServerIp();
 
   sendLog(ws, '⚡ Запуск установки Hysteria2...', 'init', 2, 'info');
   runScript(ws, 'install_hysteria.sh', {
@@ -262,8 +264,7 @@ function handleInstallHy2(ws, data) {
     USE_CADDY_CERT: useCaddyCert ? '1' : '0'
   }, (code) => {
     if (code === 0) {
-      cfg.installed = true;
-      saveConfig(cfg);
+      updateConfig(c => { c.installed = true; });
       sendLog(ws, '✅ Hysteria2 готова!', 'done', 100, 'success');
       ws.send(JSON.stringify({
         type: 'install_done',
@@ -285,19 +286,19 @@ function handleInstallBoth(ws, data) {
   if (!isValidPassword(naivePassword)) return ws.send(JSON.stringify({ type: 'install_error', message: 'Naive пароль 8+ символов' }));
   if (!isValidPassword(hy2Password)) return ws.send(JSON.stringify({ type: 'install_error', message: 'Hy2 пароль 8+ символов' }));
 
-  const cfg = loadConfig();
-  cfg.domain = domain;
-  cfg.email = email;
-  cfg.stack.naive = true;
-  cfg.stack.hy2 = true;
-  if (!cfg.naiveUsers.find(u => u.username === naiveLogin)) {
-    cfg.naiveUsers.push({ username: naiveLogin, password: naivePassword, createdAt: new Date().toISOString() });
-  }
-  const existDef = cfg.hy2Users.find(u => u.username === 'default');
-  if (existDef) existDef.password = hy2Password;
-  else cfg.hy2Users.push({ username: 'default', password: hy2Password, createdAt: new Date().toISOString() });
-  saveConfig(cfg);
-  persistServerIp(cfg);
+  updateConfig(c => {
+    c.domain = domain;
+    c.email = email;
+    c.stack.naive = true;
+    c.stack.hy2 = true;
+    if (!c.naiveUsers.find(u => u.username === naiveLogin)) {
+      c.naiveUsers.push({ username: naiveLogin, password: naivePassword, createdAt: new Date().toISOString() });
+    }
+    const existDef = c.hy2Users.find(u => u.username === 'default');
+    if (existDef) existDef.password = hy2Password;
+    else c.hy2Users.push({ username: 'default', password: hy2Password, createdAt: new Date().toISOString() });
+  });
+  persistServerIp();
 
   sendLog(ws, '🚀 Установка Naive + Hy2 последовательно...', 'init', 2, 'info');
 
@@ -316,8 +317,7 @@ function handleInstallBoth(ws, data) {
       USE_CADDY_CERT: '1'
     }, (codeHy) => {
       if (codeHy === 0) {
-        cfg.installed = true;
-        saveConfig(cfg);
+        updateConfig(c => { c.installed = true; });
         sendLog(ws, '✅ Оба протокола готовы!', 'done', 100, 'success');
         ws.send(JSON.stringify({
           type: 'install_done',

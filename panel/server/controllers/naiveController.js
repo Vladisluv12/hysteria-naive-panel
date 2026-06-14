@@ -1,7 +1,8 @@
 'use strict';
 
 const fs = require('fs');
-const { loadConfig, saveConfig } = require('../services/storage.js');
+const { loadConfig } = require('../services/storage.js');
+const { updateConfig } = require('../services/atomicUpdate.js');
 const { buildCaddyContent } = require('../services/configBuilder.js');
 const { isValidUsername, isValidPassword, isValidExpireDays, computeExpiresAt, isExpired, remainingSeconds } = require('../utils/validators.js');
 const { reloadCaddy } = require('../services/systemAdapter.js');
@@ -56,13 +57,13 @@ async function createUser(req, res) {
   if (!isValidPassword(password)) return res.json({ success: false, message: 'Пароль 8-128 символов (без пробелов)' });
   if (!isValidExpireDays(expireDays)) return res.json({ success: false, message: 'Срок: 1..3650 дней или 0 (бессрочно)' });
 
-  const cfg = loadConfig();
-  if (cfg.naiveUsers.find(u => u.username === username)) {
-    return res.json({ success: false, message: 'Пользователь уже существует' });
-  }
+  const existing = loadConfig().naiveUsers.find(u => u.username === username);
+  if (existing) return res.json({ success: false, message: 'Пользователь уже существует' });
+
   const expiresAt = computeExpiresAt(expireDays);
-  cfg.naiveUsers.push({ username, password, createdAt: new Date().toISOString(), expiresAt });
-  saveConfig(cfg);
+  const cfg = updateConfig(c => {
+    c.naiveUsers.push({ username, password, createdAt: new Date().toISOString(), expiresAt });
+  });
 
   if (cfg.installed && cfg.stack.naive) {
     writeCaddyfile(cfg);
@@ -77,11 +78,11 @@ async function createUser(req, res) {
 
 async function deleteUser(req, res) {
   const { username } = req.params;
-  const cfg = loadConfig();
-  const before = cfg.naiveUsers.length;
-  cfg.naiveUsers = cfg.naiveUsers.filter(u => u.username !== username);
+  const before = loadConfig().naiveUsers.length;
+  const cfg = updateConfig(c => {
+    c.naiveUsers = c.naiveUsers.filter(u => u.username !== username);
+  });
   if (cfg.naiveUsers.length === before) return res.json({ success: false, message: 'Не найден' });
-  saveConfig(cfg);
   if (cfg.installed && cfg.stack.naive) {
     writeCaddyfile(cfg);
     await reloadCaddy(process.env.TEST_MODE === '1', testPath('/etc/caddy/Caddyfile'));
@@ -94,17 +95,20 @@ async function updateUser(req, res) {
   const { expireDays } = req.body || {};
   if (!isValidExpireDays(expireDays)) return res.json({ success: false, message: 'Срок: 1..3650 дней или 0' });
 
-  const cfg = loadConfig();
-  const user = cfg.naiveUsers.find(u => u.username === username);
+  const user = loadConfig().naiveUsers.find(u => u.username === username);
   if (!user) return res.json({ success: false, message: 'Не найден' });
-  user.expiresAt = computeExpiresAt(expireDays);
-  saveConfig(cfg);
+
+  const expiresAt = computeExpiresAt(expireDays);
+  const cfg = updateConfig(c => {
+    const u = c.naiveUsers.find(u => u.username === username);
+    if (u) u.expiresAt = expiresAt;
+  });
 
   if (cfg.installed && cfg.stack.naive) {
     writeCaddyfile(cfg);
     await reloadCaddy(process.env.TEST_MODE === '1', testPath('/etc/caddy/Caddyfile'));
   }
-  res.json({ success: true, expiresAt: user.expiresAt });
+  res.json({ success: true, expiresAt });
 }
 
 module.exports = { listUsers, createUser, deleteUser, updateUser, writeCaddyfile };

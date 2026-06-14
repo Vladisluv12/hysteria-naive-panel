@@ -3,7 +3,8 @@
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
-const { loadConfig, saveConfig } = require('../services/storage.js');
+const { loadConfig } = require('../services/storage.js');
+const { updateConfig } = require('../services/atomicUpdate.js');
 const { buildHysteriaConfigObject } = require('../services/configBuilder.js');
 const { isValidUsername, isValidPassword, isValidExpireDays, computeExpiresAt, isExpired, remainingSeconds } = require('../utils/validators.js');
 const { restartHysteria, findCertFile } = require('../services/systemAdapter.js');
@@ -152,13 +153,13 @@ async function createUser(req, res) {
   if (!isValidPassword(password)) return res.json({ success: false, message: 'Пароль 8-128 символов' });
   if (!isValidExpireDays(expireDays)) return res.json({ success: false, message: 'Срок: 1..3650 дней или 0 (бессрочно)' });
 
-  const cfg = loadConfig();
-  if (cfg.hy2Users.find(u => u.username === username)) {
+  if (loadConfig().hy2Users.find(u => u.username === username)) {
     return res.json({ success: false, message: 'Пользователь уже существует' });
   }
   const expiresAt = computeExpiresAt(expireDays);
-  cfg.hy2Users.push({ username, password, createdAt: new Date().toISOString(), expiresAt });
-  saveConfig(cfg);
+  const cfg = updateConfig(c => {
+    c.hy2Users.push({ username, password, createdAt: new Date().toISOString(), expiresAt });
+  });
 
   if (cfg.installed && cfg.stack.hy2) {
     writeHysteriaConfig(cfg);
@@ -174,11 +175,11 @@ async function createUser(req, res) {
 
 async function deleteUser(req, res) {
   const { username } = req.params;
-  const cfg = loadConfig();
-  const before = cfg.hy2Users.length;
-  cfg.hy2Users = cfg.hy2Users.filter(u => u.username !== username);
+  const before = loadConfig().hy2Users.length;
+  const cfg = updateConfig(c => {
+    c.hy2Users = c.hy2Users.filter(u => u.username !== username);
+  });
   if (cfg.hy2Users.length === before) return res.json({ success: false, message: 'Не найден' });
-  saveConfig(cfg);
   if (cfg.installed && cfg.stack.hy2) {
     writeHysteriaConfig(cfg);
     await restartHysteria();
@@ -191,17 +192,20 @@ async function updateUser(req, res) {
   const { expireDays } = req.body || {};
   if (!isValidExpireDays(expireDays)) return res.json({ success: false, message: 'Срок: 1..3650 дней или 0' });
 
-  const cfg = loadConfig();
-  const user = cfg.hy2Users.find(u => u.username === username);
+  const user = loadConfig().hy2Users.find(u => u.username === username);
   if (!user) return res.json({ success: false, message: 'Не найден' });
-  user.expiresAt = computeExpiresAt(expireDays);
-  saveConfig(cfg);
+
+  const expiresAt = computeExpiresAt(expireDays);
+  const cfg = updateConfig(c => {
+    const u = c.hy2Users.find(u => u.username === username);
+    if (u) u.expiresAt = expiresAt;
+  });
 
   if (cfg.installed && cfg.stack.hy2) {
     writeHysteriaConfig(cfg);
     await restartHysteria();
   }
-  res.json({ success: true, expiresAt: user.expiresAt });
+  res.json({ success: true, expiresAt });
 }
 
 module.exports = { getBypass, updateBypass, clearBypass, listUsers, createUser, deleteUser, updateUser, writeHysteriaConfig };
