@@ -1,7 +1,7 @@
 'use strict';
 
 const fs = require('fs');
-const { loadConfig } = require('../services/storage.js');
+const { loadConfig } = require('../services/storageFactory.js');
 const { getTraffic } = require('../traffic.js');
 const { serviceIsActive, serviceAction } = require('../services/systemAdapter.js');
 

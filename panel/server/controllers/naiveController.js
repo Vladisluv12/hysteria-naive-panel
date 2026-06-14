@@ -1,7 +1,7 @@
 'use strict';
 
 const fs = require('fs');
-const { loadConfig } = require('../services/storage.js');
+const { loadConfig } = require('../services/storageFactory.js');
 const { updateConfig } = require('../services/atomicUpdate.js');
 const { buildCaddyContent } = require('../services/configBuilder.js');
 const { isValidUsername, isValidPassword, isValidExpireDays, computeExpiresAt, isExpired, remainingSeconds } = require('../utils/validators.js');

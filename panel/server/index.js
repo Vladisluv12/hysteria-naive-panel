@@ -55,7 +55,7 @@ try {
   fs.writeFileSync(SECRET_FILE, SESSION_SECRET, { mode: 0o600 });
 }
 
-const { loadConfig, saveConfig, loadUsers, saveUsers, defaultConfig } = require('./services/storage.js');
+const { loadConfig, saveConfig, loadUsers, saveUsers, defaultConfig } = require('./services/storageFactory.js');
 const { updateConfig } = require('./services/atomicUpdate.js');
 const { loginLimiter, requireAuth } = require('./middleware/auth.js');
 const { isValidDomain, isValidEmail, isValidUsername, isValidPassword, isValidExpireDays, computeExpiresAt, isExpired, remainingSeconds } = require('./utils/validators.js');

@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
-const { loadConfig } = require('../services/storage.js');
+const { loadConfig } = require('../services/storageFactory.js');
 const { updateConfig } = require('../services/atomicUpdate.js');
 const { buildHysteriaConfigObject } = require('../services/configBuilder.js');
 const { isValidUsername, isValidPassword, isValidExpireDays, computeExpiresAt, isExpired, remainingSeconds } = require('../utils/validators.js');

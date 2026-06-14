@@ -1,6 +1,6 @@
 'use strict';
 
-const { loadConfig, saveConfig, loadUsers, saveUsers } = require('./storage.js');
+const { loadConfig, saveConfig, loadUsers, saveUsers } = require('./storageFactory.js');
 
 function updateConfig(updater) {
   const cfg = loadConfig();
