@@ -290,6 +290,47 @@
         </div>
       </div>
 
+      <!-- Traffic & Connections (#43) -->
+      <div class="card" style="margin-top:16px">
+        <div class="card-header">
+          <h3 class="card-title">Трафик и подключения</h3>
+        </div>
+        <div class="card-body">
+          <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+            <div class="stat-card">
+              <div class="stat-body">
+                <div class="stat-label">Сегодня (RX + TX)</div>
+                <div class="stat-value" id="trafficTotal">—</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-body">
+                <div class="stat-label">Принято (RX)</div>
+                <div class="stat-value" id="trafficRx">—</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-body">
+                <div class="stat-label">Отправлено (TX)</div>
+                <div class="stat-value" id="trafficTx">—</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-body">
+                <div class="stat-label">Naive активных</div>
+                <div class="stat-value" id="trafficNaiveConns">—</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-body">
+                <div class="stat-label">Hy2 сессий</div>
+                <div class="stat-value" id="trafficHy2Conns">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Быстрые ссылки -->
       <div class="card quick-links-card">
         <div class="card-header">
@@ -709,7 +750,7 @@
 
       <div class="card" style="margin-top:16px">
         <div class="card-body">
-          <h3 class="tuning-title">Предпросмотр (первые 50 сетей)</h3>
+          <h3 class="tuning-title" id="bypassPreviewTitle">Предпросмотр (первые 50 сетей)</h3>
           <pre id="bypassPreview" class="log-pre" style="max-height:240px">—</pre>
         </div>
       </div>

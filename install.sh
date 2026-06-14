@@ -537,9 +537,11 @@ if [[ $INSTALL_HY2 -eq 1 ]]; then
   log_info "Загружаем Hysteria ${HY_VERSION} (linux-${HY_ARCH})..."
   HY_URL="https://github.com/apernet/hysteria/releases/download/${HY_VERSION}/hysteria-linux-${HY_ARCH}"
 
-  # fallback если jq не получил версию
+  # fallback если jq не получил версию; rm -f предотвращает Text file busy (#46)
+  rm -f /usr/local/bin/hysteria
   wget -q --show-progress --timeout=120 "${HY_URL}" -O /usr/local/bin/hysteria 2>&1 || {
     log_warn "Не удалось скачать ${HY_VERSION}, пробуем fallback app/v2.5.2..."
+    rm -f /usr/local/bin/hysteria
     wget -q --show-progress --timeout=120 \
       "https://github.com/apernet/hysteria/releases/download/app/v2.5.2/hysteria-linux-${HY_ARCH}" \
       -O /usr/local/bin/hysteria 2>&1 || {

@@ -239,9 +239,23 @@ async function loadDashboard() {
     // Quick links
     await renderQuickLinks(data);
 
+    // Traffic stats (#43)
+    loadTrafficStats();
   } catch (err) {
     console.error('dashboard error', err);
   }
+}
+
+async function loadTrafficStats() {
+  try {
+    const r = await fetch('/api/traffic');
+    const d = await r.json();
+    document.getElementById('trafficTotal').textContent = d.daily?.totalFormatted || '—';
+    document.getElementById('trafficRx').textContent = d.daily?.rxFormatted || '—';
+    document.getElementById('trafficTx').textContent = d.daily?.txFormatted || '—';
+    document.getElementById('trafficNaiveConns').textContent = d.connections?.naive ?? '—';
+    document.getElementById('trafficHy2Conns').textContent = d.connections?.hy2 ?? '—';
+  } catch { /* ignore */ }
 }
 
 function setStatusBadge(id, active) {
@@ -794,7 +808,16 @@ async function loadBypass() {
     document.getElementById('bypassCount').textContent   = d.count || 0;
     document.getElementById('bypassUpdated').textContent = d.updatedAt ? new Date(d.updatedAt).toLocaleString('ru') : '—';
     document.getElementById('bypassSource').textContent  = d.source || 'для Hysteria2 (UDP)';
-    document.getElementById('bypassPreview').textContent = (d.preview || []).join('\n') || '— список пуст —';
+    const bypassPreviewEl = document.getElementById('bypassPreview');
+    const bypassPreviewData = d.preview || [];
+    const bypassPreviewTitle = document.getElementById('bypassPreviewTitle');
+    if (bypassPreviewTitle) {
+      const total = d.count || 0;
+      bypassPreviewTitle.textContent = total > bypassPreviewData.length
+        ? `Предпросмотр (показано ${bypassPreviewData.length} из ${total} сетей)`
+        : `Список сетей (всего ${total})`;
+    }
+    bypassPreviewEl.textContent = bypassPreviewData.join('\n') || '— список пуст —';
     document.getElementById('bypassToggleBtn').textContent = d.enabled ? 'Выключить' : 'Включить';
   } catch {
     showToast('Ошибка загрузки bypass', 'error');

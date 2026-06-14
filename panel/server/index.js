@@ -13,6 +13,8 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const http = require('http');
 const WebSocket = require('ws');
+const { extractCustomBlocks } = require('./caddyfile.js');
+const { getTraffic } = require('./traffic.js');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -333,7 +335,7 @@ app.get('/api/system/version', requireAuth, (req, res) => {
   try {
     if (fs.existsSync(VERSION_FILE)) {
       const v = fs.readFileSync(VERSION_FILE, 'utf8').trim();
-      if (v && /^\d+\.\d+\.\d+/.test(v)) {
+      if (v && /^\d+\.\d+\.\d+$/.test(v)) {
         return res.json({ version: v, source: 'file' });
       }
     }
@@ -373,6 +375,16 @@ app.get('/api/status', requireAuth, async (req, res) => {
     naive: cfg.stack.naive ? { active: naiveActive, usersCount: cfg.naiveUsers.length } : null,
     hy2:   cfg.stack.hy2   ? { active: hy2Active,   usersCount: cfg.hy2Users.length }   : null,
   });
+});
+
+// ─── Traffic & Connections (#43) ─────────────────────────
+app.get('/api/traffic', requireAuth, async (req, res) => {
+  try {
+    const data = await getTraffic();
+    res.json(data);
+  } catch (e) {
+    res.json({ daily: null, connections: { naive: null, hy2: null }, hourly: [], lastReset: null, error: e.message });
+  }
 });
 
 app.post('/api/service/:kind/:action', requireAuth, (req, res) => {
@@ -443,6 +455,9 @@ function writeCaddyfile(cfg) {
   const masqueradeBlock = (cfg.masqueradeMode === 'mirror' && cfg.masqueradeUrl)
     ? `  reverse_proxy ${cfg.masqueradeUrl} {
     header_up Host {upstream_hostport}
+    transport http {
+      tls_insecure_skip_verify
+    }
   }`
     : `  file_server {
     root /var/www/html
@@ -482,6 +497,24 @@ ${cfg.panelDomain} {
   reverse_proxy 127.0.0.1:${internalPort}
 }
 `;
+  }
+
+  // ── Сохраняем кастомные блоки Caddyfile (WARP, nginx, свои домены) ──
+  // #44, #18: writeCaddyfile полностью перезаписывает Caddyfile, стирая
+  // блоки, которые не относятся к proxy-domain и panel-domain.
+  // Читаем существующий Caddyfile, извлекаем кастомные блоки и добавляем их
+  // в конец нового конфига.
+  try {
+    const existingPath = testPath('/etc/caddy/Caddyfile');
+    if (fs.existsSync(existingPath)) {
+      const existing = fs.readFileSync(existingPath, 'utf8');
+      const custom = extractCustomBlocks(existing, cfg.domain, cfg.panelDomain);
+      if (custom) {
+        content += '\n\n' + custom;
+      }
+    }
+  } catch (e) {
+    console.warn('[writeCaddyfile] could not preserve custom blocks:', e.message);
   }
 
   // ── Атомарная запись с валидацией и rollback (PR #4) ──
