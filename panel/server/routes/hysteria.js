@@ -3,15 +3,15 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
 const crypto = require('crypto');
 const yaml = require('js-yaml');
 const { loadConfig, saveConfig } = require('../services/storage.js');
 const { requireAuth } = require('../middleware/auth.js');
 const { isValidUsername, isValidPassword, isValidExpireDays, computeExpiresAt, isExpired, remainingSeconds } = require('../utils/validators.js');
+const { restartHysteria, findCertFile } = require('../services/systemAdapter.js');
+const { AtomicFileTransaction, yamlSelfValidator } = require('../services/atomicConfig.js');
 
 const router = express.Router();
-const TEST_MODE = process.env.TEST_MODE === '1';
 const DATA_DIR = path.join(__dirname, '../../data');
 const BYPASS_FILE = path.join(DATA_DIR, 'bypass.json');
 
@@ -24,7 +24,6 @@ function testPath(systemPath) {
 
 const HY2_ACL_PATH = testPath('/etc/hysteria/bypass-ru.acl');
 
-// ── Bypass (IP-bypass for RU services) ──
 function loadBypass() {
   try {
     if (!fs.existsSync(BYPASS_FILE)) {
@@ -39,6 +38,7 @@ function loadBypass() {
     return { enabled: false, cidrs: [], source: '', updatedAt: null };
   }
 }
+
 function saveBypass(b) {
   fs.writeFileSync(BYPASS_FILE, JSON.stringify(b, null, 2));
 }
@@ -63,7 +63,6 @@ function applyBypassAcl(base) {
   }
 }
 
-// ── Hysteria config writer ──
 function writeHysteriaConfig(cfg) {
   if (!cfg.stack.hy2 || !cfg.domain) return false;
 
@@ -76,8 +75,8 @@ function writeHysteriaConfig(cfg) {
   }
 
   const hyCfgPath = testPath('/etc/hysteria/config.yaml');
-
   let base = null;
+
   try {
     const raw = fs.readFileSync(hyCfgPath, 'utf8');
     base = yaml.load(raw);
@@ -91,38 +90,17 @@ function writeHysteriaConfig(cfg) {
     base.auth.userpass = userpass;
 
     if (cfg.masqueradeMode === 'mirror' && cfg.masqueradeUrl) {
-      base.masquerade = {
-        type: 'proxy',
-        proxy: { url: cfg.masqueradeUrl, rewriteHost: true }
-      };
+      base.masquerade = { type: 'proxy', proxy: { url: cfg.masqueradeUrl, rewriteHost: true } };
     } else if (cfg.masqueradeMode === 'local') {
-      base.masquerade = {
-        type: 'file',
-        file: { dir: '/var/www/html' }
-      };
+      base.masquerade = { type: 'file', file: { dir: '/var/www/html' } };
     }
     applyBypassAcl(base);
   } else {
     console.warn('[writeHysteriaConfig] /etc/hysteria/config.yaml not found — creating minimal config.');
-    let tlsBlock = null;
-    try {
-      const roots = [
-        '/var/lib/caddy/.local/share/caddy/certificates',
-        '/root/.local/share/caddy/certificates'
-      ];
-      for (const root of roots) {
-        if (!fs.existsSync(root)) continue;
-        const result = require('child_process').execSync(
-          `find "${root}" -type f -name "${cfg.domain}.crt" 2>/dev/null | head -1`,
-          { encoding: 'utf8' }
-        ).trim();
-        if (result && fs.existsSync(result) && fs.existsSync(result.replace(/\.crt$/, '.key'))) {
-          tlsBlock = { cert: result, key: result.replace(/\.crt$/, '.key') };
-          console.log('[writeHysteriaConfig] Found Caddy cert:', tlsBlock.cert);
-          break;
-        }
-      }
-    } catch (e) { /* ignore */ }
+    const tlsBlock = findCertFile(cfg.domain);
+    if (!tlsBlock) {
+      console.warn('[writeHysteriaConfig] No Caddy cert found. Hysteria2 will NOT start until TLS is configured manually.');
+    }
 
     const masqueradeBlock = (cfg.masqueradeMode === 'mirror' && cfg.masqueradeUrl)
       ? { type: 'proxy', proxy: { url: cfg.masqueradeUrl, rewriteHost: true } }
@@ -139,59 +117,13 @@ function writeHysteriaConfig(cfg) {
         maxIdleTimeout: '30s', keepAlivePeriod: '10s', disablePathMTUDiscovery: false
       }
     };
-    if (tlsBlock) {
-      base.tls = tlsBlock;
-    } else {
-      console.warn('[writeHysteriaConfig] No Caddy cert found. Hysteria2 will NOT start until TLS is configured manually.');
-    }
+    if (tlsBlock) base.tls = tlsBlock;
     applyBypassAcl(base);
   }
 
-  const tmpPath = hyCfgPath + '.new';
-  const backupPath = hyCfgPath + '.last';
-  try {
-    const newContent = yaml.dump(base, { lineWidth: 120, quotingType: '"' });
-    if (fs.existsSync(hyCfgPath)) {
-      try { fs.copyFileSync(hyCfgPath, backupPath); } catch (e) { /* best-effort */ }
-    }
-    fs.writeFileSync(tmpPath, newContent, 'utf8');
-    try {
-      const reparsed = yaml.load(newContent);
-      if (!reparsed || typeof reparsed !== 'object' || !reparsed.auth) {
-        throw new Error('parsed config is empty or missing auth section');
-      }
-    } catch (vErr) {
-      console.error('[writeHysteriaConfig] self-validate failed:', vErr.message);
-      try { fs.unlinkSync(tmpPath); } catch {}
-      return false;
-    }
-    fs.renameSync(tmpPath, hyCfgPath);
-    return true;
-  } catch (e) {
-    console.error('hysteria config write error:', e.message);
-    try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch {}
-    try {
-      if (fs.existsSync(backupPath) && !fs.existsSync(hyCfgPath)) {
-        fs.copyFileSync(backupPath, hyCfgPath);
-        console.warn('[writeHysteriaConfig] Rolled back to previous config from backup.');
-      }
-    } catch (rb) { /* best-effort */ }
-    return false;
-  }
-}
-
-function reloadHysteria() {
-  if (TEST_MODE) {
-    return new Promise((resolve) => {
-      console.log('[test-mode] hysteria reload signal (no-op)');
-      resolve();
-    });
-  }
-  return new Promise((resolve) => {
-    const p = spawn('systemctl', ['restart', 'hysteria-server']);
-    p.on('close', () => resolve());
-    p.on('error', () => resolve());
-  });
+  const newContent = yaml.dump(base, { lineWidth: 120, quotingType: '"' });
+  const tx = new AtomicFileTransaction(hyCfgPath);
+  return tx.execute(newContent, (tmpPath) => yamlSelfValidator(fs.readFileSync(tmpPath, 'utf8')));
 }
 
 function enrichUser(u) {
@@ -203,14 +135,11 @@ function enrichUser(u) {
   };
 }
 
-// ── Bypass routes ──
 router.get('/bypass', requireAuth, (req, res) => {
   const b = loadBypass();
   res.json({
-    enabled: !!b.enabled,
-    count:   (b.cidrs || []).length,
-    source:  b.source || '',
-    updatedAt: b.updatedAt || null,
+    enabled: !!b.enabled, count: (b.cidrs || []).length,
+    source: b.source || '', updatedAt: b.updatedAt || null,
     preview: (b.cidrs || []).slice(0, 50)
   });
 });
@@ -237,13 +166,12 @@ router.post('/bypass', requireAuth, async (req, res) => {
     b.updatedAt = new Date().toISOString();
   }
   if (typeof enabled === 'boolean') b.enabled = enabled;
-
   saveBypass(b);
 
   const cfg = loadConfig();
   if (cfg.installed && cfg.stack.hy2) {
     writeHysteriaConfig(cfg);
-    await reloadHysteria();
+    await restartHysteria();
   }
   res.json({ success: true, enabled: !!b.enabled, count: b.cidrs.length });
 });
@@ -253,12 +181,11 @@ router.delete('/bypass', requireAuth, async (req, res) => {
   const cfg = loadConfig();
   if (cfg.installed && cfg.stack.hy2) {
     writeHysteriaConfig(cfg);
-    await reloadHysteria();
+    await restartHysteria();
   }
   res.json({ success: true });
 });
 
-// ── Hy2 users routes ──
 router.get('/hy2/users', requireAuth, (req, res) => {
   const cfg = loadConfig();
   res.json({ users: (cfg.hy2Users || []).map(enrichUser) });
@@ -280,7 +207,7 @@ router.post('/hy2/users', requireAuth, async (req, res) => {
 
   if (cfg.installed && cfg.stack.hy2) {
     writeHysteriaConfig(cfg);
-    await reloadHysteria();
+    await restartHysteria();
   }
   res.json({
     success: true,
@@ -299,7 +226,7 @@ router.delete('/hy2/users/:username', requireAuth, async (req, res) => {
   saveConfig(cfg);
   if (cfg.installed && cfg.stack.hy2) {
     writeHysteriaConfig(cfg);
-    await reloadHysteria();
+    await restartHysteria();
   }
   res.json({ success: true });
 });
@@ -317,12 +244,11 @@ router.patch('/hy2/users/:username', requireAuth, async (req, res) => {
 
   if (cfg.installed && cfg.stack.hy2) {
     writeHysteriaConfig(cfg);
-    await reloadHysteria();
+    await restartHysteria();
   }
   res.json({ success: true, expiresAt: user.expiresAt });
 });
 
 router.writeHysteriaConfig = writeHysteriaConfig;
-router.reloadHysteria = reloadHysteria;
 
 module.exports = router;

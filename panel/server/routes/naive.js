@@ -2,25 +2,23 @@
 
 const express = require('express');
 const fs = require('fs');
-const path = require('path');
-const { spawn } = require('child_process');
 const { loadConfig, saveConfig } = require('../services/storage.js');
 const { requireAuth } = require('../middleware/auth.js');
 const { isValidUsername, isValidPassword, isValidExpireDays, computeExpiresAt, isExpired, remainingSeconds } = require('../utils/validators.js');
+const { reloadCaddy } = require('../services/systemAdapter.js');
+const { AtomicFileTransaction, caddyValidator } = require('../services/atomicConfig.js');
 const { extractCustomBlocks } = require('../caddyfile.js');
 
 const router = express.Router();
-const TEST_MODE = process.env.TEST_MODE === '1';
 
 function testPath(systemPath) {
   if (process.env.TEST_CONFIG_DIR) {
-    return path.join(process.env.TEST_CONFIG_DIR, path.basename(systemPath));
+    return require('path').join(process.env.TEST_CONFIG_DIR, require('path').basename(systemPath));
   }
   return systemPath;
 }
 
-function writeCaddyfile(cfg) {
-  if (!cfg.stack.naive || !cfg.domain) return false;
+function buildCaddyfileContent(cfg) {
   const lines = (cfg.naiveUsers || [])
     .filter(u => !isExpired(u))
     .map(u => `    basic_auth ${u.username} ${u.password}`)
@@ -54,70 +52,17 @@ function writeCaddyfile(cfg) {
     console.warn('[writeCaddyfile] could not preserve custom blocks:', e.message);
   }
 
-  const targetPath = testPath('/etc/caddy/Caddyfile');
-  const tmpPath = testPath('/etc/caddy/Caddyfile.new');
-  const backupPath = testPath('/etc/caddy/Caddyfile.last');
-  try {
-    if (fs.existsSync(targetPath)) {
-      try { fs.copyFileSync(targetPath, backupPath); } catch (e) { /* best-effort */ }
-    }
-    fs.writeFileSync(tmpPath, content, 'utf8');
-    try {
-      const { execSync } = require('child_process');
-      execSync(`caddy validate --config ${tmpPath}`, { stdio: 'pipe', timeout: 10000 });
-    } catch (validateErr) {
-      const stderr = (validateErr && validateErr.stderr) ? validateErr.stderr.toString() : '';
-      if (stderr && /error|adapt|parse/i.test(stderr)) {
-        console.error('[writeCaddyfile] caddy validate failed:', stderr.slice(0, 500));
-        try { fs.unlinkSync(tmpPath); } catch {}
-        return false;
-      }
-    }
-    fs.renameSync(tmpPath, targetPath);
-    return true;
-  } catch (e) {
-    console.error('Caddyfile write error:', e.message);
-    try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch {}
-    try {
-      if (fs.existsSync(backupPath) && !fs.existsSync(targetPath)) {
-        fs.copyFileSync(backupPath, targetPath);
-        console.warn('[writeCaddyfile] Rolled back to previous Caddyfile from backup.');
-      }
-    } catch (rb) { /* best-effort */ }
-    return false;
-  }
+  return content;
 }
 
-function reloadCaddy() {
-  if (TEST_MODE) {
-    return new Promise((resolve) => {
-      const http = require('http');
-      const configPath = testPath('/etc/caddy/Caddyfile');
-      try {
-        const configData = fs.readFileSync(configPath, 'utf8');
-        const req = http.request({
-          hostname: 'caddy-naive', port: 2019, path: '/load',
-          method: 'POST',
-          headers: { 'Content-Type': 'text/caddyfile', 'Content-Length': Buffer.byteLength(configData) },
-        }, (res) => {
-          let body = '';
-          res.on('data', d => body += d);
-          res.on('end', () => console.log('[test-mode] caddy reload:', res.statusCode, body.trim().slice(0,200)));
-          resolve();
-        });
-        req.on('error', e => { console.log('[test-mode] caddy reload err:', e.message); resolve(); });
-        req.write(configData);
-        req.end();
-      } catch (e) { console.log('[test-mode] caddy reload fail:', e.message); resolve(); }
-    });
-  }
-  return new Promise((resolve) => {
-    const p = spawn('bash', ['-c',
-      'caddy reload --config /etc/caddy/Caddyfile 2>/dev/null || systemctl reload caddy 2>/dev/null || systemctl restart caddy 2>/dev/null'
-    ]);
-    p.on('close', () => resolve());
-    p.on('error', () => resolve());
-  });
+function writeCaddyfile(cfg) {
+  if (!cfg.stack.naive || !cfg.domain) return false;
+
+  const content = buildCaddyfileContent(cfg);
+  const targetPath = testPath('/etc/caddy/Caddyfile');
+
+  const tx = new AtomicFileTransaction(targetPath);
+  return tx.execute(content, caddyValidator);
 }
 
 function enrichUser(u) {
@@ -148,16 +93,14 @@ router.post('/naive/users', requireAuth, async (req, res) => {
   cfg.naiveUsers.push({ username, password, createdAt: new Date().toISOString(), expiresAt });
   saveConfig(cfg);
 
-  let reloaded = true;
   if (cfg.installed && cfg.stack.naive) {
     writeCaddyfile(cfg);
-    await reloadCaddy();
+    await reloadCaddy(process.env.TEST_MODE === '1', testPath('/etc/caddy/Caddyfile'));
   }
 
   res.json({
     success: true,
     link: cfg.domain ? `naive+https://${username}:${password}@${cfg.domain}:443` : null,
-    reloaded
   });
 });
 
@@ -170,7 +113,7 @@ router.delete('/naive/users/:username', requireAuth, async (req, res) => {
   saveConfig(cfg);
   if (cfg.installed && cfg.stack.naive) {
     writeCaddyfile(cfg);
-    await reloadCaddy();
+    await reloadCaddy(process.env.TEST_MODE === '1', testPath('/etc/caddy/Caddyfile'));
   }
   res.json({ success: true });
 });
@@ -188,12 +131,11 @@ router.patch('/naive/users/:username', requireAuth, async (req, res) => {
 
   if (cfg.installed && cfg.stack.naive) {
     writeCaddyfile(cfg);
-    await reloadCaddy();
+    await reloadCaddy(process.env.TEST_MODE === '1', testPath('/etc/caddy/Caddyfile'));
   }
   res.json({ success: true, expiresAt: user.expiresAt });
 });
 
 router.writeCaddyfile = writeCaddyfile;
-router.reloadCaddy = reloadCaddy;
 
 module.exports = router;

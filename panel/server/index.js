@@ -6,21 +6,16 @@
 
 const express = require('express');
 const session = require('express-session');
-const bcrypt = require('bcryptjs');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const http = require('http');
 const WebSocket = require('ws');
-const { extractCustomBlocks } = require('./caddyfile.js');
-const { getTraffic } = require('./traffic.js');
 const trafficMonitor = require('./trafficMonitor.js');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const yaml = require('js-yaml');
 
 const app = express();
 const server = http.createServer(app);
@@ -110,9 +105,10 @@ app.use('/api', hysteriaRoutes);
 const diagRoutes = require('./routes/diag.js');
 app.use('/api', diagRoutes);
 
-// ── Экспорт для expireChecker (навешиваем на роутеры для доступа из index.js) ──
-const { writeCaddyfile, reloadCaddy } = naiveRoutes;
-const { writeHysteriaConfig, reloadHysteria } = hysteriaRoutes;
+// ── Экспорт для expireChecker ──
+const { writeCaddyfile } = naiveRoutes;
+const { writeHysteriaConfig } = hysteriaRoutes;
+const { reloadCaddy, restartHysteria: reloadHysteria } = require('./services/systemAdapter.js');
 
 //  INSTALL VIA WEBSOCKET
 // ═══════════════════════════════════════════════════════════
