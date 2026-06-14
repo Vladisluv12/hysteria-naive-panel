@@ -7,6 +7,7 @@ const DATA_DIR = path.join(__dirname, '../../data');
 const DB_PATH = path.join(DATA_DIR, 'panel.db');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const storage = require('./storage.js');
 
 let db;
 try {
@@ -19,12 +20,12 @@ try {
   const row = db.prepare('SELECT COUNT(*) AS cnt FROM meta').get();
   if (row.cnt === 0) {
     if (fs.existsSync(CONFIG_FILE)) {
-      const cfgRaw = fs.readFileSync(CONFIG_FILE, 'utf8');
-      db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (\'config\', ?)').run(cfgRaw);
+      const cfg = storage.loadConfig();
+      db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (\'config\', ?)').run(JSON.stringify(cfg));
     }
     if (fs.existsSync(USERS_FILE)) {
-      const usrRaw = fs.readFileSync(USERS_FILE, 'utf8');
-      db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (\'users\', ?)').run(usrRaw);
+      const users = storage.loadUsers();
+      db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (\'users\', ?)').run(JSON.stringify(users));
     }
   }
 } catch (e) {

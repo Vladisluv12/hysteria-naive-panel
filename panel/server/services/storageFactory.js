@@ -13,6 +13,7 @@ if (process.env.USE_SQLITE === 'true') {
 }
 
 function defaultConfig() {
+  if (sqliteStorage) return sqliteStorage.defaultConfig();
   return storage.defaultConfig();
 }
 
