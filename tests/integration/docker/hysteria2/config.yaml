@@ -1,0 +1,25 @@
+listen: :10444
+
+tls:
+  cert: /certs/server.pem
+  key: /certs/server.key
+
+auth:
+  type: userpass
+  userpass:
+    testuser: testpass123
+
+masquerade:
+  type: file
+  file:
+    dir: /var/www/html
+
+ignoreClientBandwidth: true
+quic:
+  initStreamReceiveWindow: 8388608
+  maxStreamReceiveWindow: 8388608
+  initConnReceiveWindow: 20971520
+  maxConnReceiveWindow: 20971520
+  maxIdleTimeout: 30s
+  keepAlivePeriod: 10s
+  disablePathMTUDiscovery: false

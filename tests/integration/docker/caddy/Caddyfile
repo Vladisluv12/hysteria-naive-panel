@@ -1,0 +1,28 @@
+{
+    admin 0.0.0.0:2019
+    order forward_proxy before file_server
+}
+
+:10443, test.localhost {
+    tls internal
+
+    forward_proxy {
+        basic_auth testuser testpass123
+        hide_ip
+        hide_via
+        acl {
+            allow all
+        }
+    }
+
+    @health {
+        path /healthcheck
+    }
+    respond @health 200 {
+        body "OK"
+    }
+
+    file_server {
+        root /var/www/html
+    }
+}

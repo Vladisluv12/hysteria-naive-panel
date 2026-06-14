@@ -4,7 +4,7 @@
 #  Устанавливает: панель управления + NaiveProxy (Caddy) + Hysteria2
 #  Запуск:
 #    bash <(curl -fsSL https://raw.githubusercontent.com/cwash797-cmd/Panel---Naive-Hy2---by---RIXXX/main/install.sh)
-#  Требования: Ubuntu 22.04 / 24.04 / Debian 11+ / root / amd64|arm64|armv7
+#  Требования: Ubuntu 22.04+ / Debian 11+ / root / amd64|arm64|armv7
 # ═══════════════════════════════════════════════════════════════════════
 
 set -uo pipefail
@@ -66,7 +66,7 @@ log_info "ОС: ${OS_ID:-unknown} ${OS_VER:-?} (${OS_CODENAME:-?})"
 case "$OS_ID" in
   ubuntu)
     case "$OS_VER" in
-      22.04|24.04) : ;;
+      22.04|24.04|26.04) : ;;
       20.04) log_warn "Ubuntu 20.04 — работает, но рекомендуется 22.04+ (ядро новее)" ;;
       *) log_warn "Ubuntu $OS_VER — нестандартная версия, могут быть сюрпризы" ;;
     esac ;;
@@ -77,7 +77,7 @@ case "$OS_ID" in
     esac ;;
   *)
     log_warn "Дистрибутив '$OS_ID' официально не тестирован, но если apt работает — попробуем."
-    log_info "Поддерживаются: Ubuntu 22.04/24.04, Debian 11/12 (amd64/arm64)."
+    log_info "Поддерживаются: Ubuntu 22.04+, Debian 11/12 (amd64/arm64)."
     ;;
 esac
 
@@ -273,22 +273,9 @@ next_step() { STEP_NUM=$((STEP_NUM + 1)); log_step "[${STEP_NUM}/${TOTAL_STEPS}]
 # ── Б1. Фикс apt-locks + обновление ─────────────────────────────────────
 next_step "Подготовка системы (фикс apt-lock, needrestart)..."
 
-systemctl stop unattended-upgrades 2>/dev/null || true
-systemctl disable unattended-upgrades 2>/dev/null || true
-pkill -9 unattended-upgrades 2>/dev/null || true
-sleep 1
-
 rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock \
       /var/cache/apt/archives/lock /var/lib/apt/lists/lock 2>/dev/null || true
 dpkg --configure -a >/dev/null 2>&1 || true
-
-if [ -f /etc/needrestart/needrestart.conf ]; then
-  sed -i "s/#\$nrconf{restart} = 'i';/\$nrconf{restart} = 'a';/" \
-    /etc/needrestart/needrestart.conf 2>/dev/null || true
-  sed -i "s/\$nrconf{restart} = 'i';/\$nrconf{restart} = 'a';/" \
-    /etc/needrestart/needrestart.conf 2>/dev/null || true
-  log_info "needrestart → авто-режим"
-fi
 
 apt-get update -qq -o DPkg::Lock::Timeout=60 2>/dev/null || true
 apt-get install -y -qq \
@@ -810,10 +797,19 @@ next_step "Установка Node.js 20..."
 
 if ! command -v node &>/dev/null || [[ "$(node -v 2>/dev/null | cut -d. -f1 | tr -d 'v')" -lt 18 ]]; then
   log_info "Скачиваем NodeSource..."
-  curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 2>&1 | grep -E "^##|^Running|error" || true
-  apt-get install -y -qq nodejs \
-    -o Dpkg::Options::="--force-confdef" \
-    -o Dpkg::Options::="--force-confold" 2>/dev/null || true
+  if curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 2>&1 | grep -E "^##|^Running|error" || true; then
+    apt-get install -y -qq nodejs \
+      -o Dpkg::Options::="--force-confdef" \
+      -o Dpkg::Options::="--force-confold" 2>/dev/null || true
+  fi
+  if ! command -v node &>/dev/null || [[ "$(node -v 2>/dev/null | cut -d. -f1 | tr -d 'v')" -lt 18 ]]; then
+    log_info "NodeSource недоступен — ставим через nvm..."
+    curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash 2>&1 | tail -3 || true
+    export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    nvm install 20 2>&1 | tail -3 || true
+    nvm alias default 20 2>/dev/null || true
+  fi
 fi
 NODE_VER=$(node -v 2>/dev/null || echo "не найден")
 log_ok "Node.js: ${NODE_VER}"
@@ -848,8 +844,7 @@ if [[ "$ACCESS_MODE" == "1" || "$ACCESS_MODE" == "3" ]]; then
       NGINX_OK=1
     else
       log_err "Nginx не установился (exit=$APT_RC). Попробую второй раз через snap/apt с unlock..."
-      # Попытка 2: часто на свежей Ubuntu 24 apt-lock от unattended-upgrades
-      systemctl stop unattended-upgrades 2>/dev/null || true
+      # Попытка 2: снимаем apt-lock и пробуем снова
       fuser -k /var/lib/dpkg/lock-frontend 2>/dev/null || true
       fuser -k /var/lib/dpkg/lock 2>/dev/null || true
       dpkg --configure -a 2>&1 | tail -5 || true

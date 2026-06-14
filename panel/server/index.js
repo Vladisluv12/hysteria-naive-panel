@@ -7,6 +7,8 @@
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const http = require('http');
@@ -27,6 +29,17 @@ const PORT = process.env.PORT || 3000;
 // --env LISTEN_HOST=... в PM2. Дефолт сохраняет обратную совместимость
 // со всеми существующими установками.
 const LISTEN_HOST = process.env.LISTEN_HOST || '0.0.0.0';
+
+// ── TEST_MODE override (integration tests) ──────────────
+const TEST_MODE = process.env.TEST_MODE === '1';
+const TEST_CONFIG_DIR = process.env.TEST_CONFIG_DIR || '';
+function testPath(systemPath) {
+  if (TEST_CONFIG_DIR) {
+    return path.join(TEST_CONFIG_DIR, path.basename(systemPath));
+  }
+  return systemPath;
+}
+
 const DATA_DIR = path.join(__dirname, '../data');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
@@ -83,7 +96,7 @@ function loadConfig() {
     // panelDomain в config.json (коммит 0c0c204 и ранее).
     if (!raw.panelDomain) {
       try {
-        const caddyfile = fs.readFileSync('/etc/caddy/Caddyfile', 'utf8');
+        const caddyfile = fs.readFileSync(testPath('/etc/caddy/Caddyfile'), 'utf8');
         // Ищем блок вида: "somesubdomain.example.com {\n  tls ...\n  ...\n  reverse_proxy 127.0.0.1:..."
         const m = caddyfile.match(/\n(\S+)\s*\{\s*\n\s*tls\s+(\S+)\s*\n[^}]*reverse_proxy\s+127\.0\.0\.1/);
         if (m && m[1] && m[1] !== raw.domain && m[1].includes('.')) {
@@ -121,7 +134,43 @@ function saveUsers(users) {
   fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), { mode: 0o600 });
 }
 
-// ─── Middleware ─────────────────────────────────────────────
+// ─── Trust proxy (Nginx/Caddy behind) ─────────────────────
+app.set('trust proxy', 1);
+
+// ─── Security headers ───────────────────────────────────
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: false,
+}));
+
+// ─── Rate limiter for login ──────────────────────────────
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: 'Слишком много попыток входа. Попробуйте через 15 минут.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// ─── CSRF helpers ───────────────────────────────────────
+const csrfCookieName = 'rixxx_csrf';
+const csrfHeaderName = 'x-csrf-token';
+
+function generateCsrfToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+function csrfMiddleware(req, res, next) {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  const token = req.headers[csrfHeaderName];
+  const stored = req.session?.csrfToken;
+  if (!token || !stored || token !== stored) {
+    return res.status(403).json({ error: 'Invalid CSRF token' });
+  }
+  next();
+}
+
+// ─── Express middleware ──────────────────────────────────
 app.use(cors({ origin: true, credentials: true }));
 app.use(bodyParser.json({ limit: '256kb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '256kb' }));
@@ -129,15 +178,24 @@ app.use(session({
   name: 'rixxx_sid',
   secret: SESSION_SECRET,
   resave: false,
-  saveUninitialized: false,
+  saveUninitialized: true,
   cookie: {
-    secure: false, // за Nginx-прокси http — cookie передаётся ок
+    secure: false,
     httpOnly: true,
     sameSite: 'lax',
     maxAge: 24 * 60 * 60 * 1000
   }
 }));
+
+// Dynamic secure flag: mark session cookie Secure when behind HTTPS proxy
+app.use((req, res, next) => {
+  if (req.session && req.get('X-Forwarded-Proto') === 'https') {
+    req.session.cookie.secure = true
+  }
+  next()
+})
 app.use(express.static(path.join(__dirname, '../public')));
+app.use(csrfMiddleware);
 
 function requireAuth(req, res, next) {
   if (req.session && req.session.authenticated) return next();
@@ -192,9 +250,32 @@ function remainingSeconds(user) {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  CSRF token endpoint
+// ═══════════════════════════════════════════════════════════
+app.get('/api/csrf-token', (req, res) => {
+  if (!req.session) {
+    return res.status(500).json({ error: 'Session not ready' });
+  }
+  if (!req.session.csrfToken) {
+    req.session.csrfToken = generateCsrfToken();
+  }
+  const token = req.session.csrfToken;
+  const isSecure = req.get('X-Forwarded-Proto') === 'https';
+  res.cookie(csrfCookieName, token, {
+    httpOnly: false,
+    sameSite: 'lax',
+    secure: isSecure,
+    maxAge: 24 * 60 * 60 * 1000,
+  });
+  res.json({ csrfToken: token });
+});
+
+// ═══════════════════════════════════════════════════════════
 //  AUTH
 // ═══════════════════════════════════════════════════════════
-app.post('/api/login', (req, res) => {
+const DEFAULT_PASSWORD_HASH = bcrypt.hashSync('admin', 10);
+
+app.post('/api/login', loginLimiter, (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) return res.json({ success: false, message: 'Заполните все поля' });
   const users = loadUsers();
@@ -206,7 +287,9 @@ app.post('/api/login', (req, res) => {
   req.session.authenticated = true;
   req.session.username = username;
   req.session.role = user.role;
-  res.json({ success: true });
+  // Force password change when default admin/admin is still in use
+  const mustChangePassword = (username === 'admin' && bcrypt.compareSync('admin', user.password));
+  res.json({ success: true, mustChangePassword });
 });
 
 app.post('/api/logout', (req, res) => {
@@ -214,7 +297,10 @@ app.post('/api/logout', (req, res) => {
 });
 
 app.get('/api/me', requireAuth, (req, res) => {
-  res.json({ username: req.session.username, role: req.session.role });
+  const users = loadUsers();
+  const user = users[req.session.username];
+  const mustChangePassword = user && req.session.username === 'admin' && bcrypt.compareSync('admin', user.password);
+  res.json({ username: req.session.username, role: req.session.role, mustChangePassword });
 });
 
 app.post('/api/config/change-password', requireAuth, (req, res) => {
@@ -256,6 +342,9 @@ app.get('/api/system/version', requireAuth, (req, res) => {
 });
 
 function checkServiceActive(unit) {
+  if (TEST_MODE) {
+    return Promise.resolve(true);
+  }
   return new Promise((resolve) => {
     const p = spawn('systemctl', ['is-active', unit]);
     let out = '';
@@ -292,6 +381,15 @@ app.post('/api/service/:kind/:action', requireAuth, (req, res) => {
   const unit = kind === 'naive' ? 'caddy' : kind === 'hy2' ? 'hysteria-server' : null;
   if (!unit) return res.status(400).json({ error: 'bad kind' });
 
+  if (TEST_MODE) {
+    return checkServiceActive(unit).then(active => {
+      res.json({
+        success: true,
+        active,
+        message: `${unit} ${action} — test-mode stub`
+      });
+    });
+  }
   const p = spawn('systemctl', [action, unit]);
   p.on('close', (code) => {
     if (code !== 0) {
@@ -398,9 +496,9 @@ ${cfg.panelDomain} {
   //   4. Если валидно — atomic rename .new → Caddyfile.
   //   5. Если невалидно — удаляем .new, бэкап остался нетронутым, возврат false.
   //   6. На любой ошибке записи восстанавливаем из .last (rollback).
-  const targetPath = '/etc/caddy/Caddyfile';
-  const tmpPath = '/etc/caddy/Caddyfile.new';
-  const backupPath = '/etc/caddy/Caddyfile.last';
+  const targetPath = testPath('/etc/caddy/Caddyfile');
+  const tmpPath = testPath('/etc/caddy/Caddyfile.new');
+  const backupPath = testPath('/etc/caddy/Caddyfile.last');
   try {
     // 1) Бэкап (best-effort: если файла ещё нет — это первичная установка).
     if (fs.existsSync(targetPath)) {
@@ -442,6 +540,28 @@ ${cfg.panelDomain} {
 }
 
 function reloadCaddy() {
+  if (TEST_MODE) {
+    return new Promise((resolve) => {
+      const http = require('http');
+      const configPath = testPath('/etc/caddy/Caddyfile');
+      try {
+        const configData = fs.readFileSync(configPath, 'utf8');
+        const req = http.request({
+          hostname: 'caddy-naive', port: 2019, path: '/load',
+          method: 'POST',
+          headers: { 'Content-Type': 'text/caddyfile', 'Content-Length': Buffer.byteLength(configData) },
+        }, (res) => {
+          let body = '';
+          res.on('data', d => body += d);
+          res.on('end', () => console.log('[test-mode] caddy reload:', res.statusCode, body.trim().slice(0,200)));
+          resolve();
+        });
+        req.on('error', e => { console.log('[test-mode] caddy reload err:', e.message); resolve(); });
+        req.write(configData);
+        req.end();
+      } catch (e) { console.log('[test-mode] caddy reload fail:', e.message); resolve(); }
+    });
+  }
   return new Promise((resolve) => {
     const p = spawn('bash', ['-c',
       'caddy reload --config /etc/caddy/Caddyfile 2>/dev/null || systemctl reload caddy 2>/dev/null || systemctl restart caddy 2>/dev/null'
@@ -529,7 +649,7 @@ app.patch('/api/naive/users/:username', requireAuth, async (req, res) => {
 //  IP BYPASS (RU direct) — общий список для ACL Hy2
 // ═══════════════════════════════════════════════════════════
 const BYPASS_FILE    = path.join(DATA_DIR, 'bypass.json');
-const HY2_ACL_PATH   = '/etc/hysteria/bypass-ru.acl';
+const HY2_ACL_PATH   = testPath('/etc/hysteria/bypass-ru.acl');
 
 // Список сервисов, которые блокируют иностранные IP — их лучше пускать напрямую.
 // Обновляется пользователем через API /api/bypass.
@@ -651,7 +771,7 @@ function writeHysteriaConfig(cfg) {
     userpass.default = crypto.randomBytes(16).toString('base64url');
   }
 
-  const hyCfgPath = '/etc/hysteria/config.yaml';
+  const hyCfgPath = testPath('/etc/hysteria/config.yaml');
 
   // Читаем существующий конфиг и ОБНОВЛЯЕМ только секцию auth.
   // Это критично: TLS/ACME/masquerade/quic секции должны сохраняться!
@@ -778,6 +898,12 @@ function writeHysteriaConfig(cfg) {
 }
 
 function reloadHysteria() {
+  if (TEST_MODE) {
+    return new Promise((resolve) => {
+      console.log('[test-mode] hysteria reload signal (no-op, test restarts container)');
+      resolve();
+    });
+  }
   return new Promise((resolve) => {
     const p = spawn('systemctl', ['restart', 'hysteria-server']);
     p.on('close', () => resolve());
@@ -921,9 +1047,9 @@ app.get('/api/diag/ports', requireAuth, (req, res) => {
 
 // Просмотр активного hysteria config.yaml (с маскировкой паролей)
 app.get('/api/diag/hysteria-config', requireAuth, (req, res) => {
-  const cfgPath = '/etc/hysteria/config.yaml';
+  const cfgPath = testPath('/etc/hysteria/config.yaml');
   if (!fs.existsSync(cfgPath)) {
-    return res.json({ exists: false, output: '/etc/hysteria/config.yaml не найден' });
+    return res.json({ exists: false, output: cfgPath + ' не найден' });
   }
   try {
     let raw = fs.readFileSync(cfgPath, 'utf8');
@@ -999,7 +1125,7 @@ app.post('/api/diag/fix-hy2-tls', requireAuth, async (req, res) => {
     } catch {}
 
     // Читаем config.yaml
-    const hyCfgPath = '/etc/hysteria/config.yaml';
+    const hyCfgPath = testPath('/etc/hysteria/config.yaml');
     let hyCfg = {};
     if (fs.existsSync(hyCfgPath)) {
       hyCfg = yaml.load(fs.readFileSync(hyCfgPath, 'utf8')) || {};
@@ -1012,22 +1138,26 @@ app.post('/api/diag/fix-hy2-tls', requireAuth, async (req, res) => {
     // Пишем обратно
     fs.writeFileSync(hyCfgPath, yaml.dump(hyCfg, { lineWidth: 120, quotingType: '"' }), 'utf8');
 
-    // Сбрасываем счётчик рестартов и перезапускаем Hy2
-    const { execSync } = require('child_process');
-    try { execSync('systemctl reset-failed hysteria-server 2>/dev/null'); } catch {}
-    try { execSync('systemctl restart hysteria-server'); } catch (e) {
-      return res.status(500).json({
-        ok: false,
-        error: 'Конфиг обновлён, но hysteria-server не перезапустился',
-        details: e.message,
-        certPath, keyPath, ca
-      });
-    }
+    if (!TEST_MODE) {
+      // Сбрасываем счётчик рестартов и перезапускаем Hy2
+      const { execSync } = require('child_process');
+      try { execSync('systemctl reset-failed hysteria-server 2>/dev/null'); } catch {}
+      try { execSync('systemctl restart hysteria-server'); } catch (e) {
+        return res.status(500).json({
+          ok: false,
+          error: 'Конфиг обновлён, но hysteria-server не перезапустился',
+          details: e.message,
+          certPath, keyPath, ca
+        });
+      }
 
-    // Проверяем что стартовал
-    await new Promise(r => setTimeout(r, 2500));
-    let active = false;
-    try { active = execSync('systemctl is-active hysteria-server').toString().trim() === 'active'; } catch {}
+      // Проверяем что стартовал
+      await new Promise(r => setTimeout(r, 2500));
+    }
+    let active = TEST_MODE ? true : false;
+    if (!TEST_MODE) {
+      try { active = execSync('systemctl is-active hysteria-server').toString().trim() === 'active'; } catch {}
+    }
 
     res.json({
       ok: active,
@@ -1350,13 +1480,17 @@ app.get(/^(?!\/api).*/, (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-server.listen(PORT, LISTEN_HOST, () => {
-  const isLocal = LISTEN_HOST === '127.0.0.1' || LISTEN_HOST === 'localhost';
-  console.log(`\n╔═══════════════════════════════════════════════╗`);
-  console.log(`║   Panel Naive + Hysteria2 by RIXXX            ║`);
-  console.log(`║   Running on http://${LISTEN_HOST}:${PORT}${' '.repeat(Math.max(0, 14 - LISTEN_HOST.length))}║`);
-  if (isLocal) {
-    console.log(`║   SSH-only mode (доступ через ssh -L)         ║`);
-  }
-  console.log(`╚═══════════════════════════════════════════════╝\n`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  server.listen(PORT, LISTEN_HOST, () => {
+    const isLocal = LISTEN_HOST === '127.0.0.1' || LISTEN_HOST === 'localhost';
+    console.log(`\n╔═══════════════════════════════════════════════╗`);
+    console.log(`║   Panel Naive + Hysteria2 by RIXXX            ║`);
+    console.log(`║   Running on http://${LISTEN_HOST}:${PORT}${' '.repeat(Math.max(0, 14 - LISTEN_HOST.length))}║`);
+    if (isLocal) {
+      console.log(`║   SSH-only mode (доступ через ssh -L)         ║`);
+    }
+    console.log(`╚═══════════════════════════════════════════════╝\n`);
+  });
+}
+
+module.exports = { app, server };

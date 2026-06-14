@@ -38,21 +38,9 @@ step 1
 log "▶ Обновление системы и установка зависимостей..."
 # ══════════════════════════════════════════════════════
 
-systemctl stop unattended-upgrades 2>/dev/null || true
-systemctl disable unattended-upgrades 2>/dev/null || true
-pkill -9 unattended-upgrades 2>/dev/null || true
-sleep 2
-
 rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock \
       /var/cache/apt/archives/lock /var/lib/apt/lists/lock 2>/dev/null || true
 dpkg --configure -a >/dev/null 2>&1 || true
-
-if [ -f /etc/needrestart/needrestart.conf ]; then
-  sed -i "s/#\$nrconf{restart} = 'i';/\$nrconf{restart} = 'a';/" \
-    /etc/needrestart/needrestart.conf 2>/dev/null || true
-  sed -i "s/\$nrconf{restart} = 'i';/\$nrconf{restart} = 'a';/" \
-    /etc/needrestart/needrestart.conf 2>/dev/null || true
-fi
 
 apt-get update -y -qq -o DPkg::Lock::Timeout=120 2>/dev/null || true
 apt-get install -y -qq \

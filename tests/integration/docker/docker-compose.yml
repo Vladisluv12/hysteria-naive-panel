@@ -1,0 +1,105 @@
+services:
+  test-server:
+    image: nginx:alpine
+    container_name: nt-test-server
+    volumes:
+      - ./test-server/:/usr/share/nginx/html:ro
+    networks:
+      - testnet
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  certs:
+    image: alpine:3
+    container_name: nt-certs
+    volumes:
+      - cert-data:/certs
+      - ./certs/generate.sh:/certs/generate.sh:ro
+    command: sh -c 'apk add --no-cache openssl >/dev/null 2>&1 && sh /certs/generate.sh'
+    networks:
+      - testnet
+
+  caddy-naive:
+    build:
+      context: ./caddy
+    container_name: nt-caddy-naive
+    depends_on:
+      certs:
+        condition: service_completed_successfully
+    ports:
+      - "10443:10443"
+    volumes:
+      - proxy-config-share:/etc/caddy
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - testnet
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:2019/config/"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  hysteria2:
+    build:
+      context: ./hysteria2
+    container_name: nt-hysteria2
+    depends_on:
+      certs:
+        condition: service_completed_successfully
+    ports:
+      - "10444:10444/udp"
+    volumes:
+      - cert-data:/certs:ro
+      - proxy-config-share:/etc/hysteria
+    networks:
+      - testnet
+    healthcheck:
+      test: ["CMD-SHELL", "ps aux | grep -q '[h]ysteria server'"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  panel:
+    build:
+      context: ../../../
+      dockerfile: tests/integration/docker/panel/Dockerfile
+    container_name: nt-panel
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      LISTEN_HOST: 0.0.0.0
+      TEST_MODE: "1"
+      TEST_CONFIG_DIR: /config-share
+    volumes:
+      - panel-data:/app/data
+      - proxy-config-share:/config-share
+    depends_on:
+      caddy-naive:
+        condition: service_started
+    networks:
+      - testnet
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/csrf-token"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+volumes:
+  cert-data:
+  caddy-data:
+  caddy-config:
+  panel-data:
+  proxy-config-share:
+
+networks:
+  testnet:
+    driver: bridge

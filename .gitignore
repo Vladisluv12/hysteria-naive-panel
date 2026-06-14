@@ -7,3 +7,11 @@ panel/data/*.json
 *.swp
 .env
 .env.local
+tests/integration/venv/
+tests/integration/bin/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+tests/integration/.venv/
