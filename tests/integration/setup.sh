@@ -9,7 +9,7 @@ if [ ! -d venv ]; then
     python3 -m venv venv
 fi
 source venv/bin/activate
-pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 
 # sing-box binary
 if [ ! -f bin/sing-box ]; then
