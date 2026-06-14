@@ -10,6 +10,7 @@ const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
 let db;
 try {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   const Database = require('better-sqlite3');
   db = new Database(DB_PATH);
   db.pragma('journal_mode = WAL');
