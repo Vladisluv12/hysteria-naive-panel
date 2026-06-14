@@ -5,7 +5,7 @@
 #  и все связанные конфиги, сертификаты, systemd-юниты, UFW-правила.
 #
 #  Запуск:
-#    bash <(curl -fsSL https://raw.githubusercontent.com/cwash797-cmd/Panel---Naive-Hy2---by---RIXXX/main/uninstall.sh)
+#    bash <(curl -fsSL https://raw.githubusercontent.com/Vladisluv12/hysteria-naive-panel/main/uninstall.sh)
 #
 #  Флаги:
 #    --yes / -y         не спрашивать подтверждение (для автоматизации)

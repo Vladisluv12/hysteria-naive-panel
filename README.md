@@ -7,7 +7,7 @@
 ## 🚀 Быстрая установка
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/cwash797-cmd/Panel---Naive-Hy2---by---RIXXX/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Vladisluv12/hysteria-naive-panel/main/install.sh)
 ```
 
 После установки панель будет доступна:
@@ -24,7 +24,7 @@ http://YOUR_SERVER_IP:3000
 Для применения новых патчей (улучшения, новые опции) **без полной переустановки** используйте `update.sh`:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/cwash797-cmd/Panel---Naive-Hy2---by---RIXXX/main/update.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Vladisluv12/hysteria-naive-panel/main/update.sh)
 ```
 
 **Что делает скрипт:**
@@ -377,7 +377,7 @@ sudo bash update.sh --repair
 
 ### v1.4.0 — Hotfix: SSH-only режим (PR #7)
 - 🔒 **Закрыта дыра в SSH-only режиме**: при `ACCESS_MODE=1 + SSH_ONLY=1` финальный UFW-блок в `install.sh` перетирал ранний `deny` командой `ufw allow 8080/tcp`, а Nginx биндился на `0.0.0.0:8080` — панель оставалась доступной из Интернета, несмотря на `LISTEN_HOST=127.0.0.1` у бэкенда. Теперь `SSH_ONLY=1` принудительно переводит установку в режим прямого bind на `127.0.0.1:${INTERNAL_PORT}` (без Nginx), а финальный UFW-блок проверяет `SSH_ONLY` первым приоритетом и наглухо закрывает 8080/tcp + 3000/tcp.
-- 🔧 **Migration 1.4.0** (`migrate_ssh_only_close_ports`) — для уже установленных серверов с `sshOnly=1`: автоматически закрывает 8080/tcp и 3000/tcp в UFW (и удаляет старые `allow`-правила), останавливает и отключает `nginx`, гарантирует `LISTEN_HOST=127.0.0.1` в systemd-юните и PM2-env, перезапускает панель и финально проверяет, что внешний IP не отвечает на этих портах. Применяется одной командой: `bash <(curl -fsSL https://raw.githubusercontent.com/cwash797-cmd/Panel---Naive-Hy2---by---RIXXX/main/update.sh)`.
+- 🔧 **Migration 1.4.0** (`migrate_ssh_only_close_ports`) — для уже установленных серверов с `sshOnly=1`: автоматически закрывает 8080/tcp и 3000/tcp в UFW (и удаляет старые `allow`-правила), останавливает и отключает `nginx`, гарантирует `LISTEN_HOST=127.0.0.1` в systemd-юните и PM2-env, перезапускает панель и финально проверяет, что внешний IP не отвечает на этих портах. Применяется одной командой: `bash <(curl -fsSL https://raw.githubusercontent.com/Vladisluv12/hysteria-naive-panel/main/update.sh)`.
 - ✅ **Контракт миграции**: если `sshOnly=0` — миграция no-op (легитимный публичный режим `ACCESS_MODE=1` через Nginx-прокси не ломается).
 
 ### v1.3.2 — Hotfix: masquerade (PR #6)

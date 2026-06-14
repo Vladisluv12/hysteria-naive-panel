@@ -5,7 +5,7 @@
 #  НЕ трогает: пользователей, сертификаты, домены, sysctl, активные сервисы.
 #
 #  Запуск:
-#    bash <(curl -fsSL https://raw.githubusercontent.com/cwash797-cmd/Panel---Naive-Hy2---by---RIXXX/main/update.sh)
+#    bash <(curl -fsSL https://raw.githubusercontent.com/Vladisluv12/hysteria-naive-panel/main/update.sh)
 #
 #  Флаги:
 #    --dry-run            показать что будет сделано, ничего не менять
@@ -164,7 +164,7 @@ if [[ ${#MISSING[@]} -gt 0 ]]; then
     echo ""
     log_warn "Похоже, панель ещё не установлена на этом сервере."
     log_info "Запустите основной установщик:"
-    log_info "  bash <(curl -fsSL https://raw.githubusercontent.com/cwash797-cmd/Panel---Naive-Hy2---by---RIXXX/main/install.sh)"
+    log_info "  bash <(curl -fsSL https://raw.githubusercontent.com/Vladisluv12/hysteria-naive-panel/main/install.sh)"
     exit 1
   fi
 fi
