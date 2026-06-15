@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ToastProvider } from './contexts/ToastContext';
+import { ToastContainer } from './components/Toast';
 import type { ReactNode } from 'react';
 
 function AuthGuard({ children }: { children: ReactNode }) {
@@ -40,7 +42,10 @@ export function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <ToastProvider>
+          <AppRoutes />
+          <ToastContainer />
+        </ToastProvider>
       </AuthProvider>
     </BrowserRouter>
   );
