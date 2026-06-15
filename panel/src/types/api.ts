@@ -39,12 +39,12 @@ export interface VersionInfo {
 }
 
 export interface TrafficData {
-  caddy: {
+  caddy?: {
     bytesIn: number;
     bytesOut: number;
     connections: number;
   };
-  hysteria: {
+  hysteria?: {
     packetsIn: number;
     packetsOut: number;
     connections: number;

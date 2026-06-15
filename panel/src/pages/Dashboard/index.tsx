@@ -83,7 +83,7 @@ export function DashboardPage() {
 
       <div className={styles.section}>
         <h2 className={styles.sectionTitle}>Traffic</h2>
-        {traffic && (
+        {traffic?.caddy && (
           <>
             <div className={styles.trafficRow}>
               <span className={styles.trafficLabel}>Caddy IN</span>
@@ -95,8 +95,12 @@ export function DashboardPage() {
             </div>
             <div className={styles.trafficRow}>
               <span className={styles.trafficLabel}>Caddy connections</span>
-              <span className={styles.trafficValue}>{traffic.caddy.connections}</span>
+              <span className={styles.trafficValue}>{traffic.caddy?.connections ?? 0}</span>
             </div>
+          </>
+        )}
+        {traffic?.hysteria && (
+          <>
             <div className={styles.trafficRow}>
               <span className={styles.trafficLabel}>Hy2 IN</span>
               <span className={styles.trafficValue}>{formatPackets(traffic.hysteria.packetsIn)}</span>
