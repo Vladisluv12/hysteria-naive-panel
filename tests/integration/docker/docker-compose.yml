@@ -122,12 +122,42 @@ services:
       retries: 10
       start_period: 15s
 
+  panel-react:
+    build:
+      context: ../../../
+      dockerfile: tests/integration/docker/panel/Dockerfile.react
+    container_name: nt-panel-react
+    ports:
+      - "3002:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      LISTEN_HOST: 0.0.0.0
+      TEST_MODE: "1"
+      USE_NEW_FRONTEND: "true"
+      TEST_CONFIG_DIR: /config-share
+    volumes:
+      - panel-data-react:/app/data
+      - proxy-config-share:/config-share
+    depends_on:
+      caddy-naive:
+        condition: service_started
+    networks:
+      - testnet
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "3000"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
 volumes:
   cert-data:
   caddy-data:
   caddy-config:
   panel-data:
   panel-data-sqlite:
+  panel-data-react:
   proxy-config-share:
 
 networks:

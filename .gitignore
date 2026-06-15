@@ -2,6 +2,7 @@ node_modules/
 panel/node_modules/
 panel/data/
 panel/data/*.json
+panel/dist/
 *.log
 .DS_Store
 *.swp
