@@ -8,6 +8,7 @@ import { SettingsPage } from './pages/Settings';
 import { DashboardPage } from './pages/Dashboard';
 import { DiagnosticsPage } from './pages/Diagnostics';
 import { TuningPage } from './pages/Tuning';
+import { BypassPage } from './pages/Bypass';
 import type { ReactNode } from 'react';
 
 function AuthGuard({ children }: { children: ReactNode }) {
@@ -37,7 +38,7 @@ function AppRoutes() {
         <Route path="install" element={<div>Install (coming soon)</div>} />
         <Route path="users/*" element={<div>Users (coming soon)</div>} />
         <Route path="tuning" element={<TuningPage />} />
-        <Route path="bypass" element={<div>Bypass (coming soon)</div>} />
+        <Route path="bypass" element={<BypassPage />} />
         <Route path="diagnostics" element={<DiagnosticsPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
