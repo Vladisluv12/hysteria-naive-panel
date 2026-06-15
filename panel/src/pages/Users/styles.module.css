@@ -1,0 +1,33 @@
+.page { max-width: 1000px; }
+.title { font-size: 22px; color: #fff; margin-bottom: 24px; }
+.subnav { display: flex; gap: 4px; margin-bottom: 20px; }
+.subtab { padding: 8px 20px; background: #16213e; color: #888; text-decoration: none; border-radius: 4px 4px 0 0; font-size: 14px; }
+.subtab:hover { color: #fff; }
+.subtabActive { background: #7c4dff; color: #fff; }
+.toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.addBtn { padding: 8px 20px; background: #7c4dff; color: #fff; border: none; border-radius: 4px; font-size: 14px; cursor: pointer; }
+.addBtn:hover { background: #651fff; }
+.table { width: 100%; background: #16213e; border-radius: 8px; overflow: hidden; }
+.tableHead { background: #1e2a4a; }
+.th { padding: 10px 14px; text-align: left; font-size: 12px; color: #888; font-weight: 600; text-transform: uppercase; }
+.td { padding: 10px 14px; font-size: 14px; color: #e0e0e0; border-bottom: 1px solid #2a2a4a; }
+.tr:last-child .td { border-bottom: none; }
+.trExpired .td { color: #666; }
+.actions { display: flex; gap: 6px; }
+.smallBtn { padding: 4px 10px; font-size: 12px; border-radius: 4px; border: none; cursor: pointer; color: #fff; }
+.extendBtn { background: #3a3a5c; }
+.extendBtn:hover { background: #4a4a7c; }
+.deleteBtn { background: transparent; color: #ef5350; border: 1px solid #ef5350; }
+.deleteBtn:hover { background: #ef5350; color: #fff; }
+.linkRow { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.linkText { font-size: 12px; color: #888; word-break: break-all; }
+.loading { text-align: center; color: #888; padding: 40px; }
+.form { display: flex; flex-direction: column; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.label { font-size: 13px; color: #888; }
+.input { padding: 8px 12px; border-radius: 4px; border: 1px solid #2a2a4a; background: #1a1a2e; color: #e0e0e0; font-size: 14px; }
+.input:focus { outline: none; border-color: #7c4dff; }
+.select { padding: 8px 12px; border-radius: 4px; border: 1px solid #2a2a4a; background: #1a1a2e; color: #e0e0e0; font-size: 14px; }
+.submitBtn { padding: 8px 20px; background: #7c4dff; color: #fff; border: none; border-radius: 4px; font-size: 14px; cursor: pointer; align-self: flex-start; }
+.submitBtn:hover { background: #651fff; }
+.formError { color: #ef5350; font-size: 13px; }
