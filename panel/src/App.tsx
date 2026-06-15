@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ToastContainer } from './components/Toast';
+import { Layout } from './components/Layout';
 import type { ReactNode } from 'react';
 
 function AuthGuard({ children }: { children: ReactNode }) {
@@ -26,14 +27,15 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<div>Login page (coming soon)</div>} />
-      <Route
-        path="/*"
-        element={
-          <AuthGuard>
-            <div>Dashboard (coming soon)</div>
-          </AuthGuard>
-        }
-      />
+      <Route element={<AuthGuard><Layout /></AuthGuard>}>
+        <Route index element={<div>Dashboard (coming soon)</div>} />
+        <Route path="install" element={<div>Install (coming soon)</div>} />
+        <Route path="users/*" element={<div>Users (coming soon)</div>} />
+        <Route path="tuning" element={<div>Tuning (coming soon)</div>} />
+        <Route path="bypass" element={<div>Bypass (coming soon)</div>} />
+        <Route path="diagnostics" element={<div>Diagnostics (coming soon)</div>} />
+        <Route path="settings" element={<div>Settings (coming soon)</div>} />
+      </Route>
     </Routes>
   );
 }
