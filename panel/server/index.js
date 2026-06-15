@@ -89,7 +89,11 @@ app.use((req, res, next) => {
   }
   next()
 })
-app.use(express.static(path.join(__dirname, '../public')));
+const frontendDir = process.env.USE_NEW_FRONTEND === 'true'
+  ? path.join(__dirname, '..', 'dist')
+  : path.join(__dirname, '..', 'public');
+
+app.use(express.static(frontendDir));
 
 const authRoutes = require('./routes/auth.js');
 app.use('/api', authRoutes);
@@ -372,7 +376,12 @@ setTimeout(expireChecker, 20 * 1000); // первый запуск через 20
 
 // ─── SPA fallback ─────────────────────────────────────────
 app.get(/^(?!\/api).*/, (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
+  const indexPath = path.join(frontendDir, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).json({ error: 'Frontend not built. Run: npm run build' });
+  }
 });
 
 if (process.env.NODE_ENV !== 'test') {
