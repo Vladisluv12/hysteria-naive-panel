@@ -49,7 +49,6 @@ class SingBoxClient:
                     "tag": "socks-in",
                     "listen": "127.0.0.1",
                     "listen_port": self.socks_port,
-                    "sniff": True,
                 }
             ],
             "outbounds": [
@@ -110,10 +109,18 @@ class SingBoxClient:
         self._config_path = Path(self._tmp_dir.name) / "config.json"
         config = self._build_config()
         self._config_path.write_text(json.dumps(config, indent=2))
+        env = os.environ.copy()
+        bin_dir = str(Path(self.sing_box_bin).parent)
+        lib_path = env.get("LD_LIBRARY_PATH", "")
+        if lib_path:
+            env["LD_LIBRARY_PATH"] = f"{bin_dir}:{lib_path}"
+        else:
+            env["LD_LIBRARY_PATH"] = bin_dir
         self._process = subprocess.Popen(
             [self.sing_box_bin, "run", "-c", str(self._config_path)],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            env=env,
         )
         for _ in range(20):
             if self._is_port_open():

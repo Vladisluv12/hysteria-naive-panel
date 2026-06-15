@@ -1,9 +1,13 @@
-FROM node:20-alpine
-RUN apk add --no-cache python3 make g++
+FROM node:20-slim
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ sqlite3 netcat-openbsd && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY panel/package*.json ./
-RUN npm install --omit=dev --ignore-scripts=false
+RUN npm install --omit=dev --ignore-scripts
 COPY panel/ .
+RUN cd /app/node_modules/better-sqlite3 && \
+    rm -rf build && \
+    node /usr/local/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js rebuild && \
+    node -e "try{require('better-sqlite3');console.log('better-sqlite3 OK')}catch(e){console.error('REQUIRE FAILED:',e.message);process.exit(1)}"
 ENV NODE_ENV=production
 EXPOSE 3000
 CMD ["node", "server/index.js"]

@@ -1,8 +1,12 @@
 import subprocess
 import time
+from pathlib import Path
 import pytest
 from helpers.singbox_client import SingBoxClient
 from helpers.curl_naive_client import CurlNaiveClient
+
+
+SING_BOX_BIN = str(Path(__file__).parent.parent / "bin" / "sing-box")
 
 
 class TestUserLifecycle:
@@ -73,7 +77,7 @@ class TestUserLifecycle:
             client = SingBoxClient(
                 proxy_type="hysteria2", server="127.0.0.1", port=10444,
                 username="testuser", password="testpass123",
-                socks_port=10824, sing_box_bin="bin/sing-box",
+                socks_port=10824, sing_box_bin=SING_BOX_BIN,
                 tls_insecure=True, server_name="test.localhost",
             )
             with client:
@@ -143,7 +147,7 @@ class TestUserLifecycleParameterized:
             client = SingBoxClient(
                 proxy_type="hysteria2", server="127.0.0.1", port=10444,
                 username="testuser", password="testpass123",
-                socks_port=10825, sing_box_bin="bin/sing-box",
+                socks_port=10825, sing_box_bin=SING_BOX_BIN,
                 tls_insecure=True, server_name="test.localhost",
             )
             with client:

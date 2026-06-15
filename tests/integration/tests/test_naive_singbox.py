@@ -1,10 +1,13 @@
 import subprocess
 import time
+from pathlib import Path
 import pytest
 from helpers.singbox_client import SingBoxClient
 
 
 NAIVE_CREDS = {"username": "testuser", "password": "testpass123"}
+SING_BOX_BIN = str(Path(__file__).parent.parent / "bin" / "sing-box")
+CA_CRT = str(Path(__file__).parent.parent / "bin" / "ca.crt")
 
 
 class TestNaiveSingBoxConnectivity:
@@ -28,9 +31,9 @@ class TestNaiveSingBoxConnectivity:
             username=NAIVE_CREDS["username"],
             password="completely_wrong_password",
             socks_port=10832,
-            sing_box_bin="bin/sing-box",
+            sing_box_bin=SING_BOX_BIN,
             server_name="test.localhost",
-            certificate_path="bin/ca.crt",
+            certificate_path=CA_CRT,
         )
         with client:
             assert client._is_port_open(), "sing-box SOCKS5 port not open"
@@ -50,9 +53,9 @@ class TestNaiveSingBoxConnectivity:
             username="nonexistent_user",
             password=NAIVE_CREDS["password"],
             socks_port=10833,
-            sing_box_bin="bin/sing-box",
+            sing_box_bin=SING_BOX_BIN,
             server_name="test.localhost",
-            certificate_path="bin/ca.crt",
+            certificate_path=CA_CRT,
         )
         with client:
             assert client._is_port_open(), "sing-box SOCKS5 port not open"
@@ -74,9 +77,9 @@ class TestNaiveSingBoxConnectivity:
                 username=NAIVE_CREDS["username"],
                 password=NAIVE_CREDS["password"],
                 socks_port=10840 + i,
-                sing_box_bin="bin/sing-box",
+                sing_box_bin=SING_BOX_BIN,
                 server_name="test.localhost",
-                certificate_path="bin/ca.crt",
+                certificate_path=CA_CRT,
             )
             client.start()
             clients.append(client)
@@ -97,9 +100,9 @@ class TestNaiveSingBoxConnectivity:
             username=NAIVE_CREDS["username"],
             password=NAIVE_CREDS["password"],
             socks_port=10845,
-            sing_box_bin="bin/sing-box",
+            sing_box_bin=SING_BOX_BIN,
             server_name="test.localhost",
-            certificate_path="bin/ca.crt",
+            certificate_path=CA_CRT,
         )
         with client:
             assert client._is_port_open(), "sing-box should open SOCKS5 port with correct credentials"
@@ -107,7 +110,7 @@ class TestNaiveSingBoxConnectivity:
     def test_naive_singbox_version_reporting(self, docker_services):
         """Verify sing-box binary has naive support and correct version."""
         result = subprocess.run(
-            ["bin/sing-box", "version"],
+            [SING_BOX_BIN, "version"],
             capture_output=True, text=True, timeout=5
         )
         assert result.returncode == 0, "sing-box version command should succeed"

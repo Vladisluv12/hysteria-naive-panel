@@ -1,7 +1,11 @@
 import subprocess
 import time
+from pathlib import Path
 import pytest
 from helpers.singbox_client import SingBoxClient
+
+
+SING_BOX_BIN = str(Path(__file__).parent.parent / "bin" / "sing-box")
 
 
 class TestHysteria2Connectivity:
@@ -64,7 +68,7 @@ class TestHysteria2Connectivity:
             username="testuser",
             password="testpass123",
             socks_port=10821,
-            sing_box_bin="bin/sing-box",
+            sing_box_bin=SING_BOX_BIN,
             tls_insecure=True,
             server_name="test.localhost",
         )
@@ -95,7 +99,7 @@ class TestHysteria2Connectivity:
             username="testuser",
             password="testpass123",
             socks_port=10822,
-            sing_box_bin="bin/sing-box",
+            sing_box_bin=SING_BOX_BIN,
             tls_insecure=True,
             server_name="test.localhost",
         )

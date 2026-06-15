@@ -19,14 +19,10 @@ try {
 
   const row = db.prepare('SELECT COUNT(*) AS cnt FROM meta').get();
   if (row.cnt === 0) {
-    if (fs.existsSync(CONFIG_FILE)) {
-      const cfg = storage.loadConfig();
-      db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (\'config\', ?)').run(JSON.stringify(cfg));
-    }
-    if (fs.existsSync(USERS_FILE)) {
-      const users = storage.loadUsers();
-      db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (\'users\', ?)').run(JSON.stringify(users));
-    }
+    const cfg = storage.loadConfig();
+    db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (\'config\', ?)').run(JSON.stringify(cfg));
+    const users = storage.loadUsers();
+    db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (\'users\', ?)').run(JSON.stringify(users));
   }
 } catch (e) {
   console.error('[sqliteStorage] init error:', e.message);

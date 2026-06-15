@@ -87,7 +87,36 @@ services:
     networks:
       - testnet
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/csrf-token"]
+      test: ["CMD", "nc", "-z", "127.0.0.1", "3000"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  panel-sqlite:
+    build:
+      context: ../../../
+      dockerfile: tests/integration/docker/panel/Dockerfile
+    container_name: nt-panel-sqlite
+    ports:
+      - "3001:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      LISTEN_HOST: 0.0.0.0
+      TEST_MODE: "1"
+      USE_SQLITE: "true"
+      TEST_CONFIG_DIR: /config-share
+    volumes:
+      - panel-data-sqlite:/app/data
+      - proxy-config-share:/config-share
+    depends_on:
+      caddy-naive:
+        condition: service_started
+    networks:
+      - testnet
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "3000"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -98,6 +127,7 @@ volumes:
   caddy-data:
   caddy-config:
   panel-data:
+  panel-data-sqlite:
   proxy-config-share:
 
 networks:
