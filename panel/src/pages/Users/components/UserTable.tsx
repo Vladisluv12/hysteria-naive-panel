@@ -25,6 +25,7 @@ function getDaysLeft(expiry: string | null): number | null {
 }
 
 export function UserTable({ users, onExtend, onDelete, onCopyLink }: UserTableProps) {
+  const list = Array.isArray(users) ? users : [];
   return (
     <table className={styles.table}>
       <thead className={styles.tableHead}>
@@ -37,7 +38,7 @@ export function UserTable({ users, onExtend, onDelete, onCopyLink }: UserTablePr
         </tr>
       </thead>
       <tbody>
-        {users.map((u) => {
+        {list.map((u) => {
           const daysLeft = getDaysLeft(u.expiry);
           return (
             <tr key={u.username} className={`${styles.tr} ${u.expired ? styles.trExpired : ''}`}>
