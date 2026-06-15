@@ -1,7 +1,7 @@
 FROM node:20-slim AS build
 WORKDIR /app
 COPY panel/package*.json ./
-RUN npm install
+RUN npm install --ignore-scripts
 COPY panel/ .
 RUN npx tsc --noEmit && npx vite build
 
@@ -12,7 +12,6 @@ COPY panel/package*.json ./
 RUN npm install --omit=dev --ignore-scripts
 COPY panel/server/ ./server/
 COPY --from=build /app/dist/ ./dist/
-COPY --from=build /app/panel/data/ ./data/
 RUN cd /app/node_modules/better-sqlite3 && \
     rm -rf build && \
     node /usr/local/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js rebuild && \
