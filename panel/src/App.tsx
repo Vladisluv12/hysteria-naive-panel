@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ToastContainer } from './components/Toast';
 import { Layout } from './components/Layout';
+import { LoginPage } from './pages/Login';
 import type { ReactNode } from 'react';
 
 function AuthGuard({ children }: { children: ReactNode }) {
@@ -26,7 +27,7 @@ function AuthGuard({ children }: { children: ReactNode }) {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/login" element={<div>Login page (coming soon)</div>} />
+      <Route path="/login" element={<LoginPage />} />
       <Route element={<AuthGuard><Layout /></AuthGuard>}>
         <Route index element={<div>Dashboard (coming soon)</div>} />
         <Route path="install" element={<div>Install (coming soon)</div>} />
