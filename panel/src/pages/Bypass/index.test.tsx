@@ -23,12 +23,12 @@ describe('BypassPage', () => {
   it('renders bypass status', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('Yes')).toBeDefined();
+      expect(screen.getByText('Активен')).toBeDefined();
       expect(screen.getByText('1200')).toBeDefined();
     });
   });
   it('renders upload button', async () => {
     renderPage();
-    await waitFor(() => expect(screen.getByText('Upload & Enable')).toBeDefined());
+    await waitFor(() => expect(screen.getByText('Загрузить и включить')).toBeDefined());
   });
 });

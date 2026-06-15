@@ -9,8 +9,9 @@
 }
 
 .modal {
-  background: #1e2a4a;
-  border-radius: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   padding: 24px;
   min-width: 400px;
   max-width: 90vw;
@@ -26,19 +27,20 @@
 }
 
 .title {
-  font-size: 18px;
+  font-size: 1.1rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .closeBtn {
   background: none;
   border: none;
-  color: #888;
-  font-size: 20px;
+  color: var(--text-muted);
+  font-size: 22px;
   cursor: pointer;
+  transition: color var(--transition);
 }
 
 .closeBtn:hover {
-  color: #fff;
+  color: var(--text-primary);
 }

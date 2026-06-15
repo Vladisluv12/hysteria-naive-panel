@@ -6,12 +6,7 @@ import styles from './styles.module.css';
 
 type Tab = 'caddy' | 'hysteria' | 'ports' | 'config';
 
-interface PortInfo {
-  port: number;
-  protocol: string;
-  process: string;
-}
-
+interface PortInfo { port: number; protocol: string; process: string; }
 type HysteriaConfig = { raw: string };
 
 export function DiagnosticsPage() {
@@ -26,78 +21,77 @@ export function DiagnosticsPage() {
     setLoading(true);
     const load = async () => {
       try {
-        if (tab === 'caddy' || tab === 'hysteria') {
-          const l = await diagApi.getLogs(tab);
-          setLogs(l);
-        } else if (tab === 'ports') {
-          const p = await diagApi.getPorts();
-          setPorts(p);
-        } else if (tab === 'config') {
-          const c = await diagApi.getHysteriaConfig();
-          setConfig(c);
-        }
+        if (tab === 'caddy' || tab === 'hysteria') setLogs(await diagApi.getLogs(tab));
+        else if (tab === 'ports') setPorts(await diagApi.getPorts());
+        else if (tab === 'config') setConfig(await diagApi.getHysteriaConfig());
       } catch (err) {
-        addToast(err instanceof Error ? err.message : 'Failed to load', 'error');
-      } finally {
-        setLoading(false);
-      }
+        addToast(err instanceof Error ? err.message : 'Ошибка загрузки', 'error');
+      } finally { setLoading(false); }
     };
     load();
   }, [tab, addToast]);
 
-  const tabLabels: { key: Tab; label: string }[] = [
-    { key: 'caddy', label: 'Caddy Logs' },
-    { key: 'hysteria', label: 'Hysteria Logs' },
-    { key: 'ports', label: 'Ports' },
-    { key: 'config', label: 'Hy2 Config' },
+  const tabs: { key: Tab; label: string }[] = [
+    { key: 'caddy', label: 'Caddy' },
+    { key: 'hysteria', label: 'Hysteria' },
+    { key: 'ports', label: 'Порты' },
+    { key: 'config', label: 'Конфиг' },
   ];
 
   return (
     <div className={styles.page}>
-      <h1 className={styles.title}>Diagnostics</h1>
+      <h1 className={styles.title}>Диагностика</h1>
 
       <div className={styles.tabs}>
-        {tabLabels.map((t) => (
-          <button
-            key={t.key}
-            className={`${styles.tab} ${tab === t.key ? styles.tabActive : ''}`}
-            onClick={() => setTab(t.key)}
-          >
-            {t.label}
-          </button>
+        {tabs.map((t) => (
+          <button key={t.key} className={`${styles.tab} ${tab === t.key ? styles.tabActive : ''}`} onClick={() => setTab(t.key)}>{t.label}</button>
         ))}
       </div>
 
-      <div className={styles.section}>
-        {loading ? (
-          <div className={styles.loading}>Loading...</div>
-        ) : tab === 'caddy' || tab === 'hysteria' ? (
-          <div className={styles.logs}>
-            {logs.map((entry, i) => (
-              <div key={i} className={styles.logLine}>
-                {entry.line}
+      {loading ? <div className={styles.loading}>Загрузка...</div> : (
+        <>
+          {(tab === 'caddy' || tab === 'hysteria') && (
+            <div className={styles.card}>
+              <div className={styles.cardBody}>
+                <div className={styles.logBox}>
+                  {logs.map((e, i) => <div key={i} className={styles.logLine}>{e.line}</div>)}
+                  {logs.length === 0 && <span className={styles.muted}>Нет логов</span>}
+                </div>
               </div>
-            ))}
-            {logs.length === 0 && <div className={styles.loading}>No logs</div>}
-          </div>
-        ) : tab === 'ports' ? (
-          <div className={styles.ports}>
-            {ports.map((p, i) => (
-              <div key={i}>
-                {p.port}/{p.protocol} — {p.process}
+            </div>
+          )}
+          {tab === 'ports' && (
+            <div className={styles.card}>
+              <div className={styles.cardHeader}><h3 className={styles.cardTitle}>Порты и сервисы</h3></div>
+              <div className={styles.cardBody}>
+                <div className={styles.logBox}>
+                  {ports.map((p, i) => <div key={i}>{p.port}/{p.protocol} — {p.process}</div>)}
+                </div>
               </div>
-            ))}
-          </div>
-        ) : tab === 'config' ? (
-          <div className={styles.configPre}>{config?.raw ?? 'No data'}</div>
-        ) : null}
-      </div>
+            </div>
+          )}
+          {tab === 'config' && (
+            <div className={styles.card}>
+              <div className={styles.cardHeader}><h3 className={styles.cardTitle}>Активный конфиг Hysteria2</h3></div>
+              <div className={styles.cardBody}>
+                <div className={styles.logBox}>{config?.raw ?? '—'}</div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
-      <div className={styles.hint}>
-        <strong>CLI tools:</strong><br />
-        <code className={styles.hintCode}>bash update.sh --status</code> — system status<br />
-        <code className={styles.hintCode}>sudo bash update.sh --repair</code> — regenerate configs<br />
-        <code className={styles.hintCode}>sudo bash update.sh --repair --dry-run</code> — preview repair
+      <div className={styles.card}>
+        <div className={styles.cardBody}>
+          <div className={styles.helpSection}>
+            <h3 className={styles.helpTitle}>CLI-инструменты на сервере:</h3>
+            <ul className={styles.helpList}>
+              <li><code>bash update.sh --status</code> — полный статус системы</li>
+              <li><code>sudo bash update.sh --repair</code> — перегенерировать конфиги</li>
+              <li><code>bash update.sh</code> — обновить панель</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   );

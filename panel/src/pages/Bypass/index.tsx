@@ -8,71 +8,98 @@ export function BypassPage() {
   const { addToast } = useToast();
   const [status, setStatus] = useState<BypassStatus | null>(null);
   const [content, setContent] = useState('');
+  const [source, setSource] = useState('');
   const [loading, setLoading] = useState(true);
 
   const loadStatus = useCallback(async () => {
-    try {
-      const s = await bypassApi.getBypass();
-      setStatus(s);
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Failed to load', 'error');
-    } finally {
-      setLoading(false);
-    }
+    try { setStatus(await bypassApi.getBypass()); }
+    catch (err) { addToast(err instanceof Error ? err.message : 'Ошибка загрузки', 'error'); }
+    finally { setLoading(false); }
   }, [addToast]);
 
   useEffect(() => { loadStatus(); }, [loadStatus]);
 
   const handleUpdate = async () => {
-    try {
-      await bypassApi.updateBypass({ content });
-      addToast('Bypass list updated', 'success');
-      loadStatus();
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Update failed', 'error');
-    }
+    try { await bypassApi.updateBypass({ content }); addToast('Список загружен', 'success'); loadStatus(); }
+    catch (err) { addToast(err instanceof Error ? err.message : 'Ошибка', 'error'); }
   };
 
   const handleClear = async () => {
-    try {
-      await bypassApi.clearBypass();
-      addToast('Bypass cleared', 'success');
-      loadStatus();
-      setContent('');
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Clear failed', 'error');
-    }
+    try { await bypassApi.clearBypass(); addToast('Список очищен', 'success'); setContent(''); loadStatus(); }
+    catch (err) { addToast(err instanceof Error ? err.message : 'Ошибка', 'error'); }
   };
 
-  if (loading) return <div className={styles.loading}>Loading...</div>;
+  if (loading) return <div className={styles.loading}>Загрузка...</div>;
 
   return (
     <div className={styles.page}>
-      <h1 className={styles.title}>Bypass (Split Tunneling)</h1>
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>Status</h2>
-        <div className={styles.statusRow}>
-          <span className={styles.label}>Enabled</span>
-          <span className={status?.enabled ? styles.enabled : styles.disabled}>{status?.enabled ? 'Yes' : 'No'}</span>
-        </div>
-        <div className={styles.statusRow}>
-          <span className={styles.label}>Entries</span>
-          <span className={styles.value}>{status?.entries ?? 0}</span>
-        </div>
-        <div className={styles.statusRow}>
-          <span className={styles.label}>File</span>
-          <span className={styles.value}>{status?.file ?? '—'}</span>
+      <h1 className={styles.title}>Bypass — прямой трафик</h1>
+
+      <div className={`${styles.card} ${styles.warnCard}`}>
+        <div className={styles.cardBody}>
+          <strong style={{ color: 'var(--warning)' }}>⚠️ Функция в тестировании</strong>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: 6 }}>
+            Обязательно проверяйте на своём клиенте перед использованием в продакшне.
+          </p>
         </div>
       </div>
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>Update List</h2>
-        <textarea className={styles.textarea} value={content} onChange={(e) => setContent(e.target.value)} placeholder="Paste JSON with CIDR list..." />
-        <div className={styles.actions}>
-          <button className={styles.actionBtn} onClick={handleUpdate}>Upload & Enable</button>
-          <button className={styles.actionBtnDanger} onClick={handleClear}>Clear Bypass</button>
+
+      <div className={`${styles.card} ${styles.infoCard}`}>
+        <div className={styles.cardBody}>
+          <h3 style={{ fontWeight: 600, marginBottom: 8 }}>Зачем это нужно</h3>
+          <ul className={styles.tuningExpl}>
+            <li>Некоторые сайты (банки, госуслуги) блокируют иностранные IP — трафик к ним пойдёт напрямую.</li>
+            <li>Список автоматически подгружается в Hysteria2 как ACL.</li>
+          </ul>
         </div>
       </div>
-      <div className={styles.warning}>This feature is in active testing. Always verify on your client before using in production.</div>
+
+      <div className={styles.card}>
+        <div className={styles.cardHeader}>
+          <div className={styles.cardTitleWrap}>
+            <div className={`${styles.serviceIcon} ${styles.hy2Icon}`}>H</div>
+            <div>
+              <h3 className={styles.cardTitle}>Статус ACL для Hy2</h3>
+              <div className={styles.cardSubtitle}>/etc/hysteria/bypass-ru.acl</div>
+            </div>
+          </div>
+          <div className={styles.status}>
+            <span className={`${styles.dot} ${status?.enabled ? styles.dotGreen : styles.dotGray}`} />
+            {status?.enabled ? 'Активен' : 'Выключен'}
+          </div>
+        </div>
+        <div className={styles.cardBody}>
+          <div className={styles.infoRows}>
+            <div className={styles.infoRow}>
+              <span className={styles.infoKey}>Сетей в списке</span>
+              <span className={styles.infoVal}>{status?.entries ?? 0}</span>
+            </div>
+            <div className={styles.infoRow}>
+              <span className={styles.infoKey}>Файл ACL</span>
+              <span className={styles.infoVal}>{status?.file ?? '—'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.card}>
+        <div className={styles.cardBody}>
+          <h3 style={{ fontWeight: 600, marginBottom: 10 }}>Загрузить / обновить список</h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginBottom: 16 }}>
+            Скачайте актуальный список с <a href="https://antifilter.download/" target="_blank" rel="noopener" style={{ color: 'var(--text-accent)' }}>antifilter.download</a> и вставьте JSON ниже.
+          </p>
+          <div className={styles.formGroup}>
+            <label className={styles.formLabel}>JSON / список CIDR</label>
+            <textarea className={styles.textarea} rows={8} value={content} onChange={(e) => setContent(e.target.value)} placeholder='{"service.ru": ["1.2.3.0/24", ...]} или ["1.2.3.0/24", ...]' />
+            <div className={styles.formHint}>Источник (для заметок)</div>
+            <input className={styles.textarea} style={{ minHeight: 0, height: 36 }} value={source} onChange={(e) => setSource(e.target.value)} placeholder="Например: antifilter.download" />
+          </div>
+          <div className={styles.formActions}>
+            <button className={styles.btn} onClick={handleUpdate}>Загрузить и включить</button>
+            <button className={`${styles.btn} ${styles.btnDanger}`} onClick={handleClear}>Очистить</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

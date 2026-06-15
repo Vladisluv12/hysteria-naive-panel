@@ -11,48 +11,86 @@ export function TuningPage() {
   const [applying, setApplying] = useState(false);
 
   const loadStatus = useCallback(async () => {
-    try {
-      const s = await tuningApi.getStatus();
-      setStatus(s);
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Failed to load', 'error');
-    } finally {
-      setLoading(false);
-    }
+    try { setStatus(await tuningApi.getStatus()); }
+    catch (err) { addToast(err instanceof Error ? err.message : 'Ошибка загрузки', 'error'); }
+    finally { setLoading(false); }
   }, [addToast]);
 
   useEffect(() => { loadStatus(); }, [loadStatus]);
 
   const handleApply = async () => {
     setApplying(true);
-    try {
-      await tuningApi.applyTuning();
-      addToast('Tuning applied successfully', 'success');
-      loadStatus();
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Apply failed', 'error');
-    } finally {
-      setApplying(false);
-    }
+    try { await tuningApi.applyTuning(); addToast('Тюнинг применён', 'success'); loadStatus(); }
+    catch (err) { addToast(err instanceof Error ? err.message : 'Ошибка', 'error'); }
+    finally { setApplying(false); }
   };
 
-  if (loading) return <div className={styles.loading}>Loading...</div>;
+  if (loading) return <div className={styles.loading}>Загрузка...</div>;
 
   return (
     <div className={styles.page}>
-      <h1 className={styles.title}>Network Tuning</h1>
-      <div className={styles.section}>
-        <div className={styles.statusRow}>
-          <span>BBR congestion control</span>
-          <span className={status?.bbr ? styles.enabled : styles.disabled}>{status?.bbr ? 'Enabled' : 'Disabled'}</span>
+      <h1 className={styles.title}>Сетевой тюнинг</h1>
+
+      <div className={`${styles.card} ${styles.infoCard}`}>
+        <div className={styles.cardBody}>
+          <h3 style={{ fontWeight: 600, marginBottom: 8 }}>Что это и зачем?</h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', lineHeight: 1.6, marginBottom: 10 }}>
+            Оптимизация сетевых параметров ядра Linux для максимальной производительности прокси-сервера.
+          </p>
+          <ul className={styles.tuningExpl}>
+            <li><strong>BBR</strong> — алгоритм контроля перегрузки от Google. Лучше чем cubic для сетей с потерями.</li>
+            <li><strong>fq</strong> — справедливая очередь (Fair Queue). Работает вместе с BBR.</li>
+            <li><strong>UDP буферы</strong> — увеличение размера буферов для Hysteria2 (QUIC).</li>
+            <li><strong>TCP Fast Open</strong> — ускорение установки TCP-соединений.</li>
+            <li><strong>conntrack</strong> — увеличение лимита отслеживаемых соединений.</li>
+          </ul>
         </div>
-        <div className={styles.statusRow}>
-          <span>UDP buffer optimization</span>
-          <span className={status?.udpBuffers ? styles.enabled : styles.disabled}>{status?.udpBuffers ? 'Enabled' : 'Disabled'}</span>
+      </div>
+
+      <div className={styles.cardsRow}>
+        <div className={styles.card}>
+          <div className={styles.cardHeader}>
+            <div className={styles.cardTitleWrap}>
+              <div className={`${styles.serviceIcon} ${styles.naiveIcon}`}>T</div>
+              <div>
+                <h3 className={styles.cardTitle}>TCP / BBR</h3>
+                <div className={styles.cardSubtitle}>Управление перегрузкой</div>
+              </div>
+            </div>
+            <div className={styles.status}>
+              <span className={`${styles.dot} ${status?.bbr ? styles.dotGreen : styles.dotGray}`} />
+              {status?.bbr ? 'Включено' : 'Выключено'}
+            </div>
+          </div>
         </div>
-        <button className={styles.applyBtn} onClick={handleApply} disabled={applying}>
-          {applying ? 'Applying...' : 'Apply Tuning'}
-        </button>
+
+        <div className={styles.card}>
+          <div className={styles.cardHeader}>
+            <div className={styles.cardTitleWrap}>
+              <div className={`${styles.serviceIcon} ${styles.hy2Icon}`}>U</div>
+              <div>
+                <h3 className={styles.cardTitle}>UDP буферы</h3>
+                <div className={styles.cardSubtitle}>Оптимизация QUIC</div>
+              </div>
+            </div>
+            <div className={styles.status}>
+              <span className={`${styles.dot} ${status?.udpBuffers ? styles.dotGreen : styles.dotGray}`} />
+              {status?.udpBuffers ? 'Включено' : 'Выключено'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.card}>
+        <div className={styles.cardBody} style={{ textAlign: 'center' }}>
+          <h3 style={{ fontWeight: 600, marginBottom: 10, color: 'var(--text-primary)' }}>Применить оптимизации</h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginBottom: 16 }}>
+            Применяет BBR + fq, увеличивает UDP-буферы, включает TCP Fast Open и поднимает лимиты conntrack.
+          </p>
+          <button className={`${styles.btn} ${styles.btnLg}`} onClick={handleApply} disabled={applying}>
+            {applying ? 'Применяем...' : 'Применить тюнинг'}
+          </button>
+        </div>
       </div>
     </div>
   );

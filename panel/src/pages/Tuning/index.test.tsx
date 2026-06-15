@@ -22,12 +22,12 @@ describe('TuningPage', () => {
   it('renders BBR and UDP status', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('Enabled')).toBeDefined();
-      expect(screen.getByText('Disabled')).toBeDefined();
+      expect(screen.getByText('Включено')).toBeDefined();
+      expect(screen.getByText('Выключено')).toBeDefined();
     });
   });
   it('has apply button', async () => {
     renderPage();
-    await waitFor(() => expect(screen.getByText('Apply Tuning')).toBeDefined());
+    await waitFor(() => expect(screen.getByText('Применить тюнинг')).toBeDefined());
   });
 });

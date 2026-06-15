@@ -45,9 +45,9 @@ describe('DiagnosticsPage', () => {
   it('can switch to ports tab', async () => {
     renderPage();
     const user = userEvent.setup();
-    await user.click(screen.getByText('Ports'));
+    await user.click(screen.getByText('Порты'));
     await waitFor(() => {
-      expect(screen.getByText('CLI tools:')).toBeDefined();
+      expect(screen.getByText('Порты и сервисы')).toBeDefined();
     });
   });
 });

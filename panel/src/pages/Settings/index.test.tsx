@@ -32,7 +32,7 @@ describe('SettingsPage', () => {
   it('renders change password form and version', async () => {
     renderSettings();
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Change Password' })).toBeDefined();
+      expect(screen.getByText('Смена пароля панели')).toBeDefined();
       expect(screen.getByText(/1\.4\.1/)).toBeDefined();
     });
   });

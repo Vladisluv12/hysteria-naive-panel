@@ -87,7 +87,7 @@ export function UsersPage() {
       </div>
       <div className={styles.toolbar}>
         <span style={{ color: '#888', fontSize: 14 }}>{users.length} user{users.length !== 1 ? 's' : ''}</span>
-        <button className={styles.addBtn} onClick={() => setShowCreate(true)}>+ Add User</button>
+        <button className={styles.btn} onClick={() => setShowCreate(true)}>+ Добавить пользователя</button>
       </div>
       {loading ? (
         <div className={styles.loading}>Loading...</div>

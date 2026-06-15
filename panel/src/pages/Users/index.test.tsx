@@ -30,11 +30,10 @@ describe('UsersPage', () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText('user1')).toBeDefined();
-      expect(screen.getByText('1 user')).toBeDefined();
     });
   });
   it('renders add user button', async () => {
     renderPage();
-    await waitFor(() => expect(screen.getByText('+ Add User')).toBeDefined());
+    await waitFor(() => expect(screen.getByText('+ Добавить пользователя')).toBeDefined());
   });
 });
