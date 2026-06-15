@@ -1,101 +1,248 @@
 .page {
-  max-width: 900px;
+  max-width: none;
 }
 
 .title {
-  font-size: 22px;
-  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
   margin-bottom: 24px;
 }
 
-.grid {
+.cardsRow {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 16px;
-  margin-bottom: 24px;
 }
 
 .card {
-  background: #16213e;
-  border-radius: 8px;
-  padding: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.cardHeader {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cardTitleWrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .cardTitle {
-  font-size: 13px;
-  color: #888;
-  margin-bottom: 8px;
-}
-
-.cardValue {
-  font-size: 24px;
+  font-size: 0.95rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
 }
 
-.statusActive {
-  color: #66bb6a;
+.cardSubtitle {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  margin-top: 2px;
 }
 
-.statusInactive {
-  color: #ef5350;
-}
-
-.section {
-  background: #16213e;
-  border-radius: 8px;
-  padding: 20px;
-  margin-bottom: 16px;
-}
-
-.sectionTitle {
-  font-size: 16px;
-  color: #7c4dff;
-  margin-bottom: 16px;
-}
-
-.actions {
+.serviceIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
   display: flex;
-  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.9rem;
+}
+
+.naive {
+  background: rgba(124,58,237,0.12);
+  color: #a78bfa;
+  border: 1px solid rgba(124,58,237,0.25);
+}
+
+.hy2 {
+  background: rgba(245,158,11,0.12);
+  color: #f59e0b;
+  border: 1px solid rgba(245,158,11,0.25);
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dotGreen {
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success);
+}
+
+.dotRed {
+  background: var(--danger);
+}
+
+.dotGray {
+  background: var(--text-muted);
+}
+
+.cardBody {
+  padding: 22px;
+}
+
+.notInstalled {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 34px 24px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.notInstalled p {
+  font-size: 0.88rem;
+}
+
+.installed {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stats {
+  display: flex;
+  gap: 22px;
+  padding: 6px 0;
+}
+
+.statLabel {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.statValue {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.buttons {
+  display: flex;
+  gap: 10px;
   flex-wrap: wrap;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
 }
 
-.actionBtn {
-  padding: 8px 16px;
-  background: #3a3a5c;
-  color: #e0e0e0;
-  border: none;
-  border-radius: 4px;
-  font-size: 13px;
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-main);
+  font-size: 0.8rem;
+  font-weight: 500;
   cursor: pointer;
+  border: 1px solid transparent;
+  transition: all var(--transition);
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
-.actionBtn:hover {
-  background: #4a4a7c;
+.btnSuccess {
+  background: rgba(16,185,129,0.15);
+  color: var(--success);
+  border-color: rgba(16,185,129,0.3);
+}
+.btnSuccess:hover { background: rgba(16,185,129,0.25); }
+
+.btnWarning {
+  background: rgba(245,158,11,0.15);
+  color: var(--warning);
+  border-color: rgba(245,158,11,0.3);
+}
+.btnWarning:hover { background: rgba(245,158,11,0.25); }
+
+.btnDanger {
+  background: rgba(239,68,68,0.15);
+  color: var(--danger);
+  border-color: rgba(239,68,68,0.3);
+}
+.btnDanger:hover { background: rgba(239,68,68,0.25); }
+
+.trafficCard {
+  margin-top: 16px;
+}
+
+.trafficGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.trafficGroup {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.trafficTitle {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
 }
 
 .trafficRow {
   display: flex;
   justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px solid #2a2a4a;
-  font-size: 14px;
-}
-
-.trafficRow:last-child {
-  border-bottom: none;
+  align-items: center;
+  padding: 5px 0;
 }
 
 .trafficLabel {
-  color: #888;
+  font-size: 0.78rem;
+  color: var(--text-muted);
 }
 
 .trafficValue {
-  color: #e0e0e0;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-primary);
 }
 
 .loading {
   text-align: center;
-  color: #888;
+  color: var(--text-muted);
   padding: 40px;
 }

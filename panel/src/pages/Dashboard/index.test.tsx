@@ -41,7 +41,8 @@ describe('DashboardPage', () => {
   it('renders service status', async () => {
     renderDashboard();
     await waitFor(() => {
-      expect(screen.getByText('1.2.3.4')).toBeDefined();
+      expect(screen.getByText('NaiveProxy')).toBeDefined();
+      expect(screen.getAllByText('Hysteria2').length).toBeGreaterThan(0);
     });
   });
 
