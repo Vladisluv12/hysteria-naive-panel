@@ -4,6 +4,7 @@ import { ToastProvider } from './contexts/ToastContext';
 import { ToastContainer } from './components/Toast';
 import { Layout } from './components/Layout';
 import { LoginPage } from './pages/Login';
+import { SettingsPage } from './pages/Settings';
 import type { ReactNode } from 'react';
 
 function AuthGuard({ children }: { children: ReactNode }) {
@@ -35,7 +36,7 @@ function AppRoutes() {
         <Route path="tuning" element={<div>Tuning (coming soon)</div>} />
         <Route path="bypass" element={<div>Bypass (coming soon)</div>} />
         <Route path="diagnostics" element={<div>Diagnostics (coming soon)</div>} />
-        <Route path="settings" element={<div>Settings (coming soon)</div>} />
+        <Route path="settings" element={<SettingsPage />} />
       </Route>
     </Routes>
   );
