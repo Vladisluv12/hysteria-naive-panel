@@ -6,12 +6,18 @@ interface LoginInput {
   password: string;
 }
 
+interface LoginResponse {
+  success: boolean;
+  message?: string;
+  mustChangePassword?: boolean;
+}
+
 interface UserMe {
   username: string;
   role: string;
 }
 
-export function login(data: LoginInput): Promise<UserMe> {
+export function login(data: LoginInput): Promise<LoginResponse> {
   return post('/api/login', data);
 }
 
