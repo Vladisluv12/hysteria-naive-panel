@@ -12,7 +12,6 @@ interface User {
 
 interface UserTableProps {
   users: User[];
-  domain: string;
   onExtend: (username: string, currentExpiry: string | null) => void;
   onDelete: (username: string) => void;
   onCopyLink: (username: string, password: string) => string;
@@ -25,7 +24,7 @@ function getDaysLeft(expiry: string | null): number | null {
   return Math.max(-1, days);
 }
 
-export function UserTable({ users, domain, onExtend, onDelete, onCopyLink }: UserTableProps) {
+export function UserTable({ users, onExtend, onDelete, onCopyLink }: UserTableProps) {
   return (
     <table className={styles.table}>
       <thead className={styles.tableHead}>

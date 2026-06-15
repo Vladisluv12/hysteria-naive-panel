@@ -92,7 +92,7 @@ export function UsersPage() {
       {loading ? (
         <div className={styles.loading}>Loading...</div>
       ) : (
-        <UserTable users={users} domain={domain} onExtend={(username, expiry) => setExtendUser({ username, expiry })} onDelete={handleDelete} onCopyLink={makeLink} />
+        <UserTable users={users} onExtend={(username, expiry) => setExtendUser({ username, expiry })} onDelete={handleDelete} onCopyLink={makeLink} />
       )}
       {showCreate && <CreateUserModal title={`Add ${isNaive ? 'NaiveProxy' : 'Hysteria2'} User`} onClose={() => setShowCreate(false)} onSubmit={handleCreate} />}
       {extendUser && <ExtendModal username={extendUser.username} currentExpiry={extendUser.expiry} onClose={() => setExtendUser(null)} onSubmit={handleExtend} />}
