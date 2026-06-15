@@ -5,6 +5,7 @@ import { ToastContainer } from './components/Toast';
 import { Layout } from './components/Layout';
 import { LoginPage } from './pages/Login';
 import { SettingsPage } from './pages/Settings';
+import { DashboardPage } from './pages/Dashboard';
 import type { ReactNode } from 'react';
 
 function AuthGuard({ children }: { children: ReactNode }) {
@@ -30,7 +31,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route element={<AuthGuard><Layout /></AuthGuard>}>
-        <Route index element={<div>Dashboard (coming soon)</div>} />
+        <Route index element={<DashboardPage />} />
         <Route path="install" element={<div>Install (coming soon)</div>} />
         <Route path="users/*" element={<div>Users (coming soon)</div>} />
         <Route path="tuning" element={<div>Tuning (coming soon)</div>} />
