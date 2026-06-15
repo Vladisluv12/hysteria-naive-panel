@@ -30,12 +30,12 @@ export interface Config {
   hysteriaEnabled: boolean;
   masqueradeMode: string;
   masqueradeUrl: string;
-  sshOnly: number;
+  sshOnly: boolean;
 }
 
 export interface VersionInfo {
   version: string;
-  targetVersion: string;
+  targetVersion: string | null;
 }
 
 export interface TrafficData {

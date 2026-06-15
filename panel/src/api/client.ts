@@ -1,5 +1,12 @@
 import type { ApiError } from '../types/api';
 
+export class UnauthorizedError extends Error {
+  constructor() {
+    super('Unauthorized');
+    this.name = 'UnauthorizedError';
+  }
+}
+
 const BASE = '';
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
@@ -10,8 +17,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   });
 
   if (res.status === 401) {
-    window.location.href = '/login';
-    throw new Error('Unauthorized');
+    throw new UnauthorizedError();
   }
 
   if (!res.ok) {
