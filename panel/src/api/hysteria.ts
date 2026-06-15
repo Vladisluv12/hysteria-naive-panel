@@ -1,17 +1,11 @@
 import { get, post, patch, del } from './client';
-import type { HysteriaUser } from '../types/api';
-
-interface CreateHysteriaInput {
-  username: string;
-  password: string;
-  expiry: string | null;
-}
+import type { HysteriaUser, CreateUserInput } from '../types/api';
 
 export function listUsers(): Promise<HysteriaUser[]> {
   return get('/api/hy2/users');
 }
 
-export function createUser(data: CreateHysteriaInput): Promise<HysteriaUser> {
+export function createUser(data: CreateUserInput): Promise<HysteriaUser> {
   return post('/api/hy2/users', data);
 }
 

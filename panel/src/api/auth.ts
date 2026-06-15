@@ -1,4 +1,5 @@
 import { get, post } from './client';
+import type { ChangePasswordInput } from '../types/api';
 
 interface LoginInput {
   username: string;
@@ -8,11 +9,6 @@ interface LoginInput {
 interface UserMe {
   username: string;
   role: string;
-}
-
-interface ChangePasswordInput {
-  currentPassword: string;
-  newPassword: string;
 }
 
 export function login(data: LoginInput): Promise<UserMe> {

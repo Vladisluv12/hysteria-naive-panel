@@ -11,9 +11,12 @@ const BASE = '';
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${url}`, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
     ...options,
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
   });
 
   if (res.status === 401) {
