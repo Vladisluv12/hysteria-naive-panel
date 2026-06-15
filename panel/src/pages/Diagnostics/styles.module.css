@@ -1,0 +1,101 @@
+.page {
+  max-width: 900px;
+}
+
+.title {
+  font-size: 22px;
+  color: #fff;
+  margin-bottom: 24px;
+}
+
+.section {
+  background: #16213e;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.sectionTitle {
+  font-size: 16px;
+  color: #7c4dff;
+  margin-bottom: 12px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.tab {
+  padding: 6px 16px;
+  background: #2a2a4a;
+  color: #888;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: #fff;
+}
+
+.tabActive {
+  background: #7c4dff;
+  color: #fff;
+}
+
+.logs {
+  background: #0d1117;
+  border-radius: 4px;
+  padding: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.logLine {
+  color: #c9d1d9;
+}
+
+.ports {
+  font-size: 14px;
+  color: #e0e0e0;
+  line-height: 1.8;
+}
+
+.configPre {
+  background: #0d1117;
+  border-radius: 4px;
+  padding: 12px;
+  font-family: monospace;
+  font-size: 12px;
+  color: #c9d1d9;
+  white-space: pre-wrap;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.loading {
+  text-align: center;
+  color: #888;
+  padding: 20px;
+}
+
+.hint {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #888;
+  line-height: 1.5;
+}
+
+.hintCode {
+  background: #2a2a4a;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 12px;
+}

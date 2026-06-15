@@ -24,7 +24,7 @@ function AuthGuard({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!user) {
+  if (!user?.username) {
     return <Navigate to="/login" replace />;
   }
 

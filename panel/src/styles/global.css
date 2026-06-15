@@ -1,0 +1,63 @@
+/* ═══════════════════════════════════════════════════════════
+   Panel Naive + Hy2 by RIXXX — Design Tokens
+   Shared with public/css/style.css
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  --bg-base:       #080b12;
+  --bg-surface:    #0d1117;
+  --bg-card:       #111827;
+  --bg-card-hover: #162032;
+  --bg-input:      #0d1525;
+  --bg-sidebar:    #09111e;
+  --border:        #1e2d42;
+  --border-light:  #1a2840;
+
+  --accent:        #6d28d9;
+  --accent-bright: #7c3aed;
+  --accent-glow:   rgba(109,40,217,0.25);
+  --accent2:       #2563eb;
+  --accent2-glow:  rgba(37,99,235,0.2);
+
+  --text-primary:  #e2e8f0;
+  --text-secondary:#94a3b8;
+  --text-muted:    #4a5568;
+  --text-accent:   #a78bfa;
+
+  --success:       #10b981;
+  --success-bg:    rgba(16,185,129,0.1);
+  --warning:       #f59e0b;
+  --warning-bg:    rgba(245,158,11,0.1);
+  --danger:        #ef4444;
+  --danger-bg:     rgba(239,68,68,0.1);
+  --info:          #3b82f6;
+  --info-bg:       rgba(59,130,246,0.1);
+
+  --radius-sm:     6px;
+  --radius:        10px;
+  --radius-lg:     14px;
+  --radius-xl:     20px;
+
+  --sidebar-w:     240px;
+  --transition:    0.2s ease;
+
+  --font-main:     'Inter', -apple-system, sans-serif;
+  --font-mono:     'JetBrains Mono', 'Fira Code', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 14px; }
+
+body {
+  font-family: var(--font-main);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }

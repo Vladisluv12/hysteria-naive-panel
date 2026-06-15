@@ -24,7 +24,13 @@ export function Layout() {
   return (
     <div className={styles.wrapper}>
       <aside className={styles.sidebar}>
-        <div className={styles.logo}>RIXXX Panel</div>
+        <div className={styles.logo}>
+          <div className={styles.logoIcon}>R</div>
+          <div className={styles.logoText}>
+            <div className={styles.logoTitle}>RIXXX Panel</div>
+            <div className={styles.logoSub}>Naive + Hysteria2</div>
+          </div>
+        </div>
         <nav className={styles.nav}>
           {navItems.map((item) => (
             <NavLink
@@ -32,7 +38,7 @@ export function Layout() {
               to={item.to}
               end={item.to === '/'}
               className={({ isActive }) =>
-                `${styles.link} ${isActive ? styles.active : ''}`
+                `${styles.link} ${isActive ? styles.linkActive : ''}`
               }
             >
               {item.label}
@@ -40,8 +46,11 @@ export function Layout() {
           ))}
         </nav>
         <div className={styles.navBottom}>
-          <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>
-            {user?.username}
+          <div className={styles.userInfo}>
+            <div className={styles.userAvatar}>
+              {(user?.username ?? 'A')[0].toUpperCase()}
+            </div>
+            <div className={styles.userName}>{user?.username}</div>
           </div>
           <button className={styles.logoutBtn} onClick={handleLogout}>
             Logout
