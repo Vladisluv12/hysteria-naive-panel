@@ -15,6 +15,7 @@ function testPath(systemPath) {
 }
 
 const TRAFFIC_FILE = testPath('/etc/rixxx-panel/traffic.json');
+const NAIVE_USERS_FILE = testPath('/etc/rixxx-panel/naive_users.json');
 const NET_DEV = '/proc/net/dev';
 
 function loadTrafficData() {
@@ -97,6 +98,23 @@ function execSimple(cmd) {
   });
 }
 
+function collectNaiveUsers() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(NAIVE_USERS_FILE, 'utf8'));
+    if (raw && raw.users) {
+      Object.keys(raw.users).forEach(user => {
+        raw.users[user].rxFormatted = formatBytes(raw.users[user].rx);
+        raw.users[user].txFormatted = formatBytes(raw.users[user].tx);
+        raw.users[user].totalFormatted = formatBytes(raw.users[user].rx + raw.users[user].tx);
+      });
+      return raw;
+    }
+  } catch {
+    /* file not written yet, being atomically renamed, or corrupted */
+  }
+  return { users: {}, updated_at: null };
+}
+
 async function collectActiveConnections() {
   const result = { naive: null, hy2: null };
 
@@ -121,6 +139,7 @@ async function collectActiveConnections() {
 async function getTraffic() {
   const traffic = collectTraffic();
   const connections = await collectActiveConnections();
+  const naiveUsers = collectNaiveUsers();
 
   const perProtoRaw = await trafficMonitor.readCounters();
 
@@ -147,10 +166,14 @@ async function getTraffic() {
       naive: protoInfo(perProtoRaw.naive),
       hy2: protoInfo(perProtoRaw.hy2),
     },
+    perUser: {
+      naive: naiveUsers.users,
+      updated_at: naiveUsers.updated_at,
+    },
     connections,
     hourly: traffic ? traffic.hourly : [],
     lastReset: traffic ? traffic.lastReset : null,
   };
 }
 
-module.exports = { getTraffic, collectTraffic, formatBytes, parseNetDev };
+module.exports = { getTraffic, collectTraffic, collectNaiveUsers, formatBytes, parseNetDev };
