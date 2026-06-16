@@ -1,0 +1,30 @@
+{
+    admin 0.0.0.0:2019
+    order forward_proxy before file_server
+}
+
+:11443, test.localhost {
+    tls internal
+
+    forward_proxy {
+        basic_auth user1 pass1
+        basic_auth user2 pass2
+        hide_ip
+        hide_via
+        traffic_file /tmp/traffic.json
+        acl {
+            allow all
+        }
+    }
+
+    @health {
+        path /healthcheck
+    }
+    respond @health 200 {
+        body "OK"
+    }
+
+    file_server {
+        root /var/www/html
+    }
+}

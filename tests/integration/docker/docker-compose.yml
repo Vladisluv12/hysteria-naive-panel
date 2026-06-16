@@ -44,6 +44,29 @@ services:
       retries: 10
       start_period: 15s
 
+  caddy-traffic:
+    build:
+      context: ../../../
+      dockerfile: tests/integration/docker/caddy-traffic/Dockerfile
+    container_name: nt-caddy-traffic
+    depends_on:
+      certs:
+        condition: service_completed_successfully
+    ports:
+      - "11443:11443"
+    volumes:
+      - proxy-config-share:/etc/caddy
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - testnet
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:2019/config/"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
   hysteria2:
     build:
       context: ./hysteria2
