@@ -74,8 +74,10 @@ class TestForwardproxyTraffic:
         """Make requests from two users, verify per-user counters."""
         for _ in range(3):
             self._curl_proxy("user1", "pass1")
+        time.sleep(0.5)
         for _ in range(2):
             self._curl_proxy("user2", "pass2")
+        time.sleep(1)
 
         data = self._wait_for_traffic_file(timeout=20)
         assert data is not None, "Traffic JSON not written within timeout"
@@ -125,7 +127,13 @@ class TestForwardproxyTraffic:
             assert isinstance(stats["conns"], int), f"conns should be int for {username}"
 
     def test_anonymous_no_traffic(self):
-        """Verify requests without auth don't create counters."""
+        """Verify anonymous requests don't add new users or increase existing counters."""
+        # save baseline before anonymous request
+        baseline = self._read_traffic_file() or {"users": {}}
+        baseline_users = set(baseline.get("users", {}).keys())
+        baseline_rx = {u: v["rx"] for u, v in baseline.get("users", {}).items()}
+        baseline_tx = {u: v["tx"] for u, v in baseline.get("users", {}).items()}
+
         result = subprocess.run(
             [
                 "curl", "-sk", "--connect-timeout", "5",
@@ -142,10 +150,15 @@ class TestForwardproxyTraffic:
         time.sleep(2)
         data = self._read_traffic_file()
         if data:
-            assert len(data.get("users", {})) == 0 or all(
-                v.get("rx", 0) == 0 and v.get("tx", 0) == 0
-                for v in data["users"].values()
-            ), "Anonymous request should not produce traffic counters"
+            current_users = set(data.get("users", {}).keys())
+            new_users = current_users - baseline_users
+            assert len(new_users) == 0, f"Anonymous request created new users: {new_users}"
+            for u in baseline_users:
+                if u in data.get("users", {}):
+                    assert data["users"][u]["rx"] == baseline_rx.get(u, 0), \
+                        f"Anonymous request increased RX for {u}"
+                    assert data["users"][u]["tx"] == baseline_tx.get(u, 0), \
+                        f"Anonymous request increased TX for {u}"
 
     def test_multiple_requests_accumulate(self):
         """Verify traffic accumulates over multiple requests."""
