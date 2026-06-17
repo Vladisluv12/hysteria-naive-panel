@@ -8,9 +8,9 @@
 #  и пишет статистику в /etc/rixxx-panel/naive_users.json
 #
 #  Использование:
-#    sudo bash build_caddy_traffic.sh
-#    sudo bash build_caddy_traffic.sh /path/to/forwardproxy-traffic  # из локальной папки
-#    sudo bash build_caddy_traffic.sh https://github.com/user/repo   # из git remote
+#    sudo bash build_caddy_traffic.sh                                    # из ~/projects/forwardproxy-traffic
+#    sudo bash build_caddy_traffic.sh /path/to/forwardproxy-traffic      # из папки
+#    sudo bash build_caddy_traffic.sh https://github.com/user/repo       # из GitHub
 # ═══════════════════════════════════════════════════════════════════════
 
 set -uo pipefail
@@ -27,10 +27,8 @@ log_info() { echo -e "   $1"; }
 # ── Аргументы ─────────────────────────────────────────────────────────
 MODULE_SRC="${1:-}"
 LOCAL_DIR="${HOME}/projects/forwardproxy-traffic"
-REMOTE_URL="https://github.com/caddyserver/forwardproxy.git"
-REMOTE_REF="naive"  # оригинальный форк klzgrad (основа)
+REMOTE_URL=""
 
-# Если передан аргумент — приоритет
 if [[ -n "$MODULE_SRC" ]]; then
   if [[ -d "$MODULE_SRC" ]]; then
     LOCAL_DIR="$MODULE_SRC"
@@ -102,33 +100,29 @@ mkdir -p "$BUILD_DIR"
 
 if [[ -n "$LOCAL_DIR" && -d "$LOCAL_DIR" ]]; then
   log "Используем локальный модуль: $LOCAL_DIR"
-  # Копируем локальный модуль в build-директорию (xcaddy требует go.mod)
-  cp -r "$LOCAL_DIR"/* "$BUILD_DIR"/
-else
-  log "Клонируем оригинальный forwardproxy..."
-  git clone --depth=1 --branch "$REMOTE_REF" "$REMOTE_URL" /tmp/fp-base 2>/dev/null || {
+  cp -r "$LOCAL_DIR"/* "$BUILD_DIR/"
+elif [[ -n "${REMOTE_URL:-}" ]]; then
+  # Пользователь передал свой remote URL — клонируем напрямую (готовый модуль)
+  log "Клонируем модуль: $REMOTE_URL"
+  git clone --depth=1 "$REMOTE_URL" "$BUILD_DIR" 2>/dev/null || {
     log_err "Не удалось клонировать $REMOTE_URL"
     exit 1
   }
-
-  # Копируем оригинал, затем накладываем наши файлы поверх
-  cp -r /tmp/fp-base/* "$BUILD_DIR"/
-  rm -rf /tmp/fp-base
-
-  # Если есть локальная папка с модулем — копируем traffic.go поверх
-  if [[ -n "$LOCAL_DIR" && -d "$LOCAL_DIR" ]]; then
-    log_info "Накладываем traffic.go из $LOCAL_DIR"
-    cp "$LOCAL_DIR/traffic.go" "$BUILD_DIR/" 2>/dev/null || true
-    cp "$LOCAL_DIR/forwardproxy.go" "$BUILD_DIR/" 2>/dev/null || true
-    cp "$LOCAL_DIR/caddyfile.go" "$BUILD_DIR/" 2>/dev/null || true
-  else
-      log_err "Нет локального модуля forwardproxy-traffic/ и не указан remote"
-      log_err "Склонируйте модуль в ~/projects/forwardproxy-traffic"
+  # Проверяем что это наш модуль (с traffic.go)
+  if [[ ! -f "$BUILD_DIR/traffic.go" ]]; then
+    log_err "В репозитории $REMOTE_URL нет traffic.go — это не forwardproxy-traffic модуль"
+    log_err "Убедитесь, что пушите модуль из ~/projects/forwardproxy-traffic"
     exit 1
   fi
+else
+  log_err "Не указан источник модуля"
+  log_err "Использование:"
+  log_err "  sudo bash build_caddy_traffic.sh                         # из ~/projects/forwardproxy-traffic"
+  log_err "  sudo bash build_caddy_traffic.sh /path/to/module          # из локальной папки"
+  log_err "  sudo bash build_caddy_traffic.sh https://github.com/u/r   # из GitHub remote"
+  exit 1
 fi
 
-# Проверяем что traffic.go на месте
 if [[ ! -f "$BUILD_DIR/traffic.go" ]]; then
   log_err "traffic.go не найден в $BUILD_DIR — модуль неполный"
   exit 1
