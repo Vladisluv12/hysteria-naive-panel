@@ -23,6 +23,8 @@ class TestPanelMigration:
         panel.create_naive_user(naive_user, "MigrateN1!")
         panel.create_hy2_user(hy2_user, "MigrateH1!")
 
+        ctrl.exec_rm("/app/data/panel.db")
+
         ctrl.restart(extra_env={"USE_SQLITE": "true"})
         assert ctrl.wait_ready(), "Panel should be ready in SQLite mode"
 

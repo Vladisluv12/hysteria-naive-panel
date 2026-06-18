@@ -1,8 +1,7 @@
 FROM caddy:builder AS builder
 ARG TARGETARCH=amd64
 
-COPY tests/integration/docker/caddy-traffic/forwardproxy-traffic/ /tmp/forwardproxy-traffic/
-RUN xcaddy build --with github.com/caddyserver/forwardproxy=/tmp/forwardproxy-traffic
+RUN xcaddy build --with github.com/caddyserver/forwardproxy=https://github.com/Vladisluv12/caddy_addon
 
 FROM caddy:latest
 COPY --from=builder /usr/bin/caddy /usr/bin/caddy

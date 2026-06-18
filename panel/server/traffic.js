@@ -115,6 +115,64 @@ function collectNaiveUsers() {
   return { users: {}, updated_at: null };
 }
 
+function httpGet(url) {
+  return new Promise((resolve, reject) => {
+    const http = require('http');
+    const req = http.get(url, { timeout: 3000 }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve(data));
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
+  });
+}
+
+async function collectHy2Users() {
+  try {
+    const configPath = testPath('/etc/hysteria/config.yaml');
+    if (!fs.existsSync(configPath)) return { users: {}, updated_at: null };
+
+    const yaml = require('js-yaml');
+    const config = yaml.load(fs.readFileSync(configPath, 'utf8'));
+    const ts = config && config.trafficStats;
+    if (!ts || !ts.listen) return { users: {}, updated_at: null };
+
+    const port = ts.listen.split(':').pop();
+    const base = `http://127.0.0.1:${port}`;
+
+    const [trafficRaw, onlineRaw] = await Promise.all([
+      httpGet(`${base}/traffic`),
+      httpGet(`${base}/online`).catch(() => '{}'),
+    ]);
+
+    let trafficData = {};
+    try { trafficData = JSON.parse(trafficRaw); } catch { /* ignore */ }
+    let onlineData = {};
+    try { onlineData = JSON.parse(onlineRaw); } catch { /* ignore */ }
+
+    const users = {};
+    for (const [username, stats] of Object.entries(trafficData)) {
+      const rx = Number(stats.rx) || 0;
+      const tx = Number(stats.tx) || 0;
+      const conns = Number((onlineData && onlineData[username]) || 0);
+      users[username] = {
+        rx,
+        tx,
+        conns,
+        rxFormatted: formatBytes(rx),
+        txFormatted: formatBytes(tx),
+        totalFormatted: formatBytes(rx + tx),
+      };
+    }
+
+    return { users, updated_at: Date.now() };
+  } catch (e) {
+    console.warn('[traffic] collectHy2Users error:', e.message);
+    return { users: {}, updated_at: null };
+  }
+}
+
 async function collectActiveConnections() {
   const result = { naive: null, hy2: null };
 
@@ -139,7 +197,10 @@ async function collectActiveConnections() {
 async function getTraffic() {
   const traffic = collectTraffic();
   const connections = await collectActiveConnections();
-  const naiveUsers = collectNaiveUsers();
+  const [naiveUsers, hy2Users] = await Promise.all([
+    collectNaiveUsers(),
+    collectHy2Users(),
+  ]);
 
   const perProtoRaw = await trafficMonitor.readCounters();
 
@@ -167,8 +228,8 @@ async function getTraffic() {
       hy2: protoInfo(perProtoRaw.hy2),
     },
     perUser: {
-      naive: naiveUsers.users,
-      updated_at: naiveUsers.updated_at,
+      naive: naiveUsers,
+      hy2: hy2Users,
     },
     connections,
     hourly: traffic ? traffic.hourly : [],
@@ -176,4 +237,4 @@ async function getTraffic() {
   };
 }
 
-module.exports = { getTraffic, collectTraffic, collectNaiveUsers, formatBytes, parseNetDev };
+module.exports = { getTraffic, collectTraffic, collectNaiveUsers, collectHy2Users, formatBytes, parseNetDev };

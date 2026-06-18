@@ -660,6 +660,16 @@ body {
 }
 .td-actions { white-space: nowrap; display: flex; gap: 6px; align-items: center; }
 
+.th-traffic,
+.td-traffic {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  white-space: nowrap;
+  width: 1%;
+}
+.th-traffic { font-family: var(--font-main); font-size: 0.75rem; }
+
 .empty-state { text-align: center; padding: 50px 20px; color: var(--text-muted); }
 .empty-state svg { opacity: 0.25; margin-bottom: 16px; }
 .empty-state p { margin-bottom: 20px; }

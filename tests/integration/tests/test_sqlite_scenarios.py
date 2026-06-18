@@ -18,6 +18,8 @@ class TestSQLiteScenarios:
         panel = PanelClient("http://127.0.0.1:3000")
         assert panel.login()
 
+        ctrl.exec_rm("/app/data/panel.db")
+
         panel.create_naive_user("json_test", "JsonPass1!")
         assert not ctrl.exec_exists("/app/data/panel.db"), \
             "panel.db should NOT exist in JSON mode"

@@ -26,8 +26,10 @@ def check_udp_through_proxy(
     socks_host: str = "127.0.0.1",
     socks_port: int = 10801,
     timeout: int = 10,
+    target_host: str = "8.8.8.8",
+    target_port: int = 53,
 ) -> bool:
-    """Check UDP connectivity through a SOCKS5 proxy via DNS query."""
+    """Check UDP connectivity through a SOCKS5 proxy."""
     try:
         import socks
         import socket
@@ -35,20 +37,25 @@ def check_udp_through_proxy(
         s = socks.socksocket(socket.AF_INET, socket.SOCK_DGRAM)
         s.set_proxy(socks.SOCKS5, socks_host, socks_port)
         s.settimeout(timeout)
-        dns_query = bytes([
-            0x00, 0x01,
-            0x01, 0x00,
-            0x00, 0x01,
-            0x00, 0x00,
-            0x00, 0x00,
-            0x00, 0x00,
-            7, ord('e'), ord('x'), ord('a'), ord('m'), ord('p'), ord('l'), ord('e'),
-            3, ord('c'), ord('o'), ord('m'),
-            0x00,
-            0x00, 0x01,
-            0x00, 0x01,
-        ])
-        s.sendto(dns_query, ("8.8.8.8", 53))
+
+        if target_host == "8.8.8.8" and target_port == 53:
+            payload = bytes([
+                0x00, 0x01,
+                0x01, 0x00,
+                0x00, 0x01,
+                0x00, 0x00,
+                0x00, 0x00,
+                0x00, 0x00,
+                7, ord('e'), ord('x'), ord('a'), ord('m'), ord('p'), ord('l'), ord('e'),
+                3, ord('c'), ord('o'), ord('m'),
+                0x00,
+                0x00, 0x01,
+                0x00, 0x01,
+            ])
+        else:
+            payload = b"ping\n"
+
+        s.sendto(payload, (target_host, target_port))
         data, _ = s.recvfrom(512)
         s.close()
         return len(data) > 0

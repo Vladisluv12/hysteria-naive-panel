@@ -133,27 +133,33 @@ describe('sqliteStorage', () => {
 
   test('loadConfig returns defaultConfig when no data exists', async () => {
     const freshDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sqlite-empty-'));
-    const oldDir = process.env.SQLITE_DB_DIR;
+    const oldSqliteDir = process.env.SQLITE_DB_DIR;
+    const oldTestDir = process.env.TEST_CONFIG_DIR;
     process.env.SQLITE_DB_DIR = freshDir;
+    process.env.TEST_CONFIG_DIR = freshDir;
     vi.resetModules();
     const mod = await import('../services/sqliteStorage.js');
     const cfg = mod.loadConfig();
     expect(cfg.installed).toBe(false);
     expect(cfg.domain).toBe('');
-    process.env.SQLITE_DB_DIR = oldDir;
+    process.env.SQLITE_DB_DIR = oldSqliteDir;
+    process.env.TEST_CONFIG_DIR = oldTestDir;
     fs.rmSync(freshDir, { recursive: true, force: true });
   });
 
   test('loadUsers creates default admin when no users exist', async () => {
     const freshDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sqlite-nousers-'));
-    const oldDir = process.env.SQLITE_DB_DIR;
+    const oldSqliteDir = process.env.SQLITE_DB_DIR;
+    const oldTestDir = process.env.TEST_CONFIG_DIR;
     process.env.SQLITE_DB_DIR = freshDir;
+    process.env.TEST_CONFIG_DIR = freshDir;
     vi.resetModules();
     const mod = await import('../services/sqliteStorage.js');
     const users = mod.loadUsers();
     expect(users.admin).toBeDefined();
     expect(users.admin.role).toBe('admin');
-    process.env.SQLITE_DB_DIR = oldDir;
+    process.env.SQLITE_DB_DIR = oldSqliteDir;
+    process.env.TEST_CONFIG_DIR = oldTestDir;
     fs.rmSync(freshDir, { recursive: true, force: true });
   });
 });

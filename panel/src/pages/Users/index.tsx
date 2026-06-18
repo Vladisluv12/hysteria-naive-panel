@@ -3,11 +3,12 @@ import { NavLink, useParams } from 'react-router-dom';
 import * as naiveApi from '../../api/naive';
 import * as hysteriaApi from '../../api/hysteria';
 import * as systemApi from '../../api/system';
+import * as trafficApi from '../../api/traffic';
 import { useToast } from '../../contexts/ToastContext';
 import { UserTable } from './components/UserTable';
 import { CreateUserModal } from './components/CreateUserModal';
 import { ExtendModal } from './components/ExtendModal';
-import type { NaiveUser, HysteriaUser } from '../../types/api';
+import type { NaiveUser, HysteriaUser, UserTraffic } from '../../types/api';
 import styles from './styles.module.css';
 
 type ProxyType = 'naive' | 'hysteria';
@@ -23,6 +24,7 @@ export function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [extendUser, setExtendUser] = useState<{ username: string; expiry: string | null } | null>(null);
+  const [trafficByUser, setTrafficByUser] = useState<Record<string, UserTraffic>>({});
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -33,6 +35,12 @@ export function UsersPage() {
       ]);
       setUsers(u);
       setDomain(config.proxyDomain);
+
+      try {
+        const traffic = await trafficApi.getTraffic();
+        const pu = traffic?.perUser?.[isNaive ? 'naive' : 'hy2']?.users;
+        if (pu) setTrafficByUser(pu);
+      } catch { /* traffic not critical */ }
     } catch (err) {
       addToast(err instanceof Error ? err.message : 'Failed to load', 'error');
     } finally {
@@ -92,7 +100,7 @@ export function UsersPage() {
       {loading ? (
         <div className={styles.loading}>Loading...</div>
       ) : (
-        <UserTable users={users} onExtend={(username, expiry) => setExtendUser({ username, expiry })} onDelete={handleDelete} onCopyLink={makeLink} />
+        <UserTable users={users} trafficByUser={trafficByUser} onExtend={(username, expiry) => setExtendUser({ username, expiry })} onDelete={handleDelete} onCopyLink={makeLink} />
       )}
       {showCreate && <CreateUserModal title={`Add ${isNaive ? 'NaiveProxy' : 'Hysteria2'} User`} onClose={() => setShowCreate(false)} onSubmit={handleCreate} />}
       {extendUser && <ExtendModal username={extendUser.username} currentExpiry={extendUser.expiry} onClose={() => setExtendUser(null)} onSubmit={handleExtend} />}

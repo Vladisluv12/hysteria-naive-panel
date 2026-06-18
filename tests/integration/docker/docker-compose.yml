@@ -33,8 +33,8 @@ services:
       - "10443:10443"
     volumes:
       - proxy-config-share:/etc/caddy
-      - caddy-data:/data
-      - caddy-config:/config
+      - caddy-naive-data:/data
+      - caddy-naive-config:/config
     networks:
       - testnet
     healthcheck:
@@ -55,9 +55,9 @@ services:
     ports:
       - "11443:11443"
     volumes:
-      - proxy-config-share:/etc/caddy
-      - caddy-data:/data
-      - caddy-config:/config
+      - caddy-traffic-share:/etc/caddy
+      - caddy-traffic-data:/data
+      - caddy-traffic-config:/config
     networks:
       - testnet
     healthcheck:
@@ -174,10 +174,25 @@ services:
       retries: 10
       start_period: 15s
 
+  udp-echo:
+    image: alpine:3
+    container_name: nt-udp-echo
+    command: sh -c 'apk add --no-cache socat >/dev/null 2>&1 && socat UDP-LISTEN:5555,fork EXEC:"/bin/cat"'
+    networks:
+      - testnet
+    healthcheck:
+      test: ["CMD", "sh", "-c", "echo ping | nc -u -w1 127.0.0.1 5555"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
 volumes:
   cert-data:
-  caddy-data:
-  caddy-config:
+  caddy-naive-data:
+  caddy-naive-config:
+  caddy-traffic-data:
+  caddy-traffic-config:
+  caddy-traffic-share:
   panel-data:
   panel-data-sqlite:
   panel-data-react:

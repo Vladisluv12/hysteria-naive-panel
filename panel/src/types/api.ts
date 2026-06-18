@@ -51,6 +51,27 @@ export interface TrafficData {
   };
 }
 
+export interface UserTraffic {
+  rx: number;
+  tx: number;
+  conns: number;
+  rxFormatted: string;
+  txFormatted: string;
+  totalFormatted: string;
+}
+
+export interface PerUserTraffic {
+  users: Record<string, UserTraffic>;
+  updated_at: number;
+}
+
+export interface TrafficResponse {
+  perUser?: {
+    naive?: PerUserTraffic;
+    hy2?: PerUserTraffic;
+  };
+}
+
 export interface LogEntry {
   timestamp: string;
   line: string;

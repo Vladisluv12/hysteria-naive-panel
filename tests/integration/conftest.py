@@ -198,6 +198,12 @@ class DockerPanelControl:
         )
         return result.returncode == 0
 
+    def exec_rm(self, filepath):
+        subprocess.run(
+            ["docker", "exec", self.CONTAINER, "rm", "-f", filepath],
+            capture_output=True, timeout=5,
+        )
+
     def exec_sqlite_select(self, query):
         result = subprocess.run(
             ["docker", "exec", self.CONTAINER,

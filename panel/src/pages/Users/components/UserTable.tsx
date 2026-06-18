@@ -1,4 +1,5 @@
 import { CopyButton } from '../../../components/CopyButton';
+import type { UserTraffic } from '../../../types/api';
 import styles from '../styles.module.css';
 
 interface User {
@@ -11,6 +12,7 @@ interface User {
 
 interface UserTableProps {
   users: User[];
+  trafficByUser: Record<string, UserTraffic>;
   onExtend: (username: string, currentExpiry: string | null) => void;
   onDelete: (username: string) => void;
   onCopyLink: (username: string, password: string) => string;
@@ -29,7 +31,7 @@ function getBadge(daysLeft: number | null): { label: string; cls: string } {
   return { label: `${daysLeft} дн.`, cls: styles.badgeOk };
 }
 
-export function UserTable({ users, onExtend, onDelete, onCopyLink }: UserTableProps) {
+export function UserTable({ users, trafficByUser, onExtend, onDelete, onCopyLink }: UserTableProps) {
   const list = Array.isArray(users) ? users : [];
 
   return (
@@ -42,6 +44,9 @@ export function UserTable({ users, onExtend, onDelete, onCopyLink }: UserTablePr
             <th className={styles.th}>Ссылка подключения</th>
             <th className={styles.th}>Создан</th>
             <th className={styles.th}>Срок</th>
+            <th className={`${styles.th} ${styles.thTraffic}`}>RX</th>
+            <th className={`${styles.th} ${styles.thTraffic}`}>TX</th>
+            <th className={`${styles.th} ${styles.thTraffic}`}>Active</th>
             <th className={styles.th}>Действия</th>
           </tr>
         </thead>
@@ -49,6 +54,7 @@ export function UserTable({ users, onExtend, onDelete, onCopyLink }: UserTablePr
           {list.map((u) => {
             const daysLeft = getDaysLeft(u.expiry);
             const badge = getBadge(daysLeft);
+            const t = trafficByUser[u.username];
             return (
               <tr key={u.username} className={`${styles.tr} ${u.expired ? styles.trExpired : ''}`}>
                 <td className={`${styles.td} ${styles.tdUsername}`}>{u.username}</td>
@@ -61,6 +67,9 @@ export function UserTable({ users, onExtend, onDelete, onCopyLink }: UserTablePr
                 </td>
                 <td className={styles.td}>{u.created}</td>
                 <td className={styles.td}><span className={`${styles.badge} ${badge.cls}`}>{badge.label}</span></td>
+                <td className={`${styles.td} ${styles.tdTraffic}`}>{t?.rxFormatted || '—'}</td>
+                <td className={`${styles.td} ${styles.tdTraffic}`}>{t?.txFormatted || '—'}</td>
+                <td className={`${styles.td} ${styles.tdTraffic}`}>{t?.conns !== undefined ? t.conns : '—'}</td>
                 <td className={styles.td}>
                   <div className={styles.actions}>
                     <button className={`${styles.smallBtn} ${styles.extendBtn}`} onClick={() => onExtend(u.username, u.expiry)}>Продлить</button>

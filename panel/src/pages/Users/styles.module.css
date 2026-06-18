@@ -64,6 +64,16 @@
 .tdUsername { font-weight: 600; color: var(--text-primary); }
 .tdLink { font-family: var(--font-mono); font-size: 0.73rem; color: var(--text-accent); max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+.thTraffic,
+.tdTraffic {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  white-space: nowrap;
+  width: 1%;
+}
+.thTraffic { font-family: var(--font-main); font-size: 0.75rem; }
+
 .actions { white-space: nowrap; display: flex; gap: 6px; align-items: center; }
 
 .smallBtn {

@@ -557,12 +557,20 @@ async function loadUsers() {
   const empty = document.getElementById('emptyUsers');
 
   try {
-    const [usersRes, statusRes] = await Promise.all([
+    const [usersRes, statusRes, trafficRes] = await Promise.all([
       fetch(`/api/${currentUsersTab}/users`),
-      fetch('/api/status')
+      fetch('/api/status'),
+      fetch('/api/traffic').catch(() => null)
     ]);
     const { users } = await usersRes.json();
     const status = await statusRes.json();
+
+    let trafficByUser = {};
+    if (trafficRes && trafficRes.ok) {
+      const trafficData = await trafficRes.json();
+      const pu = trafficData?.perUser?.[currentUsersTab]?.users;
+      if (pu) trafficByUser = pu;
+    }
 
     // Обновляем счётчики табов
     try {
@@ -583,6 +591,7 @@ async function loadUsers() {
     tbody.innerHTML = '';
 
     users.forEach((u, i) => {
+      const t = trafficByUser[u.username] || {};
       const link = status.installed && status.domain
         ? (currentUsersTab === 'naive'
             ? `naive+https://${u.username}:${u.password}@${status.domain}:443`
@@ -601,6 +610,9 @@ async function loadUsers() {
           </td>
           <td>${date}</td>
           <td class="td-expire">${expireCell}</td>
+          <td class="td-traffic">${t.rxFormatted || '—'}</td>
+          <td class="td-traffic">${t.txFormatted || '—'}</td>
+          <td class="td-traffic">${t.conns !== undefined ? t.conns : '—'}</td>
           <td class="td-actions">
             ${link ? `<button class="btn btn-outline btn-sm" onclick="copyText('${escapeHtml(link)}')" title="Копировать">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
