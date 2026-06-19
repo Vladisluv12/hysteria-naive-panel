@@ -1,54 +1,79 @@
 export interface NaiveUser {
   username: string;
   password: string;
-  expiry: string | null;
+  createdAt: string;
+  expiresAt: string | null;
+  remainingSec: number;
   expired: boolean;
-  created: string;
 }
 
 export interface HysteriaUser {
   username: string;
   password: string;
-  expiry: string | null;
+  createdAt: string;
+  expiresAt: string | null;
+  remainingSec: number;
   expired: boolean;
-  created: string;
+}
+
+export interface NaiveUserListResponse {
+  users: NaiveUser[];
+}
+
+export interface HysteriaUserListResponse {
+  users: HysteriaUser[];
+}
+
+export interface CreateUserResponse {
+  success: boolean;
+  link?: string;
+  message?: string;
+}
+
+export interface UpdateUserResponse {
+  success: boolean;
+  expiresAt?: string;
+  message?: string;
+}
+
+export interface DeleteUserResponse {
+  success: boolean;
+  message?: string;
 }
 
 export interface SystemStatus {
-  caddy: 'active' | 'inactive' | 'unknown';
-  hysteria: 'active' | 'inactive' | 'unknown';
-  panelUptime: string;
-  serverIp: string;
-  domain: string;
+  installed: boolean;
+  stack: { naive: boolean; hy2: boolean };
+  domain?: string;
+  email?: string;
+  serverIp?: string;
+  arch?: string;
+  naive: { active: boolean; usersCount: number } | null;
+  hy2: { active: boolean; usersCount: number } | null;
 }
 
 export interface Config {
-  panelDomain: string;
-  proxyDomain: string;
-  adminEmail: string;
-  naiveEnabled: boolean;
-  hysteriaEnabled: boolean;
-  masqueradeMode: string;
-  masqueradeUrl: string;
-  sshOnly: boolean;
+  domain?: string;
+  email?: string;
+  serverIp?: string;
+  installed: boolean;
+  stack: { naive: boolean; hy2: boolean };
+  panelDomain?: string;
+  sshOnly?: boolean;
+  [key: string]: unknown;
 }
 
 export interface VersionInfo {
   version: string;
-  targetVersion: string | null;
+  source?: string;
 }
 
 export interface TrafficData {
-  caddy?: {
-    bytesIn: number;
-    bytesOut: number;
-    connections: number;
-  };
-  hysteria?: {
-    packetsIn: number;
-    packetsOut: number;
-    connections: number;
-  };
+  daily?: unknown;
+  connections?: { naive: unknown; hy2: unknown };
+  hourly?: unknown[];
+  lastReset?: unknown;
+  error?: string;
 }
 
 export interface UserTraffic {
@@ -69,18 +94,47 @@ export interface TrafficResponse {
   perUser?: {
     naive?: PerUserTraffic;
     hy2?: PerUserTraffic;
-  };
+  } & { [key: string]: PerUserTraffic | undefined };
+  daily?: unknown;
+  connections?: unknown;
+  hourly?: unknown[];
+  lastReset?: unknown;
+  error?: string;
 }
 
-export interface LogEntry {
-  timestamp: string;
-  line: string;
+export interface LogsResponse {
+  unit: string;
+  output: string;
+}
+
+export interface PortsResponse {
+  output: string;
+}
+
+export interface HysteriaConfigResponse {
+  exists: boolean;
+  output: string;
 }
 
 export interface BypassStatus {
   enabled: boolean;
-  entries: number;
-  file: string;
+  count: number;
+  source: string;
+  updatedAt: string | null;
+  preview: string[];
+}
+
+export interface BypassUpdateInput {
+  cidrs?: string[];
+  enabled?: boolean;
+  source?: string;
+  json?: Record<string, string[]>;
+}
+
+export interface BypassUpdateResponse {
+  success: boolean;
+  enabled: boolean;
+  count: number;
 }
 
 export interface TuningStatus {
@@ -96,7 +150,8 @@ export interface ApiError {
 export interface CreateUserInput {
   username: string;
   password: string;
-  expiry: string | null;
+  expireDays?: number;
+  expiry?: string | null;
 }
 
 export interface ChangePasswordInput {

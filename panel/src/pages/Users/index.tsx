@@ -3,7 +3,6 @@ import { NavLink, useParams } from 'react-router-dom';
 import * as naiveApi from '../../api/naive';
 import * as hysteriaApi from '../../api/hysteria';
 import * as systemApi from '../../api/system';
-import * as trafficApi from '../../api/traffic';
 import { useToast } from '../../contexts/ToastContext';
 import { UserTable } from './components/UserTable';
 import { CreateUserModal } from './components/CreateUserModal';
@@ -29,15 +28,16 @@ export function UsersPage() {
   const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
+      const api = isNaive ? naiveApi : hysteriaApi;
       const [u, config] = await Promise.all([
-        isNaive ? naiveApi.listUsers() : hysteriaApi.listUsers(),
+        api.listUsers(),
         systemApi.getConfig(),
       ]);
-      setUsers(u);
-      setDomain(config.proxyDomain);
+      setUsers(u.users);
+      setDomain(config.domain || '');
 
       try {
-        const traffic = await trafficApi.getTraffic();
+        const traffic = await systemApi.getTraffic();
         const pu = traffic?.perUser?.[isNaive ? 'naive' : 'hy2']?.users;
         if (pu) setTrafficByUser(pu);
       } catch { /* traffic not critical */ }
@@ -51,16 +51,17 @@ export function UsersPage() {
   useEffect(() => { loadUsers(); }, [loadUsers]);
 
   const handleCreate = async (data: { username: string; password: string; expiry: string | null }) => {
-    if (isNaive) await naiveApi.createUser(data);
-    else await hysteriaApi.createUser(data);
+    const api = isNaive ? naiveApi : hysteriaApi;
+    const res = await api.createUser(data);
+    if (!res.success) throw new Error(res.message || 'Create failed');
     addToast(`User ${data.username} created`, 'success');
     loadUsers();
   };
 
   const handleDelete = async (username: string) => {
     try {
-      if (isNaive) await naiveApi.deleteUser(username);
-      else await hysteriaApi.deleteUser(username);
+      const api = isNaive ? naiveApi : hysteriaApi;
+      await api.deleteUser(username);
       addToast(`User ${username} deleted`, 'success');
       loadUsers();
     } catch (err) {
@@ -71,8 +72,10 @@ export function UsersPage() {
   const handleExtend = async (expiry: string | null) => {
     if (!extendUser) return;
     try {
-      if (isNaive) await naiveApi.updateUser(extendUser.username, { expiry });
-      else await hysteriaApi.updateUser(extendUser.username, { expiry });
+      const api = isNaive ? naiveApi : hysteriaApi;
+      const expireDays = expiry ? parseInt(expiry) || 0 : 0;
+      const res = await api.updateUser(extendUser.username, { expireDays });
+      if (!res.success) throw new Error(res.message || 'Extend failed');
       addToast(`User ${extendUser.username} updated`, 'success');
       setExtendUser(null);
       loadUsers();

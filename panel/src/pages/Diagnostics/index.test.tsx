@@ -13,12 +13,9 @@ vi.mock('../../api/auth', () => ({
 }));
 
 vi.mock('../../api/diagnostics', () => ({
-  getLogs: vi.fn().mockResolvedValue([
-    { timestamp: '', line: 'log line 1' },
-    { timestamp: '', line: 'log line 2' },
-  ]),
-  getPorts: vi.fn().mockResolvedValue([]),
-  getHysteriaConfig: vi.fn().mockResolvedValue({ raw: 'config content' }),
+  getLogs: vi.fn().mockResolvedValue({ unit: 'caddy', output: 'log line 1\nlog line 2' }),
+  getPorts: vi.fn().mockResolvedValue({ output: 'port info' }),
+  getHysteriaConfig: vi.fn().mockResolvedValue({ exists: true, output: 'config content' }),
 }));
 
 function renderPage() {
@@ -37,8 +34,8 @@ describe('DiagnosticsPage', () => {
   it('renders log tabs and loads caddy logs by default', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('log line 1')).toBeDefined();
-      expect(screen.getByText('log line 2')).toBeDefined();
+      expect(screen.getByText((content: string) => content.includes('log line 1'))).toBeDefined();
+      expect(screen.getByText((content: string) => content.includes('log line 2'))).toBeDefined();
     });
   });
 

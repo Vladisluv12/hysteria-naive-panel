@@ -3,27 +3,26 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { UsersPage } from './index';
 import { UserTable } from './components/UserTable';
-import { getTraffic } from '../../api/traffic';
 import { AuthProvider } from '../../contexts/AuthContext';
 import { ToastProvider } from '../../contexts/ToastContext';
+import * as systemApi from '../../api/system';
 
 vi.mock('../../api/auth', () => ({
   me: vi.fn().mockResolvedValue({ username: 'admin', role: 'admin' }),
   login: vi.fn(), logout: vi.fn(),
 }));
 vi.mock('../../api/naive', () => ({
-  listUsers: vi.fn().mockResolvedValue([{ username: 'user1', password: 'pass1', expiry: '2026-12-31', expired: false, created: '2026-01-01' }]),
+  listUsers: vi.fn().mockResolvedValue({ users: [{ username: 'user1', password: 'pass1', expiresAt: '2026-12-31', expired: false, createdAt: '2026-01-01', remainingSec: 86400 }] }),
   createUser: vi.fn(), deleteUser: vi.fn(), updateUser: vi.fn(),
 }));
 vi.mock('../../api/hysteria', () => ({
-  listUsers: vi.fn().mockResolvedValue([]),
+  listUsers: vi.fn().mockResolvedValue({ users: [] }),
   createUser: vi.fn(), deleteUser: vi.fn(), updateUser: vi.fn(),
 }));
 vi.mock('../../api/system', () => ({
-  getConfig: vi.fn().mockResolvedValue({ proxyDomain: 'example.com' }),
-}));
-vi.mock('../../api/traffic', () => ({
+  getConfig: vi.fn().mockResolvedValue({ domain: 'example.com', installed: true, stack: { naive: true, hy2: false } }),
   getTraffic: vi.fn(),
+  getStatus: vi.fn(), getVersion: vi.fn(), serviceAction: vi.fn(),
 }));
 
 function renderPage() {
@@ -46,8 +45,8 @@ describe('UsersPage', () => {
 function renderUserTable(overrides: Partial<Parameters<typeof UserTable>[0]> = {}) {
   const props = {
     users: [
-      { username: 'alice', password: 'pass1', expiry: '2026-12-31', expired: false, created: '2026-01-01' },
-      { username: 'bob', password: 'pass2', expiry: null, expired: false, created: '2026-02-01' },
+      { username: 'alice', password: 'pass1', expiresAt: '2026-12-31', expired: false, createdAt: '2026-01-01' },
+      { username: 'bob', password: 'pass2', expiresAt: null, expired: false, createdAt: '2026-02-01' },
     ],
     trafficByUser: {} as Record<string, { rx: number; tx: number; conns: number; rxFormatted: string; txFormatted: string; totalFormatted: string }>,
     onExtend: vi.fn(),
@@ -99,11 +98,11 @@ describe('UserTable', () => {
 
 describe('UsersPage traffic', () => {
   beforeEach(() => {
-    vi.mocked(getTraffic).mockReset();
+    vi.mocked(systemApi.getTraffic).mockReset();
   });
 
   it('passes per-user traffic data to UserTable', async () => {
-    vi.mocked(getTraffic).mockResolvedValue({
+    vi.mocked(systemApi.getTraffic).mockResolvedValue({
       perUser: {
         naive: {
           users: {
@@ -123,7 +122,7 @@ describe('UsersPage traffic', () => {
   });
 
   it('shows — when getTraffic fails without crashing', async () => {
-    vi.mocked(getTraffic).mockRejectedValue(new Error('Network error'));
+    vi.mocked(systemApi.getTraffic).mockRejectedValue(new Error('Network error'));
 
     renderPage();
     await waitFor(() => {
@@ -134,7 +133,7 @@ describe('UsersPage traffic', () => {
   });
 
   it('shows — when getTraffic returns no perUser data', async () => {
-    vi.mocked(getTraffic).mockResolvedValue({});
+    vi.mocked(systemApi.getTraffic).mockResolvedValue({});
 
     renderPage();
     await waitFor(() => {

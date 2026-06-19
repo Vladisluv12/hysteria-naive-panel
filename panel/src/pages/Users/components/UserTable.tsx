@@ -5,9 +5,9 @@ import styles from '../styles.module.css';
 interface User {
   username: string;
   password: string;
-  expiry: string | null;
+  createdAt: string;
+  expiresAt: string | null;
   expired: boolean;
-  created: string;
 }
 
 interface UserTableProps {
@@ -18,15 +18,15 @@ interface UserTableProps {
   onCopyLink: (username: string, password: string) => string;
 }
 
-function getDaysLeft(expiry: string | null): number | null {
-  if (!expiry) return null;
-  const ms = new Date(expiry).getTime() - Date.now();
+function getDaysLeft(expiresAt: string | null): number | null {
+  if (!expiresAt) return null;
+  const ms = new Date(expiresAt).getTime() - Date.now();
   return Math.floor(ms / (1000 * 60 * 60 * 24));
 }
 
-function getBadge(daysLeft: number | null): { label: string; cls: string } {
+function getBadge(daysLeft: number | null, expired: boolean): { label: string; cls: string } {
   if (daysLeft === null) return { label: 'Бессрочно', cls: styles.badgeMuted };
-  if (daysLeft < 0) return { label: 'Истёк', cls: styles.badgeDanger };
+  if (expired || daysLeft < 0) return { label: 'Истёк', cls: styles.badgeDanger };
   if (daysLeft === 0) return { label: 'Менее суток', cls: styles.badgeWarn };
   return { label: `${daysLeft} дн.`, cls: styles.badgeOk };
 }
@@ -52,8 +52,8 @@ export function UserTable({ users, trafficByUser, onExtend, onDelete, onCopyLink
         </thead>
         <tbody>
           {list.map((u) => {
-            const daysLeft = getDaysLeft(u.expiry);
-            const badge = getBadge(daysLeft);
+            const daysLeft = getDaysLeft(u.expiresAt);
+            const badge = getBadge(daysLeft, u.expired);
             const t = trafficByUser[u.username];
             return (
               <tr key={u.username} className={`${styles.tr} ${u.expired ? styles.trExpired : ''}`}>
@@ -65,14 +65,14 @@ export function UserTable({ users, trafficByUser, onExtend, onDelete, onCopyLink
                     <CopyButton text={onCopyLink(u.username, u.password)} />
                   </div>
                 </td>
-                <td className={styles.td}>{u.created}</td>
+                <td className={styles.td}>{u.createdAt?.slice(0, 10)}</td>
                 <td className={styles.td}><span className={`${styles.badge} ${badge.cls}`}>{badge.label}</span></td>
                 <td className={`${styles.td} ${styles.tdTraffic}`}>{t?.rxFormatted || '—'}</td>
                 <td className={`${styles.td} ${styles.tdTraffic}`}>{t?.txFormatted || '—'}</td>
                 <td className={`${styles.td} ${styles.tdTraffic}`}>{t?.conns !== undefined ? t.conns : '—'}</td>
                 <td className={styles.td}>
                   <div className={styles.actions}>
-                    <button className={`${styles.smallBtn} ${styles.extendBtn}`} onClick={() => onExtend(u.username, u.expiry)}>Продлить</button>
+                    <button className={`${styles.smallBtn} ${styles.extendBtn}`} onClick={() => onExtend(u.username, u.expiresAt)}>Продлить</button>
                     <button className={`${styles.smallBtn} ${styles.deleteBtn}`} onClick={() => onDelete(u.username)}>Удалить</button>
                   </div>
                 </td>

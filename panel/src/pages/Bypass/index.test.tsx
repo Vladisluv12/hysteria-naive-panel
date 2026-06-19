@@ -10,7 +10,13 @@ vi.mock('../../api/auth', () => ({
   login: vi.fn(), logout: vi.fn(),
 }));
 vi.mock('../../api/bypass', () => ({
-  getBypass: vi.fn().mockResolvedValue({ enabled: true, entries: 1200, file: '/etc/hysteria/bypass-ru.acl' }),
+  getBypass: vi.fn().mockResolvedValue({
+    enabled: true,
+    count: 1200,
+    source: 'antifilter.download',
+    updatedAt: '2026-01-01T00:00:00Z',
+    preview: ['1.2.3.0/24'],
+  }),
   updateBypass: vi.fn().mockResolvedValue(undefined),
   clearBypass: vi.fn().mockResolvedValue(undefined),
 }));

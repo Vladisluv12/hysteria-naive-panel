@@ -1,38 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import * as systemApi from '../../api/system';
+import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import type { SystemStatus, TrafficData } from '../../types/api';
+import type { SystemStatus } from '../../types/api';
 import styles from './styles.module.css';
 
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
-}
-
-function formatPackets(packets: number): string {
-  if (packets === 0) return '0';
-  if (packets >= 1000000) return `${(packets / 1000000).toFixed(1)}M`;
-  if (packets >= 1000) return `${(packets / 1000).toFixed(1)}K`;
-  return String(packets);
-}
-
 export function DashboardPage() {
+  const { mustChangePassword } = useAuth();
   const { addToast } = useToast();
   const [status, setStatus] = useState<SystemStatus | null>(null);
-  const [traffic, setTraffic] = useState<TrafficData | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     try {
-      const [s, t] = await Promise.all([
-        systemApi.getStatus(),
-        systemApi.getTraffic(),
-      ]);
+      const s = await systemApi.getStatus();
       setStatus(s);
-      setTraffic(t);
     } catch (err) {
       addToast(err instanceof Error ? err.message : 'Failed to load', 'error');
     } finally {
@@ -52,14 +34,46 @@ export function DashboardPage() {
     }
   };
 
+  if (!status?.installed) {
+    if (loading) return <div className={styles.loading}>Loading...</div>;
+    return (
+      <div className={styles.page}>
+        <h1 className={styles.title}>Dashboard</h1>
+        <div className={styles.card}>
+          <div className={styles.cardBody} style={{ textAlign: 'center', padding: '40px 20px' }}>
+            <h3 style={{ marginBottom: 12 }}>Прокси не установлены</h3>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: 20 }}>
+              Перейдите на страницу <strong>Install</strong> для установки.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) return <div className={styles.loading}>Loading...</div>;
 
-  const caddyActive = status?.caddy === 'active';
-  const hy2Active = status?.hysteria === 'active';
+  const caddyActive = status.naive?.active ?? false;
+  const hy2Active = status.hy2?.active ?? false;
 
   return (
     <div className={styles.page}>
       <h1 className={styles.title}>Dashboard</h1>
+
+      {mustChangePassword && (
+        <div style={{
+          background: 'var(--warning-bg)',
+          border: '1px solid var(--warning)',
+          borderRadius: 'var(--radius)',
+          padding: '12px 16px',
+          marginBottom: 16,
+          color: 'var(--text-primary)',
+          fontSize: '0.9rem',
+        }}>
+          <strong>Внимание:</strong> Вы используете пароль по умолчанию. Смените его на странице{' '}
+          <a href="/settings" style={{ color: 'var(--accent-bright)', textDecoration: 'underline' }}>Settings</a>.
+        </div>
+      )}
 
       <div className={styles.cardsRow}>
         <div className={styles.card}>
@@ -73,7 +87,7 @@ export function DashboardPage() {
             </div>
             <div className={styles.status}>
               <span className={`${styles.dot} ${caddyActive ? styles.dotGreen : styles.dotGray}`} />
-              {status?.caddy ?? '—'}
+              {caddyActive ? 'active' : (status.naive ? 'inactive' : '—')}
             </div>
           </div>
           <div className={styles.cardBody}>
@@ -81,13 +95,13 @@ export function DashboardPage() {
               <div className={styles.stats}>
                 <div>
                   <div className={styles.statLabel}>Пользователей</div>
-                  <div className={styles.statValue}>—</div>
+                  <div className={styles.statValue}>{status.naive?.usersCount ?? '—'}</div>
                 </div>
               </div>
               <div className={styles.buttons}>
-                <button className={`${styles.btn} ${styles.btnSuccess}`} onClick={() => handleServiceAction('caddy', 'start')}>Старт</button>
-                <button className={`${styles.btn} ${styles.btnWarning}`} onClick={() => handleServiceAction('caddy', 'restart')}>Рестарт</button>
-                <button className={`${styles.btn} ${styles.btnDanger}`} onClick={() => handleServiceAction('caddy', 'stop')}>Стоп</button>
+                <button className={`${styles.btn} ${styles.btnSuccess}`} onClick={() => handleServiceAction('naive', 'start')}>Старт</button>
+                <button className={`${styles.btn} ${styles.btnWarning}`} onClick={() => handleServiceAction('naive', 'restart')}>Рестарт</button>
+                <button className={`${styles.btn} ${styles.btnDanger}`} onClick={() => handleServiceAction('naive', 'stop')}>Стоп</button>
               </div>
             </div>
           </div>
@@ -104,7 +118,7 @@ export function DashboardPage() {
             </div>
             <div className={styles.status}>
               <span className={`${styles.dot} ${hy2Active ? styles.dotGreen : styles.dotGray}`} />
-              {status?.hysteria ?? '—'}
+              {hy2Active ? 'active' : (status.hy2 ? 'inactive' : '—')}
             </div>
           </div>
           <div className={styles.cardBody}>
@@ -112,13 +126,13 @@ export function DashboardPage() {
               <div className={styles.stats}>
                 <div>
                   <div className={styles.statLabel}>Пользователей</div>
-                  <div className={styles.statValue}>—</div>
+                  <div className={styles.statValue}>{status.hy2?.usersCount ?? '—'}</div>
                 </div>
               </div>
               <div className={styles.buttons}>
-                <button className={`${styles.btn} ${styles.btnSuccess}`} onClick={() => handleServiceAction('hysteria', 'start')}>Старт</button>
-                <button className={`${styles.btn} ${styles.btnWarning}`} onClick={() => handleServiceAction('hysteria', 'restart')}>Рестарт</button>
-                <button className={`${styles.btn} ${styles.btnDanger}`} onClick={() => handleServiceAction('hysteria', 'stop')}>Стоп</button>
+                <button className={`${styles.btn} ${styles.btnSuccess}`} onClick={() => handleServiceAction('hy2', 'start')}>Старт</button>
+                <button className={`${styles.btn} ${styles.btnWarning}`} onClick={() => handleServiceAction('hy2', 'restart')}>Рестарт</button>
+                <button className={`${styles.btn} ${styles.btnDanger}`} onClick={() => handleServiceAction('hy2', 'stop')}>Стоп</button>
               </div>
             </div>
           </div>
@@ -127,38 +141,36 @@ export function DashboardPage() {
 
       <div className={`${styles.card} ${styles.trafficCard}`}>
         <div className={styles.cardHeader}>
-          <h3 className={styles.cardTitle}>Трафик</h3>
+          <h3 className={styles.cardTitle}>Информация о сервере</h3>
         </div>
         <div className={styles.cardBody}>
           <div className={styles.trafficGrid}>
             <div className={styles.trafficGroup}>
-              <div className={styles.trafficTitle}>Caddy (NaiveProxy)</div>
               <div className={styles.trafficRow}>
-                <span className={styles.trafficLabel}>IN</span>
-                <span className={styles.trafficValue}>{traffic?.caddy ? formatBytes(traffic.caddy.bytesIn) : '—'}</span>
+                <span className={styles.trafficLabel}>Домен</span>
+                <span className={styles.trafficValue}>{status.domain || '—'}</span>
               </div>
               <div className={styles.trafficRow}>
-                <span className={styles.trafficLabel}>OUT</span>
-                <span className={styles.trafficValue}>{traffic?.caddy ? formatBytes(traffic.caddy.bytesOut) : '—'}</span>
+                <span className={styles.trafficLabel}>Сервер IP</span>
+                <span className={styles.trafficValue}>{status.serverIp || '—'}</span>
               </div>
               <div className={styles.trafficRow}>
-                <span className={styles.trafficLabel}>Connections</span>
-                <span className={styles.trafficValue}>{traffic?.caddy?.connections ?? '—'}</span>
+                <span className={styles.trafficLabel}>Email</span>
+                <span className={styles.trafficValue}>{status.email || '—'}</span>
               </div>
             </div>
             <div className={styles.trafficGroup}>
-              <div className={styles.trafficTitle}>Hysteria2</div>
               <div className={styles.trafficRow}>
-                <span className={styles.trafficLabel}>IN</span>
-                <span className={styles.trafficValue}>{traffic?.hysteria ? formatPackets(traffic.hysteria.packetsIn) : '—'}</span>
+                <span className={styles.trafficLabel}>Архитектура</span>
+                <span className={styles.trafficValue}>{status.arch || '—'}</span>
               </div>
               <div className={styles.trafficRow}>
-                <span className={styles.trafficLabel}>OUT</span>
-                <span className={styles.trafficValue}>{traffic?.hysteria ? formatPackets(traffic.hysteria.packetsOut) : '—'}</span>
+                <span className={styles.trafficLabel}>NaiveProxy</span>
+                <span className={styles.trafficValue}>{status.stack?.naive ? '✓' : '✗'}</span>
               </div>
               <div className={styles.trafficRow}>
-                <span className={styles.trafficLabel}>Connections</span>
-                <span className={styles.trafficValue}>{traffic?.hysteria?.connections ?? '—'}</span>
+                <span className={styles.trafficLabel}>Hysteria2</span>
+                <span className={styles.trafficValue}>{status.stack?.hy2 ? '✓' : '✗'}</span>
               </div>
             </div>
           </div>

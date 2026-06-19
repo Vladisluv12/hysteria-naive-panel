@@ -12,12 +12,14 @@ import { UnauthorizedError } from '../api/client';
 interface User {
   username: string;
   role: string;
+  mustChangePassword?: boolean;
 }
 
 interface AuthState {
   user: User | null;
   loading: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  mustChangePassword: boolean;
+  login: (username: string, password: string) => Promise<{ mustChangePassword?: boolean }>;
   logout: () => Promise<void>;
 }
 
@@ -47,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const u = await authApi.me();
     setUser(u);
+    return { mustChangePassword: res.mustChangePassword };
   }, []);
 
   const logout = useCallback(async () => {
@@ -54,8 +57,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const mustChangePassword = !!user?.mustChangePassword;
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, mustChangePassword, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

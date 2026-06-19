@@ -1,5 +1,5 @@
 import { get, post } from './client';
-import type { SystemStatus, Config, VersionInfo, TrafficData } from '../types/api';
+import type { SystemStatus, Config, VersionInfo, TrafficResponse } from '../types/api';
 
 export function getStatus(): Promise<SystemStatus> {
   return get('/api/status');
@@ -13,7 +13,7 @@ export function getVersion(): Promise<VersionInfo> {
   return get('/api/system/version');
 }
 
-export function getTraffic(): Promise<TrafficData> {
+export function getTraffic(): Promise<TrafficResponse> {
   return get('/api/traffic');
 }
 

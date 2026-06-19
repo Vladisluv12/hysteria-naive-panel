@@ -1,24 +1,14 @@
 import { get } from './client';
-import type { LogEntry } from '../types/api';
+import type { LogsResponse, PortsResponse, HysteriaConfigResponse } from '../types/api';
 
-interface PortInfo {
-  port: number;
-  protocol: string;
-  process: string;
-}
-
-interface HysteriaConfig {
-  raw: string;
-}
-
-export function getLogs(kind: string): Promise<LogEntry[]> {
+export function getLogs(kind: string): Promise<LogsResponse> {
   return get(`/api/logs/${kind}`);
 }
 
-export function getPorts(): Promise<PortInfo[]> {
+export function getPorts(): Promise<PortsResponse> {
   return get('/api/diag/ports');
 }
 
-export function getHysteriaConfig(): Promise<HysteriaConfig> {
+export function getHysteriaConfig(): Promise<HysteriaConfigResponse> {
   return get('/api/diag/hysteria-config');
 }

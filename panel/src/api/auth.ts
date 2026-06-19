@@ -12,9 +12,10 @@ interface LoginResponse {
   mustChangePassword?: boolean;
 }
 
-interface UserMe {
+export interface UserMe {
   username: string;
   role: string;
+  mustChangePassword?: boolean;
 }
 
 export function login(data: LoginInput): Promise<LoginResponse> {
@@ -29,6 +30,6 @@ export function me(): Promise<UserMe> {
   return get('/api/me');
 }
 
-export function changePassword(data: ChangePasswordInput): Promise<void> {
+export function changePassword(data: ChangePasswordInput): Promise<{ success: boolean; message?: string }> {
   return post('/api/config/change-password', data);
 }

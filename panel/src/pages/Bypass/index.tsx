@@ -20,8 +20,24 @@ export function BypassPage() {
   useEffect(() => { loadStatus(); }, [loadStatus]);
 
   const handleUpdate = async () => {
-    try { await bypassApi.updateBypass({ content }); addToast('Список загружен', 'success'); loadStatus(); }
-    catch (err) { addToast(err instanceof Error ? err.message : 'Ошибка', 'error'); }
+    try {
+      let json: Record<string, string[]> | undefined;
+      let cidrs: string[] | undefined;
+      try {
+        json = JSON.parse(content);
+        if (json && !Array.isArray(json)) {
+          const arr = Object.values(json).flat() as string[];
+          if (arr.length > 0) cidrs = arr;
+        }
+      } catch {
+        cidrs = content.split('\n').map(s => s.trim()).filter(Boolean);
+      }
+      await bypassApi.updateBypass({ cidrs, source, enabled: true });
+      addToast('Список загружен', 'success');
+      loadStatus();
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Ошибка', 'error');
+    }
   };
 
   const handleClear = async () => {
@@ -72,11 +88,15 @@ export function BypassPage() {
           <div className={styles.infoRows}>
             <div className={styles.infoRow}>
               <span className={styles.infoKey}>Сетей в списке</span>
-              <span className={styles.infoVal}>{status?.entries ?? 0}</span>
+              <span className={styles.infoVal}>{status?.count ?? 0}</span>
             </div>
             <div className={styles.infoRow}>
-              <span className={styles.infoKey}>Файл ACL</span>
-              <span className={styles.infoVal}>{status?.file ?? '—'}</span>
+              <span className={styles.infoKey}>Источник</span>
+              <span className={styles.infoVal}>{status?.source || '—'}</span>
+            </div>
+            <div className={styles.infoRow}>
+              <span className={styles.infoKey}>Обновлён</span>
+              <span className={styles.infoVal}>{status?.updatedAt ? new Date(status.updatedAt).toLocaleString() : '—'}</span>
             </div>
           </div>
         </div>

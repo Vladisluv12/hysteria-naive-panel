@@ -94,9 +94,9 @@ export function AclPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">ACL — блокировка сайтов</h1>
-        <button className="btn btn-outline btn-sm" onClick={loadData}>
+      <div className={styles.pageHeader}>
+        <h1 className={styles.pageTitle}>ACL — блокировка сайтов</h1>
+        <button className={`${styles.btn} ${styles.btnOutline} ${styles.btnSm}`} onClick={loadData}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
@@ -105,8 +105,8 @@ export function AclPage() {
         </button>
       </div>
 
-      <div className="card" style={{ marginBottom: 18 }}>
-        <div className="card-body">
+      <div className={styles.card} style={{ marginBottom: 18 }}>
+        <div className={styles.cardBody}>
           <div className={styles.toggleRow}>
             <label className={styles.toggle}>
               <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
@@ -117,24 +117,24 @@ export function AclPage() {
             </span>
           </div>
           <div className={styles.geoInfo}>
-            <span className={`dot ${acl?.geoSetsExist ? 'dot-green' : 'dot-gray'}`} />
+            <span className={`${styles.dot} ${acl?.geoSetsExist ? styles.dotGreen : styles.dotGray}`} />
             Geoip/geosite датасеты: {acl?.geoSetsExist ? 'загружены' : 'не загружены'}
           </div>
         </div>
       </div>
 
-      <div className="cards-row">
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">Блокировка доменов</h3>
+      <div className={styles.cardsRow}>
+        <div className={styles.card}>
+          <div className={styles.cardHeader}>
+            <h3 className={styles.cardTitle}>Блокировка доменов</h3>
           </div>
-          <div className="card-body">
-            <p className="tuning-desc">
+          <div className={styles.cardBody}>
+            <p className={styles.tuningDesc}>
               По одному домену на строку. Без http://, без портов. Пример: <code>vk.com</code>
             </p>
-            <div className="form-group">
+            <div className={styles.formGroup}>
               <textarea
-                className="form-input"
+                className={styles.formInput}
                 rows={6}
                 value={blockDomains}
                 onChange={(e) => setBlockDomains(e.target.value)}
@@ -145,12 +145,12 @@ export function AclPage() {
           </div>
         </div>
 
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">Настройки</h3>
+        <div className={styles.card}>
+          <div className={styles.cardHeader}>
+            <h3 className={styles.cardTitle}>Настройки</h3>
           </div>
-          <div className="card-body">
-            <div className="form-group" style={{ marginBottom: 12 }}>
+          <div className={styles.cardBody}>
+            <div className={styles.formGroup} style={{ marginBottom: 12 }}>
               <label className={styles.checkItem} style={{ marginBottom: 0 }}>
                 <input
                   type="checkbox"
@@ -160,23 +160,23 @@ export function AclPage() {
                 direct(all) — весь остальной трафик напрямую
               </label>
             </div>
-            <div className="info-row" style={{ paddingBottom: 8, borderBottom: 'none' }}>
-              <span className="info-key">Файл ACL</span>
-              <span className="info-val mono">/etc/hysteria/acl.rules</span>
+            <div className={styles.infoRow} style={{ paddingBottom: 8, borderBottom: 'none' }}>
+              <span className={styles.infoKey}>Файл ACL</span>
+              <span className={`${styles.infoVal} ${styles.mono}`}>/etc/hysteria/acl.rules</span>
             </div>
-            <div className="info-row" style={{ paddingBottom: 8, borderBottom: 'none' }}>
-              <span className="info-key">Последнее обновление</span>
-              <span className="info-val mono">{acl?.updatedAt ? new Date(acl.updatedAt).toLocaleString() : '—'}</span>
+            <div className={styles.infoRow} style={{ paddingBottom: 8, borderBottom: 'none' }}>
+              <span className={styles.infoKey}>Последнее обновление</span>
+              <span className={`${styles.infoVal} ${styles.mono}`}>{acl?.updatedAt ? new Date(acl.updatedAt).toLocaleString() : '—'}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: 16 }}>
-        <div className="card-header">
-          <h3 className="card-title">Блокировка Geosite категорий</h3>
+      <div className={styles.card} style={{ marginTop: 16 }}>
+        <div className={styles.cardHeader}>
+          <h3 className={styles.cardTitle}>Блокировка Geosite категорий</h3>
         </div>
-        <div className="card-body">
+        <div className={styles.cardBody}>
           <div className={styles.checkGrid}>
             {geositeList.map(cat => (
               <label key={cat} className={styles.checkItem}>
@@ -192,11 +192,11 @@ export function AclPage() {
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: 16 }}>
-        <div className="card-header">
-          <h3 className="card-title">Блокировка Geoip стран</h3>
+      <div className={styles.card} style={{ marginTop: 16 }}>
+        <div className={styles.cardHeader}>
+          <h3 className={styles.cardTitle}>Блокировка Geoip стран</h3>
         </div>
-        <div className="card-body">
+        <div className={styles.cardBody}>
           <div className={styles.checkGrid}>
             {geoipList.map(country => (
               <label key={country} className={styles.checkItem}>
@@ -212,11 +212,11 @@ export function AclPage() {
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: 16 }}>
-        <div className="card-header">
-          <h3 className="card-title">Bypass CIDR (read-only)</h3>
+      <div className={styles.card} style={{ marginTop: 16 }}>
+        <div className={styles.cardHeader}>
+          <h3 className={styles.cardTitle}>Bypass CIDR (read-only)</h3>
         </div>
-        <div className="card-body">
+        <div className={styles.cardBody}>
           <div className={styles.bypassPreview}>
             {(acl?.bypassCidrs || []).length > 0
               ? acl!.bypassCidrs!.slice(0, 30).join(', ')
@@ -229,13 +229,13 @@ export function AclPage() {
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: 16 }}>
-        <div className="card-body">
-          <div className="form-actions" style={{ gap: 10 }}>
-            <button className="btn btn-shiny" onClick={handleSave} disabled={saving}>
+      <div className={styles.card} style={{ marginTop: 16 }}>
+        <div className={styles.cardBody}>
+          <div className={styles.formActions} style={{ gap: 10 }}>
+            <button className={`${styles.btn} ${styles.btnShiny}`} onClick={handleSave} disabled={saving}>
               {saving ? 'Сохранение...' : 'Сохранить ACL'}
             </button>
-            <button className="btn btn-outline" onClick={handleGeoUpdate} disabled={geoUpdating}>
+            <button className={`${styles.btn} ${styles.btnOutline}`} onClick={handleGeoUpdate} disabled={geoUpdating}>
               {geoUpdating ? 'Загрузка...' : 'Обновить geoip/geosite'}
             </button>
           </div>

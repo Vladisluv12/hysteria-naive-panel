@@ -16,8 +16,12 @@ export function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      await login(username, password);
-      navigate('/');
+      const result = await login(username, password);
+      if (result.mustChangePassword) {
+        navigate('/settings');
+      } else {
+        navigate('/');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {

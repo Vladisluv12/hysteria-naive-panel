@@ -1,29 +1,32 @@
 import { useState, useEffect } from 'react';
 import * as diagApi from '../../api/diagnostics';
 import { useToast } from '../../contexts/ToastContext';
-import type { LogEntry } from '../../types/api';
 import styles from './styles.module.css';
 
 type Tab = 'caddy' | 'hysteria' | 'ports' | 'config';
 
-interface PortInfo { port: number; protocol: string; process: string; }
-type HysteriaConfig = { raw: string };
-
 export function DiagnosticsPage() {
   const { addToast } = useToast();
   const [tab, setTab] = useState<Tab>('caddy');
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [ports, setPorts] = useState<PortInfo[]>([]);
-  const [config, setConfig] = useState<HysteriaConfig | null>(null);
+  const [logs, setLogs] = useState('');
+  const [ports, setPorts] = useState('');
+  const [config, setConfig] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setLoading(true);
     const load = async () => {
       try {
-        if (tab === 'caddy' || tab === 'hysteria') setLogs(await diagApi.getLogs(tab));
-        else if (tab === 'ports') setPorts(await diagApi.getPorts());
-        else if (tab === 'config') setConfig(await diagApi.getHysteriaConfig());
+        if (tab === 'caddy' || tab === 'hysteria') {
+          const res = await diagApi.getLogs(tab);
+          setLogs(res.output);
+        } else if (tab === 'ports') {
+          const res = await diagApi.getPorts();
+          setPorts(res.output);
+        } else if (tab === 'config') {
+          const res = await diagApi.getHysteriaConfig();
+          setConfig(res.output);
+        }
       } catch (err) {
         addToast(err instanceof Error ? err.message : 'Ошибка загрузки', 'error');
       } finally { setLoading(false); }
@@ -53,10 +56,7 @@ export function DiagnosticsPage() {
           {(tab === 'caddy' || tab === 'hysteria') && (
             <div className={styles.card}>
               <div className={styles.cardBody}>
-                <div className={styles.logBox}>
-                  {logs.map((e, i) => <div key={i} className={styles.logLine}>{e.line}</div>)}
-                  {logs.length === 0 && <span className={styles.muted}>Нет логов</span>}
-                </div>
+                <pre className={styles.logBox}>{logs || 'Нет логов'}</pre>
               </div>
             </div>
           )}
@@ -64,9 +64,7 @@ export function DiagnosticsPage() {
             <div className={styles.card}>
               <div className={styles.cardHeader}><h3 className={styles.cardTitle}>Порты и сервисы</h3></div>
               <div className={styles.cardBody}>
-                <div className={styles.logBox}>
-                  {ports.map((p, i) => <div key={i}>{p.port}/{p.protocol} — {p.process}</div>)}
-                </div>
+                <pre className={styles.logBox}>{ports || 'Нет данных'}</pre>
               </div>
             </div>
           )}
@@ -74,7 +72,7 @@ export function DiagnosticsPage() {
             <div className={styles.card}>
               <div className={styles.cardHeader}><h3 className={styles.cardTitle}>Активный конфиг Hysteria2</h3></div>
               <div className={styles.cardBody}>
-                <div className={styles.logBox}>{config?.raw ?? '—'}</div>
+                <pre className={styles.logBox}>{config || '—'}</pre>
               </div>
             </div>
           )}

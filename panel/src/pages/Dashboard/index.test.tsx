@@ -13,13 +13,16 @@ vi.mock('../../api/auth', () => ({
 
 vi.mock('../../api/system', () => ({
   getStatus: vi.fn().mockResolvedValue({
-    caddy: 'active', hysteria: 'active', panelUptime: '2h',
-    serverIp: '1.2.3.4', domain: 'example.com',
+    installed: true,
+    stack: { naive: true, hy2: true },
+    domain: 'example.com',
+    email: 'admin@example.com',
+    serverIp: '1.2.3.4',
+    arch: 'x64',
+    naive: { active: true, usersCount: 5 },
+    hy2: { active: true, usersCount: 3 },
   }),
-  getTraffic: vi.fn().mockResolvedValue({
-    caddy: { bytesIn: 1024, bytesOut: 2048, connections: 5 },
-    hysteria: { packetsIn: 100, packetsOut: 200, connections: 3 },
-  }),
+  getTraffic: vi.fn().mockResolvedValue({}),
   serviceAction: vi.fn().mockResolvedValue(undefined),
   getConfig: vi.fn(),
   getVersion: vi.fn(),
@@ -41,15 +44,16 @@ describe('DashboardPage', () => {
   it('renders service status', async () => {
     renderDashboard();
     await waitFor(() => {
-      expect(screen.getByText('NaiveProxy')).toBeDefined();
+      expect(screen.getAllByText('NaiveProxy').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Hysteria2').length).toBeGreaterThan(0);
     });
   });
 
-  it('renders traffic data', async () => {
+  it('renders server info', async () => {
     renderDashboard();
     await waitFor(() => {
-      expect(screen.getByText('1 KB')).toBeDefined();
+      expect(screen.getByText('example.com')).toBeDefined();
+      expect(screen.getByText('1.2.3.4')).toBeDefined();
     });
   });
 });

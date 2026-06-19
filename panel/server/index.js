@@ -70,7 +70,8 @@ app.use(helmet({
 app.use(cors({ origin: true, credentials: true }));
 app.use(bodyParser.json({ limit: '256kb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '256kb' }));
-app.use(session({
+
+const sessionMiddleware = session({
   name: 'rixxx_sid',
   secret: SESSION_SECRET,
   resave: false,
@@ -81,7 +82,8 @@ app.use(session({
     sameSite: 'lax',
     maxAge: 24 * 60 * 60 * 1000
   }
-}));
+});
+app.use(sessionMiddleware);
 
 app.use((req, res, next) => {
   if (req.session && req.get('X-Forwarded-Proto') === 'https') {
@@ -121,23 +123,24 @@ const { reloadCaddy, restartHysteria: reloadHysteria } = require('./services/sys
 //  INSTALL VIA WEBSOCKET
 // ═══════════════════════════════════════════════════════════
 wss.on('connection', (ws, req) => {
-  // Минимальная защита: проверим session cookie
-  const cookie = (req.headers.cookie || '');
-  if (!cookie.includes('rixxx_sid=')) {
-    ws.send(JSON.stringify({ type: 'error', message: 'unauthorized' }));
-    ws.close();
-    return;
-  }
-
-  ws.on('message', (message) => {
-    try {
-      const data = JSON.parse(message);
-      if (data.type === 'install_naive') return handleInstallNaive(ws, data);
-      if (data.type === 'install_hy2')   return handleInstallHy2(ws, data);
-      if (data.type === 'install_both')  return handleInstallBoth(ws, data);
-    } catch (e) {
-      ws.send(JSON.stringify({ type: 'error', message: 'bad message' }));
+  const fakeRes = { getHeader: () => {}, setHeader: () => {} };
+  sessionMiddleware(req, fakeRes, () => {
+    if (!req.session?.authenticated) {
+      ws.send(JSON.stringify({ type: 'error', message: 'unauthorized' }));
+      ws.close();
+      return;
     }
+
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message);
+        if (data.type === 'install_naive') return handleInstallNaive(ws, data);
+        if (data.type === 'install_hy2')   return handleInstallHy2(ws, data);
+        if (data.type === 'install_both')  return handleInstallBoth(ws, data);
+      } catch (e) {
+        ws.send(JSON.stringify({ type: 'error', message: 'bad message' }));
+      }
+    });
   });
 });
 
