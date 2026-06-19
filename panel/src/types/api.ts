@@ -103,3 +103,30 @@ export interface ChangePasswordInput {
   currentPassword: string;
   newPassword: string;
 }
+
+export interface AclConfig {
+  enabled: boolean;
+  blockDomains: string[];
+  blockGeosite: string[];
+  blockGeoip: string[];
+  directAll: boolean;
+  updatedAt: string;
+  bypassCidrs?: string[];
+  geoSetsExist?: boolean;
+}
+
+export interface AclUpdateInput {
+  enabled?: boolean;
+  blockDomains?: string[];
+  blockGeosite?: string[];
+  blockGeoip?: string[];
+  directAll?: boolean;
+}
+
+export interface GeoSiteCategory {
+  categories: string[];
+}
+
+export interface GeoIpCountry {
+  countries: string[];
+}

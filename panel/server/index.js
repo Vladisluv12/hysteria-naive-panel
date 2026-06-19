@@ -110,6 +110,9 @@ app.use('/api', hysteriaRoutes);
 const diagRoutes = require('./routes/diag.js');
 app.use('/api', diagRoutes);
 
+const aclRoutes = require('./routes/acl.js');
+app.use('/api', aclRoutes);
+
 // ── Экспорт для expireChecker ──
 const { writeCaddyfile } = naiveRoutes;
 const { writeHysteriaConfig } = hysteriaRoutes;

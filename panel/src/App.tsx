@@ -9,6 +9,7 @@ import { DashboardPage } from './pages/Dashboard';
 import { DiagnosticsPage } from './pages/Diagnostics';
 import { TuningPage } from './pages/Tuning';
 import { BypassPage } from './pages/Bypass';
+import { AclPage } from './pages/ACL';
 import { UsersPage } from './pages/Users';
 import { InstallPage } from './pages/Install';
 import type { ReactNode } from 'react';
@@ -41,6 +42,7 @@ function AppRoutes() {
         <Route path="users/*" element={<UsersPage />} />
         <Route path="tuning" element={<TuningPage />} />
         <Route path="bypass" element={<BypassPage />} />
+        <Route path="acl" element={<AclPage />} />
         <Route path="diagnostics" element={<DiagnosticsPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>

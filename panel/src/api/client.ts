@@ -58,6 +58,10 @@ export function patch<T>(url: string, body: unknown): Promise<T> {
   });
 }
 
+export function put<T>(path: string, body: unknown) {
+  return request<T>(path, { method: 'PUT', body: JSON.stringify(body) });
+}
+
 export function del<T>(url: string): Promise<T> {
   return request<T>(url, { method: 'DELETE' });
 }
