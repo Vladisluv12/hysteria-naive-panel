@@ -186,7 +186,7 @@ if [[ $INSTALL_NAIVE -eq 1 ]]; then
       echo 'export PATH=$GOROOT/bin:$GOPATH/bin:$PATH' >> /root/.profile
     }
   fi
-  export GOROOT=/usr/local/go GOPATH=/root/go PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+  export GOROOT=/usr/local/go GOPATH=/root/go PATH=/usr/local/go/bin:/root/go/bin:$PATH
   log_ok "Go: $(go version 2>/dev/null || echo ok)"
 
   log_step "Building Caddy + forwardproxy (3-7 min)..."
