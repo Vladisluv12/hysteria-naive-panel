@@ -237,7 +237,7 @@ if [[ $INSTALL_NAIVE -eq 1 ]]; then
   touch /etc/naive/traffic.json
   {
     printf '{\n  auto_https off\n  order forward_proxy before file_server\n  servers :8443 {\n    protocols h1 h2\n  }\n}\n\n'
-    printf ':8443, %s {\n' "${DOMAIN}"
+    printf ':8443 {\n'
     if [[ "$TLS_MODE" == "letsencrypt" ]]; then
       printf '    tls %s\n\n' "${EMAIL}"
     else
