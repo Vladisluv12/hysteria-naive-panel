@@ -44,7 +44,8 @@ echo -e "     ${BLUE}IP: ${BOLD}${SERVER_IP}${RESET}"
 
 # ── Mode detection: auto (env vars) vs interactive ────────────────────
 [[ -n "${DOMAIN:-}" ]] && AUTO_MODE=1 || AUTO_MODE=0
-
+TLS_MODE="${TLS_MODE:-}"
+EMAIL="${EMAIL:-}"
 
 # INTERACTIVE QUESTIONS (skipped if AUTO_MODE)
 
@@ -67,7 +68,9 @@ if [[ $AUTO_MODE -eq 1 ]]; then
   esac
   [[ "$MASQUERADE_MODE" == "mirror" && -n "$MASQUERADE_URL" && ! "$MASQUERADE_URL" =~ ^https?:// ]] && \
     { log_warn "MASQUERADE_URL invalid, using default"; MASQUERADE_URL="https://www.iana.org"; }
-  log_info "Auto mode: ${DOMAIN} | SQLite=${USE_SQLITE} | React=${USE_NEW_FRONTEND} | Access=${PANEL_ACCESS}"
+  TLS_MODE="${TLS_MODE:-selfsigned}"
+  EMAIL="${EMAIL:-}"
+  log_info "Auto mode: ${DOMAIN} | TLS=${TLS_MODE} | SQLite=${USE_SQLITE} | React=${USE_NEW_FRONTEND} | Access=${PANEL_ACCESS}"
 else
   # ── Interactive mode ─────────────────────────────────────────────────
   echo -e "\n${BOLD}Protocols:${RESET} ${CYAN}1)${RESET} Naive  ${CYAN}2)${RESET} Hysteria2  ${CYAN}3)${RESET} Both (rec)"
@@ -94,6 +97,15 @@ else
     MASQUERADE_MODE="mirror"
   fi
 
+  # ── TLS mode ─────────────────────────────────────────────────────────
+  echo -e "\n${BOLD}TLS:${RESET} ${CYAN}1)${RESET} Self-signed (default)  ${CYAN}2)${RESET} Let's Encrypt"
+  read -rp "Choice [1/2]: " _TLSMODE
+  TLS_MODE="selfsigned"; EMAIL=""
+  if [[ "${_TLSMODE:-1}" == "2" ]]; then
+    TLS_MODE="letsencrypt"
+    read -rp "  Email for Let's Encrypt: " EMAIL
+  fi
+
   read -rp $'\n'"${BOLD}Domain:${RESET} (A-record -> ${SERVER_IP}): " DOMAIN
 
   [[ $INSTALL_NAIVE -eq 1 ]] && NAIVE_USER=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 16) && NAIVE_PASS=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24) || { NAIVE_USER=""; NAIVE_PASS=""; }
@@ -106,6 +118,13 @@ else
   echo ""
 fi
 [[ -z "${DOMAIN:-}" ]] && { log_err "DOMAIN is required"; exit 1; }
+
+# Let's Encrypt validation
+if [[ "$TLS_MODE" == "letsencrypt" ]]; then
+  [[ -z "${EMAIL:-}" ]] && { log_err "EMAIL is required for Let's Encrypt mode"; exit 1; }
+  [[ "$DOMAIN" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && { log_err "DOMAIN must be a real FQDN (not IP) for Let's Encrypt"; exit 1; }
+  [[ "$DOMAIN" != *"."* ]] && { log_err "DOMAIN must be a real FQDN for Let's Encrypt"; exit 1; }
+fi
 
 # ═══════ [1] System deps ──────────────────────────────────────────
 log_step "[1] Installing dependencies..."
@@ -131,15 +150,21 @@ SYSCTLEOF
 sysctl --system >/dev/null 2>&1 || true
 log_ok "BBR + UDP optimizations applied"
 
-# ═══════ [3] Self-signed certs ═════════════════════════════════════
-log_step "[3] Generating self-signed certificate..."
-mkdir -p /etc/ssl/selfsigned
-openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
-  -keyout /etc/ssl/selfsigned/server.key -out /etc/ssl/selfsigned/server.crt \
-  -subj "/CN=${DOMAIN}" -addext "subjectAltName=DNS:${DOMAIN},DNS:localhost,IP:127.0.0.1" 2>/dev/null || \
-  { log_err "Cert generation failed"; exit 1; }
-chmod 644 /etc/ssl/selfsigned/server.crt; chmod 600 /etc/ssl/selfsigned/server.key
-log_ok "Self-signed cert for ${DOMAIN}"
+# ═══════ [3] TLS certificate ═══════════════════════════════════════
+if [[ "$TLS_MODE" == "letsencrypt" ]]; then
+  log_step "[3] Let's Encrypt via Caddy ACME"
+  log_info "Caddy will automatically obtain certificate at startup"
+  log_info "Ensure port 80/tcp is open for HTTP-01 challenge"
+else
+  log_step "[3] Generating self-signed certificate..."
+  mkdir -p /etc/ssl/selfsigned
+  openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+    -keyout /etc/ssl/selfsigned/server.key -out /etc/ssl/selfsigned/server.crt \
+    -subj "/CN=${DOMAIN}" -addext "subjectAltName=DNS:${DOMAIN},DNS:localhost,IP:127.0.0.1" 2>/dev/null || \
+    { log_err "Cert generation failed"; exit 1; }
+  chmod 644 /etc/ssl/selfsigned/server.crt; chmod 600 /etc/ssl/selfsigned/server.key
+  log_ok "Self-signed cert for ${DOMAIN}"
+fi
 
 # ═══════ [4] Go + Caddy build (Vladisluv12 fork) ═══════════════════
 if [[ $INSTALL_NAIVE -eq 1 ]]; then
@@ -212,7 +237,11 @@ if [[ $INSTALL_NAIVE -eq 1 ]]; then
   {
     printf '{\n  order forward_proxy before file_server\n  servers { protocols h1 h2 }\n}\n\n'
     printf ':8443, %s {\n' "${DOMAIN}"
-    printf '    tls /etc/ssl/selfsigned/server.crt /etc/ssl/selfsigned/server.key\n\n'
+    if [[ "$TLS_MODE" == "letsencrypt" ]]; then
+      printf '    tls %s\n\n' "${EMAIL}"
+    else
+      printf '    tls /etc/ssl/selfsigned/server.crt /etc/ssl/selfsigned/server.key\n\n'
+    fi
     printf '    forward_proxy {\n'
     printf '        basic_auth %s %s\n' "${NAIVE_USER}" "${NAIVE_PASS}"
     printf '        hide_ip\n        hide_via\n        probe_resistance\n'
@@ -229,13 +258,34 @@ if [[ $INSTALL_NAIVE -eq 1 ]]; then
 fi
 
 if [[ $INSTALL_HY2 -eq 1 ]]; then
+  # Base listen config
   cat > /etc/hysteria/config.yaml << HYEOF
 listen: :8443
 
+HYEOF
+
+  # TLS section — self-signed or Let's Encrypt ACME
+  if [[ "$TLS_MODE" == "letsencrypt" ]]; then
+    cat >> /etc/hysteria/config.yaml << HYEOF
+acme:
+  domains:
+    - ${DOMAIN}
+  email: ${EMAIL}
+  ca: letsencrypt
+  listenHost: 0.0.0.0
+
+HYEOF
+  else
+    cat >> /etc/hysteria/config.yaml << HYEOF
 tls:
   cert: /etc/ssl/selfsigned/server.crt
   key: /etc/ssl/selfsigned/server.key
 
+HYEOF
+  fi
+
+  # Auth section
+  cat >> /etc/hysteria/config.yaml << HYEOF
 auth:
   type: userpass
   userpass:
@@ -325,7 +375,8 @@ cat > "${PANEL_DIR}/panel/data/config.json" << CONFIGEOF
   "installed": true,
   "stack": { "naive": ${STACK_NAIVE}, "hy2": ${STACK_HY2} },
   "domain": "${DOMAIN}",
-  "email": "",
+  "email": "${EMAIL:-}",
+  "tlsMode": "${TLS_MODE:-selfsigned}",
   "panelDomain": "${PANEL_DOMAIN:-}",
   "panelEmail":  "",
   "accessMode":  "${ACCESS_MODE:-1}",
@@ -492,6 +543,10 @@ log_step "[13] Configuring UFW..."
 ufw allow 22/tcp   >/dev/null 2>&1 || true
 ufw allow 8443/tcp >/dev/null 2>&1 || true
 ufw allow 8443/udp >/dev/null 2>&1 || true
+# Let's Encrypt HTTP-01 ACME challenge
+if [[ "$TLS_MODE" == "letsencrypt" ]]; then
+  ufw allow 80/tcp >/dev/null 2>&1 || true
+fi
 if [[ "$SSH_ONLY" == "1" ]]; then
   ufw deny 8080/tcp >/dev/null 2>&1 || true
   ufw deny ${INTERNAL_PORT}/tcp >/dev/null 2>&1 || true
@@ -549,7 +604,7 @@ curl -fsS --max-time 5 "http://127.0.0.1:${INTERNAL_PORT}/" >/dev/null 2>&1 \
 
 [[ $INSTALL_NAIVE -eq 1 ]] && {
   curl -fsSk --max-time 8 -o /dev/null "https://127.0.0.1:8443/" 2>/dev/null \
-    && log_ok "HTTPS :8443 responds (self-signed)" \
+    && log_ok "HTTPS :8443 responds (${TLS_MODE:-selfsigned})" \
     || { log_warn "HTTPS :8443 not responding"; _SW=$((_SW+1)); }
 }
 
@@ -559,11 +614,19 @@ else log_err "Smoke test: ${_SF} error(s), ${_SW} warning(s)"
 fi
 
 
+# Insecure flag for client links
+if [[ "$TLS_MODE" == "letsencrypt" ]]; then
+  _INSECURE=0; _INSECURE_JSON="false"
+else
+  _INSECURE=1; _INSECURE_JSON="true"
+fi
+
 # SUMMARY
 
 echo ""
 echo -e "${PURPLE}${BOLD}╔══════════════════════════════════════════════════════════════╗${RESET}"
 echo -e "${PURPLE}${BOLD}║   INSTALLATION COMPLETE                                      ║${RESET}"
+echo -e "${PURPLE}${BOLD}║   TLS mode: ${TLS_MODE:-selfsigned}                                         ║${RESET}"
 echo -e "${PURPLE}${BOLD}╠══════════════════════════════════════════════════════════════╣${RESET}"
 echo -e "${PURPLE}${BOLD}║   PANEL:                                                     ║${RESET}"
 if [[ "$SSH_ONLY" == "1" ]]; then
@@ -581,12 +644,12 @@ if [[ $INSTALL_NAIVE -eq 1 ]]; then
   echo -e "${PURPLE}${BOLD}║   Pass: ${NAIVE_PASS}${RESET}"
 fi
 if [[ $INSTALL_HY2 -eq 1 ]]; then
-  echo -e "${CYAN}   Hysteria2:   hysteria2://default:${HY2_PASS}@${DOMAIN}:8443?sni=${DOMAIN}&insecure=1#VPS-Test${RESET}"
+  echo -e "${CYAN}   Hysteria2:   hysteria2://default:${HY2_PASS}@${DOMAIN}:8443?sni=${DOMAIN}&insecure=${_INSECURE}#VPS-Test${RESET}"
   echo -e "${PURPLE}${BOLD}║   Pass: ${HY2_PASS}${RESET}"
 fi
 echo -e "${PURPLE}${BOLD}╠══════════════════════════════════════════════════════════════╣${RESET}"
-[[ $INSTALL_NAIVE -eq 1 ]] && echo -e "   Sing-box naive: {\"type\":\"naive\",\"server\":\"${DOMAIN}\",\"server_port\":8443,\"username\":\"${NAIVE_USER}\",\"password\":\"${NAIVE_PASS}\",\"tls\":{\"enabled\":true,\"insecure\":true,\"server_name\":\"${DOMAIN}\"}}"
-[[ $INSTALL_HY2   -eq 1 ]] && echo -e "   Sing-box hy2:   {\"type\":\"hysteria2\",\"server\":\"${DOMAIN}\",\"server_port\":8443,\"password\":\"${HY2_PASS}\",\"tls\":{\"enabled\":true,\"insecure\":true,\"server_name\":\"${DOMAIN}\"}}"
+[[ $INSTALL_NAIVE -eq 1 ]] && echo -e "   Sing-box naive: {\"type\":\"naive\",\"server\":\"${DOMAIN}\",\"server_port\":8443,\"username\":\"${NAIVE_USER}\",\"password\":\"${NAIVE_PASS}\",\"tls\":{\"enabled\":true,\"insecure\":${_INSECURE_JSON},\"server_name\":\"${DOMAIN}\"}}"
+[[ $INSTALL_HY2   -eq 1 ]] && echo -e "   Sing-box hy2:   {\"type\":\"hysteria2\",\"server\":\"${DOMAIN}\",\"server_port\":8443,\"password\":\"${HY2_PASS}\",\"tls\":{\"enabled\":true,\"insecure\":${_INSECURE_JSON},\"server_name\":\"${DOMAIN}\"}}"
 echo -e "${PURPLE}${BOLD}╚══════════════════════════════════════════════════════════════╝${RESET}"
 echo ""
 echo -e "  Traffic: /etc/naive/traffic.json + http://${SERVER_IP}:9999 (Hy2 stats)"
