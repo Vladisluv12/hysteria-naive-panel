@@ -226,7 +226,7 @@ fi
 
 # ═══════ [6] Camouflage page + proxy configs ══════════════════════
 log_step "[6] Writing proxy configs..."
-mkdir -p /var/www/naive /etc/naive /etc/hysteria
+mkdir -p /var/www/naive /etc/naive /etc/hysteria /var/lib/naive
 cat > /var/www/naive/index.html << 'HTMLEOF'
 <!DOCTYPE html><html><head><meta charset="utf-8"><title>Loading</title>
 <style>body{background:#080808;height:100vh;margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif}.bar{width:200px;height:3px;background:#151515;overflow:hidden;border-radius:2px;margin-bottom:25px}.fill{height:100%;width:40%;background:#fff;animation:slide 1.4s infinite ease-in-out}@keyframes slide{0%{transform:translateX(-100%)}50%{transform:translateX(50%)}100%{transform:translateX(200%)}}.t{color:#555;font-size:13px;letter-spacing:3px;font-weight:600}</style>
@@ -234,7 +234,9 @@ cat > /var/www/naive/index.html << 'HTMLEOF'
 HTMLEOF
 
 if [[ $INSTALL_NAIVE -eq 1 ]]; then
-  touch /etc/naive/traffic.json
+  mkdir -p /var/lib/naive /etc/naive
+  touch /var/lib/naive/traffic.json
+  chown -R root:root /var/lib/naive
   {
     printf '{\n  auto_https off\n  order forward_proxy before file_server\n  servers :8443 {\n    protocols h1 h2\n  }\n}\n\n'
     printf ':8443 {\n'
@@ -246,7 +248,7 @@ if [[ $INSTALL_NAIVE -eq 1 ]]; then
     printf '    forward_proxy {\n'
     printf '        basic_auth %s %s\n' "${NAIVE_USER}" "${NAIVE_PASS}"
     printf '        hide_ip\n        hide_via\n        probe_resistance\n'
-    printf '        traffic_file /etc/naive/traffic.json\n    }\n\n'
+    printf '        traffic_file /var/lib/naive/traffic.json\n    }\n\n'
     if [[ "$MASQUERADE_MODE" == "mirror" && -n "$MASQUERADE_URL" ]]; then
       printf '    reverse_proxy %s {\n        header_up Host {upstream_hostport}\n    }\n' "${MASQUERADE_URL}"
     else
@@ -653,7 +655,7 @@ echo -e "${PURPLE}${BOLD}╠═════════════════�
 [[ $INSTALL_HY2   -eq 1 ]] && echo -e "   Sing-box hy2:   {\"type\":\"hysteria2\",\"server\":\"${DOMAIN}\",\"server_port\":8443,\"password\":\"${HY2_PASS}\",\"tls\":{\"enabled\":true,\"insecure\":${_INSECURE_JSON},\"server_name\":\"${DOMAIN}\"}}"
 echo -e "${PURPLE}${BOLD}╚══════════════════════════════════════════════════════════════╝${RESET}"
 echo ""
-echo -e "  Traffic: /etc/naive/traffic.json + http://${SERVER_IP}:9999 (Hy2 stats)"
+echo -e "  Traffic: /var/lib/naive/traffic.json + http://${SERVER_IP}:9999 (Hy2 stats)"
 echo ""
 
 exit 0
