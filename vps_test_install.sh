@@ -248,9 +248,9 @@ if [[ $INSTALL_NAIVE -eq 1 ]]; then
     printf '        hide_ip\n        hide_via\n        probe_resistance\n'
     printf '        traffic_file /etc/naive/traffic.json\n    }\n\n'
     if [[ "$MASQUERADE_MODE" == "mirror" && -n "$MASQUERADE_URL" ]]; then
-      printf '    reverse_proxy %s { header_up Host {upstream_hostport} }\n' "${MASQUERADE_URL}"
+      printf '    reverse_proxy %s {\n        header_up Host {upstream_hostport}\n    }\n' "${MASQUERADE_URL}"
     else
-      printf '    file_server { root /var/www/naive }\n'
+      printf '    file_server {\n        root /var/www/naive\n    }\n'
     fi
     printf '}\n'
   } > /etc/naive/Caddyfile
