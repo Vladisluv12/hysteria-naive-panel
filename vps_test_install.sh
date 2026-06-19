@@ -240,11 +240,7 @@ if [[ $INSTALL_NAIVE -eq 1 ]]; then
   {
     printf '{\n  auto_https off\n  order forward_proxy before file_server\n  servers :8443 {\n    protocols h1 h2\n  }\n}\n\n'
     printf '%s:8443 {\n' "${DOMAIN}"
-    if [[ "$TLS_MODE" == "letsencrypt" ]]; then
-      printf '    tls %s\n\n' "${EMAIL}"
-    else
-      printf '    tls /etc/ssl/selfsigned/server.crt /etc/ssl/selfsigned/server.key\n\n'
-    fi
+    printf '    tls /etc/ssl/selfsigned/server.crt /etc/ssl/selfsigned/server.key\n\n'
     printf '    forward_proxy {\n'
     printf '        basic_auth %s %s\n' "${NAIVE_USER}" "${NAIVE_PASS}"
     printf '        hide_ip\n        hide_via\n        probe_resistance\n'
