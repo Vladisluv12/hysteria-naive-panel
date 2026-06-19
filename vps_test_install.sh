@@ -194,8 +194,10 @@ if [[ $INSTALL_NAIVE -eq 1 ]]; then
   mkdir -p /root/tmp /root/go
   go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest 2>&1 | tail -2
   [[ -f /root/go/bin/xcaddy ]] || { log_err "xcaddy failed"; exit 1; }
-  cd /root && rm -f /root/caddy
-  /root/go/bin/xcaddy build --with github.com/caddyserver/forwardproxy=https://github.com/Vladisluv12/caddy_addon \
+  cd /root && rm -rf /root/caddy-traffic /root/caddy
+  git clone --depth 1 https://github.com/Vladisluv12/caddy_addon.git /root/caddy-traffic 2>/dev/null || \
+    { log_err "Failed to clone forwardproxy-traffic repo"; exit 1; }
+  /root/go/bin/xcaddy build --with github.com/caddyserver/forwardproxy=/root/caddy-traffic \
     2>&1 | while IFS= read -r l; do [[ -n "$l" ]] && echo "    $l"; done
   [[ -f /root/caddy ]] || { log_err "Caddy build failed"; exit 1; }
   mv /root/caddy /usr/local/bin/caddy-naive && chmod +x /usr/local/bin/caddy-naive
