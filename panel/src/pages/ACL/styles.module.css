@@ -203,24 +203,22 @@
   cursor: pointer;
 }
 
-/* Bypass preview */
-.bypassPreview {
-  color: var(--text-muted);
+/* ACL preview */
+.aclPreview {
+  color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: 0.78rem;
   line-height: 1.7;
-  max-height: 120px;
+  max-height: 200px;
   overflow-y: auto;
+  white-space: pre-wrap;
   word-break: break-all;
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
 }
-
-.bypassLink {
-  color: var(--text-accent);
-  text-decoration: none;
-  font-size: 0.85rem;
-}
-
-.bypassLink:hover { text-decoration: underline; }
 
 .geoInfo {
   display: flex;

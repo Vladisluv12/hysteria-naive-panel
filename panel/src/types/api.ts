@@ -118,27 +118,6 @@ export interface HysteriaConfigResponse {
   output: string;
 }
 
-export interface BypassStatus {
-  enabled: boolean;
-  count: number;
-  source: string;
-  updatedAt: string | null;
-  preview: string[];
-}
-
-export interface BypassUpdateInput {
-  cidrs?: string[];
-  enabled?: boolean;
-  source?: string;
-  json?: Record<string, string[]>;
-}
-
-export interface BypassUpdateResponse {
-  success: boolean;
-  enabled: boolean;
-  count: number;
-}
-
 export interface TuningStatus {
   bbr: boolean;
   udpBuffers: boolean;
@@ -166,9 +145,10 @@ export interface AclConfig {
   blockDomains: string[];
   blockGeosite: string[];
   blockGeoip: string[];
+  blockPrivateIPs: boolean;
+  directCidrs: string[];
   directAll: boolean;
   updatedAt: string;
-  bypassCidrs?: string[];
   geoSetsExist?: boolean;
 }
 
@@ -177,6 +157,8 @@ export interface AclUpdateInput {
   blockDomains?: string[];
   blockGeosite?: string[];
   blockGeoip?: string[];
+  blockPrivateIPs?: boolean;
+  directCidrs?: string[];
   directAll?: boolean;
 }
 

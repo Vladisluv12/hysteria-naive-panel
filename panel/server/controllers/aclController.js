@@ -1,29 +1,18 @@
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
 const { loadConfig } = require('../services/storageFactory.js');
 const {
-  loadAcl, saveAcl, writeAclFile,
+  loadAcl, saveAcl, writeAclFile, isValidCidr, dedupCidrs,
   downloadGeoDatasets, geoDatasetsExist,
   GEOSITE_CATEGORIES, GEOIP_COUNTRIES,
 } = require('../services/aclBuilder.js');
 const { restartHysteria } = require('../services/systemAdapter.js');
+const { writeHysteriaConfig } = require('./hysteriaController.js');
 
 function getAcl(req, res) {
   const acl = loadAcl();
-  const bypassCidrs = (() => {
-    const BYPASS_FILE = path.join(__dirname, '../../data', 'bypass.json');
-    try {
-      if (!fs.existsSync(BYPASS_FILE)) return [];
-      const raw = JSON.parse(fs.readFileSync(BYPASS_FILE, 'utf8'));
-      return (raw.enabled && Array.isArray(raw.cidrs)) ? raw.cidrs : [];
-    } catch { return []; }
-  })();
-
   res.json({
     ...acl,
-    bypassCidrs,
     geoSetsExist: geoDatasetsExist(),
   });
 }
@@ -37,7 +26,7 @@ function getGeoipList(req, res) {
 }
 
 async function updateAcl(req, res) {
-  const { enabled, blockDomains, blockGeosite, blockGeoip, directAll } = req.body || {};
+  const { enabled, blockDomains, blockGeosite, blockGeoip, blockPrivateIPs, directCidrs, directAll } = req.body || {};
   const acl = loadAcl();
 
   if (typeof enabled === 'boolean') acl.enabled = enabled;
@@ -52,6 +41,14 @@ async function updateAcl(req, res) {
   if (Array.isArray(blockGeoip)) {
     acl.blockGeoip = blockGeoip.filter(c => GEOIP_COUNTRIES.includes(c));
   }
+  if (typeof blockPrivateIPs === 'boolean') acl.blockPrivateIPs = blockPrivateIPs;
+  if (Array.isArray(directCidrs)) {
+    acl.directCidrs = dedupCidrs(
+      directCidrs
+        .map(s => String(s).trim())
+        .filter(s => s.length > 0 && isValidCidr(s))
+    );
+  }
   if (typeof directAll === 'boolean') acl.directAll = directAll;
 
   acl.updatedAt = new Date().toISOString();
@@ -60,21 +57,15 @@ async function updateAcl(req, res) {
 
   const cfg = loadConfig();
   if (cfg.installed && cfg.stack.hy2) {
-    const { writeHysteriaConfig } = require('./hysteriaController.js');
-    writeHysteriaConfig(cfg);
-    await restartHysteria();
+    try {
+      writeHysteriaConfig(cfg);
+      await restartHysteria();
+    } catch (e) {
+      console.error('[acl] restart failed after save:', e.message);
+    }
   }
 
-  const bypassCidrs = (() => {
-    const BYPASS_FILE = path.join(__dirname, '../../data', 'bypass.json');
-    try {
-      if (!fs.existsSync(BYPASS_FILE)) return [];
-      const raw = JSON.parse(fs.readFileSync(BYPASS_FILE, 'utf8'));
-      return (raw.enabled && Array.isArray(raw.cidrs)) ? raw.cidrs : [];
-    } catch { return []; }
-  })();
-
-  res.json({ success: true, ...acl, bypassCidrs, geoSetsExist: geoDatasetsExist() });
+  res.json({ success: true, ...acl, geoSetsExist: geoDatasetsExist() });
 }
 
 async function geoUpdate(req, res) {
@@ -87,9 +78,12 @@ async function geoUpdate(req, res) {
     writeAclFile();
     const cfg = loadConfig();
     if (cfg.installed && cfg.stack.hy2) {
-      const { writeHysteriaConfig } = require('./hysteriaController.js');
-      writeHysteriaConfig(cfg);
-      await restartHysteria();
+      try {
+        writeHysteriaConfig(cfg);
+        await restartHysteria();
+      } catch (e) {
+        console.error('[acl] restart failed after geo update:', e.message);
+      }
     }
 
     res.json({ success: true, geoip: result.geoip, geosite: result.geosite });

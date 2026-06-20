@@ -15,7 +15,8 @@ vi.mock('../../api/acl', () => ({
     blockDomains: ['vk.com', 'instagram.com'],
     blockGeosite: ['netflix'],
     blockGeoip: ['cn'],
-    bypassCidrs: ['10.0.0.0/8'],
+    blockPrivateIPs: true,
+    directCidrs: ['10.0.0.0/8', '192.168.0.0/16'],
     directAll: true,
     updatedAt: '2026-06-16T12:00:00Z',
     geoSetsExist: true,
@@ -62,10 +63,17 @@ describe('AclPage', () => {
     });
   });
 
-  it('shows bypass link', async () => {
+  it('renders private IPs checkbox', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('Редактировать на странице Bypass →')).toBeDefined();
+      expect(screen.getByText('Блокировать приватные диапазоны IP')).toBeDefined();
+    });
+  });
+
+  it('renders ACL preview section', async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText('Предпросмотр ACL-файла')).toBeDefined();
     });
   });
 });

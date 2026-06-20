@@ -247,12 +247,12 @@ if [[ $INSTALL_NAIVE -eq 1 ]]; then
   touch /var/lib/naive/traffic.json
   chown -R root:root /var/lib/naive
   {
-    if [[ "$TLS_MODE" == "letsencrypt" ]]; then
-      # Let's Encrypt: no auto_https off, Caddy goes to ACME itself
-      printf '{\n  order forward_proxy before file_server\n  servers :%s {\n    protocols h1 h2\n  }\n}\n\n' "${PROXY_PORT}"
-    else
-      printf '{\n  auto_https off\n  order forward_proxy before file_server\n  servers :%s {\n    protocols h1 h2\n  }\n}\n\n' "${PROXY_PORT}"
+    printf '{\n  order forward_proxy before file_server\n'
+    [[ "$TLS_MODE" == "selfsigned" ]] && printf '  auto_https off\n'
+    if [[ $INSTALL_HY2 -eq 1 ]]; then
+      printf '  servers {\n    protocols h1 h2\n  }\n'
     fi
+    printf '}\n\n'
     printf '%s:%s {\n' "${DOMAIN}" "${PROXY_PORT}"
     if [[ "$TLS_MODE" == "letsencrypt" ]]; then
       printf '    tls %s\n\n' "${EMAIL}"
