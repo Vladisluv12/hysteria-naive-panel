@@ -39,6 +39,7 @@ async function getStatus(req, res) {
     email: cfg.email,
     serverIp: cfg.serverIp,
     arch: cfg.arch,
+    port: cfg.port,
     naive: cfg.stack.naive ? { active: naiveActive, usersCount: cfg.naiveUsers.length } : null,
     hy2:   cfg.stack.hy2   ? { active: hy2Active,   usersCount: cfg.hy2Users.length }   : null,
   });

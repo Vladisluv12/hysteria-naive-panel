@@ -82,7 +82,7 @@ export function DashboardPage() {
               <div className={`${styles.serviceIcon} ${styles.naive}`}>N</div>
               <div>
                 <h3 className={styles.cardTitle}>NaiveProxy</h3>
-                <div className={styles.cardSubtitle}>TCP/443 · Caddy</div>
+                <div className={styles.cardSubtitle}>TCP/{status.port} · Caddy</div>
               </div>
             </div>
             <div className={styles.status}>
@@ -113,7 +113,7 @@ export function DashboardPage() {
               <div className={`${styles.serviceIcon} ${styles.hy2}`}>H</div>
               <div>
                 <h3 className={styles.cardTitle}>Hysteria2</h3>
-                <div className={styles.cardSubtitle}>UDP/443 · QUIC</div>
+                <div className={styles.cardSubtitle}>UDP/{status.port} · QUIC</div>
               </div>
             </div>
             <div className={styles.status}>

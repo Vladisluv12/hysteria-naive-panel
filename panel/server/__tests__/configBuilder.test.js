@@ -12,6 +12,7 @@ function makeCfg(overrides = {}) {
     domain: 'example.com',
     email: 'admin@example.com',
     stack: { naive: true, hy2: false },
+    port: 443,
     naiveUsers: [
       { username: 'alice', password: 'pass1', expiresAt: null },
       { username: 'bob',   password: 'pass2', expiresAt: null },
@@ -26,6 +27,7 @@ function makeHyCfg(overrides = {}) {
   return {
     domain: 'example.com',
     stack: { naive: false, hy2: true },
+    port: 443,
     hy2Users: [
       { username: 'alice', password: 'pass1', expiresAt: null },
       { username: 'bob',   password: 'pass2', expiresAt: null },

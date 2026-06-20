@@ -124,8 +124,8 @@ export function SettingsPage() {
             </div>
             <div className={styles.clientNote}>
               Формат ссылок:<br />
-              <code>naive+https://LOGIN:PASSWORD@your.domain.com:443</code><br />
-              <code>hysteria2://PASSWORD@your.domain.com:443?sni=your.domain.com</code>
+              <code>naive+https://LOGIN:PASSWORD@your.domain.com:PORT</code><br />
+              <code>hysteria2://PASSWORD@your.domain.com:PORT?sni=your.domain.com</code>
             </div>
           </div>
         </div>

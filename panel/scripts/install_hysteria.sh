@@ -12,6 +12,7 @@ export NEEDRESTART_MODE=a
 DOMAIN="${HY_DOMAIN:-}"
 EMAIL="${HY_EMAIL:-admin@example.com}"
 PASSWORD="${HY_PASSWORD:-}"
+PORT="${PORT:-443}"
 USE_CADDY_CERT="${USE_CADDY_CERT:-0}"
 
 if [[ -z "$DOMAIN" || -z "$PASSWORD" ]]; then
@@ -64,11 +65,11 @@ log "▶ Настройка файрволла..."
 
 ufw allow 22/tcp  >/dev/null 2>&1 || true
 ufw allow 80/tcp  >/dev/null 2>&1 || true
-ufw allow 443/tcp >/dev/null 2>&1 || true
-ufw allow 443/udp >/dev/null 2>&1 || true
+ufw allow ${PORT}/tcp >/dev/null 2>&1 || true
+ufw allow ${PORT}/udp >/dev/null 2>&1 || true
 echo "y" | ufw enable >/dev/null 2>&1 || ufw --force enable >/dev/null 2>&1 || true
 
-log "✅ UDP/443 открыт"
+log "✅ UDP/${PORT} открыт"
 
 # ══════════════════════════════════════════════════════
 step 4
@@ -119,7 +120,7 @@ cat > /etc/hysteria/config.yaml << HYCFGEOF
 
 # Если Caddy занимает TCP/443 — Hy2 слушает только UDP/443.
 # Hysteria2 работает поверх QUIC (UDP), TCP ему не нужен.
-listen: :443
+listen: :${PORT}
 
 auth:
   type: userpass
@@ -388,7 +389,7 @@ log ""
 log "╔════════════════════════════════════════════════════╗"
 log "║   ✅ Hysteria2 успешно установлен!                 ║"
 log "║   Домен: ${DOMAIN}"
-log "║   hysteria2://****@${DOMAIN}:443?sni=${DOMAIN}"
+log "║   hysteria2://****@${DOMAIN}:${PORT}?sni=${DOMAIN}"
 log "╚════════════════════════════════════════════════════╝"
 log ""
 

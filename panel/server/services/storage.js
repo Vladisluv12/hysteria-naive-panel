@@ -23,6 +23,7 @@ function defaultConfig() {
     email: '',
     serverIp: '',
     arch: '',
+    port: 443,
     naiveUsers: [],
     hy2Users: []
   };
@@ -48,6 +49,10 @@ function loadConfig() {
     }
     if (!Array.isArray(raw.naiveUsers)) raw.naiveUsers = [];
     if (!Array.isArray(raw.hy2Users)) raw.hy2Users = [];
+    if (typeof raw.port !== 'number' || raw.port < 1 || raw.port > 65535) {
+      raw.port = 443;
+      fs.writeFileSync(cfgPath, JSON.stringify(raw, null, 2));
+    }
 
     if (!raw.panelDomain) {
       try {

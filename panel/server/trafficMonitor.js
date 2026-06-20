@@ -45,7 +45,7 @@ function needsRules(output, commentTag) {
   return !output.includes(commentTag);
 }
 
-async function ensureRules() {
+async function ensureRules(port) {
   if (!isRoot()) return false;
 
   const chains = ['INPUT', 'OUTPUT'];
@@ -64,10 +64,11 @@ async function ensureRules() {
     } catch { return false; }
   }
 
+  const portStr = String(port || 443);
   for (const rule of rules) {
     if (needsRules(existing, rule.tag)) {
       try {
-        await iptables(['-A', rule.chain, '-p', rule.proto, `--${rule.port}`, '443',
+        await iptables(['-A', rule.chain, '-p', rule.proto, `--${rule.port}`, portStr,
           '-m', 'comment', '--comment', rule.tag]);
       } catch {
         return false;
@@ -78,21 +79,22 @@ async function ensureRules() {
   return true;
 }
 
-async function removeRules() {
+async function removeRules(port) {
   if (!isRoot()) return;
 
+  const portStr = String(port || 443);
   const tags = Object.values(COMMENT_TAGS);
   for (const tag of tags) {
     try {
       const out = await iptables(['-L', 'INPUT', '-v', '-n', '-x']);
       if (out.includes(tag)) {
-        await iptables(['-D', 'INPUT', '-p', 'tcp', '--dport', '443',
+        await iptables(['-D', 'INPUT', '-p', 'tcp', '--dport', portStr,
           '-m', 'comment', '--comment', tag]).catch(() => {});
-        await iptables(['-D', 'OUTPUT', '-p', 'tcp', '--sport', '443',
+        await iptables(['-D', 'OUTPUT', '-p', 'tcp', '--sport', portStr,
           '-m', 'comment', '--comment', tag]).catch(() => {});
-        await iptables(['-D', 'INPUT', '-p', 'udp', '--dport', '443',
+        await iptables(['-D', 'INPUT', '-p', 'udp', '--dport', portStr,
           '-m', 'comment', '--comment', tag]).catch(() => {});
-        await iptables(['-D', 'OUTPUT', '-p', 'udp', '--sport', '443',
+        await iptables(['-D', 'OUTPUT', '-p', 'udp', '--sport', portStr,
           '-m', 'comment', '--comment', tag]).catch(() => {});
       }
     } catch { /* best-effort */ }

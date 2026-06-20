@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { NavLink, useParams } from 'react-router-dom';
 import * as naiveApi from '../../api/naive';
 import * as hysteriaApi from '../../api/hysteria';
@@ -20,10 +20,13 @@ export function UsersPage() {
 
   const [users, setUsers] = useState<User[]>([]);
   const [domain, setDomain] = useState('');
+  const [port, setPort] = useState(443);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [extendUser, setExtendUser] = useState<{ username: string; expiry: string | null } | null>(null);
   const [trafficByUser, setTrafficByUser] = useState<Record<string, UserTraffic>>({});
+  const [overflows, setOverflows] = useState(false);
+  const pageRef = useRef<HTMLDivElement>(null);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -35,6 +38,7 @@ export function UsersPage() {
       ]);
       setUsers(u.users);
       setDomain(config.domain || '');
+      setPort(config.port);
 
       try {
         const traffic = await systemApi.getTraffic();
@@ -49,6 +53,23 @@ export function UsersPage() {
   }, [isNaive, addToast]);
 
   useEffect(() => { loadUsers(); }, [loadUsers]);
+
+  useEffect(() => {
+    const el = pageRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const check = () => {
+      const content = el.querySelector(`.${styles.tableWrap}`);
+      if (!content) return;
+      const contentBottom = content.getBoundingClientRect().bottom;
+      const toolbarH = 48;
+      setOverflows(contentBottom > window.innerHeight - toolbarH);
+    };
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    window.addEventListener('resize', check);
+    check();
+    return () => { ro.disconnect(); window.removeEventListener('resize', check); };
+  }, [users]);
 
   const handleCreate = async (data: { username: string; password: string; expiry: string | null }) => {
     const api = isNaive ? naiveApi : hysteriaApi;
@@ -85,26 +106,32 @@ export function UsersPage() {
   };
 
   const makeLink = (username: string, password: string) => {
-    if (isNaive) return `naive+https://${username}:${password}@${domain}:443`;
-    return `hysteria2://${password}@${domain}:443?sni=${domain}`;
+    if (isNaive) return `naive+https://${username}:${password}@${domain}:${port}`;
+    return `hysteria2://${password}@${domain}:${port}?sni=${domain}`;
   };
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} ref={pageRef}>
       <h1 className={styles.title}>Users</h1>
       <div className={styles.subnav}>
         <NavLink to="/users/naive" className={({ isActive }) => `${styles.subtab} ${isActive ? styles.subtabActive : ''}`}>NaiveProxy</NavLink>
         <NavLink to="/users/hysteria" className={({ isActive }) => `${styles.subtab} ${isActive ? styles.subtabActive : ''}`}>Hysteria2</NavLink>
       </div>
-      <div className={styles.toolbar}>
-        <span style={{ color: '#888', fontSize: 14 }}>{users.length} user{users.length !== 1 ? 's' : ''}</span>
-        <button className={styles.btn} onClick={() => setShowCreate(true)}>+ Добавить пользователя</button>
-      </div>
+      {overflows && (
+        <div className={styles.toolbar}>
+          <span style={{ color: '#888', fontSize: 14 }}>{users.length} user{users.length !== 1 ? 's' : ''}</span>
+          <button className={styles.btn} onClick={() => setShowCreate(true)}>+ Добавить пользователя</button>
+        </div>
+      )}
       {loading ? (
         <div className={styles.loading}>Loading...</div>
       ) : (
         <UserTable users={users} trafficByUser={trafficByUser} onExtend={(username, expiry) => setExtendUser({ username, expiry })} onDelete={handleDelete} onCopyLink={makeLink} />
       )}
+      <div className={styles.toolbar} style={{ marginTop: overflows ? 0 : 16, display: overflows ? 'none' : undefined }}>
+        <span style={{ color: '#888', fontSize: 14 }}>{users.length} user{users.length !== 1 ? 's' : ''}</span>
+        <button className={styles.btn} onClick={() => setShowCreate(true)}>+ Добавить пользователя</button>
+      </div>
       {showCreate && <CreateUserModal title={`Add ${isNaive ? 'NaiveProxy' : 'Hysteria2'} User`} onClose={() => setShowCreate(false)} onSubmit={handleCreate} />}
       {extendUser && <ExtendModal username={extendUser.username} currentExpiry={extendUser.expiry} onClose={() => setExtendUser(null)} onSubmit={handleExtend} />}
     </div>

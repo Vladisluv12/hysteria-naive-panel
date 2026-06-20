@@ -40,7 +40,7 @@ export function InstallPage() {
   const types: { key: InstallType; label: string; desc: string }[] = [
     { key: 'naive', label: 'NaiveProxy', desc: 'HTTPS forward proxy via Caddy' },
     { key: 'hysteria', label: 'Hysteria2', desc: 'High-speed QUIC proxy' },
-    { key: 'both', label: 'Both', desc: 'NaiveProxy + Hysteria2 on port 443' },
+    { key: 'both', label: 'Both', desc: 'NaiveProxy + Hysteria2' },
   ];
 
   return (

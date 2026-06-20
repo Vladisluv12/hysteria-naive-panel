@@ -14,6 +14,7 @@ DOMAIN="${NAIVE_DOMAIN:-}"
 EMAIL="${NAIVE_EMAIL:-}"
 LOGIN="${NAIVE_LOGIN:-}"
 PASSWORD="${NAIVE_PASSWORD:-}"
+PORT="${PORT:-443}"
 WITH_HY2="${WITH_HY2:-0}"  # 1 = отключить HTTP/3 в Caddy чтобы освободить UDP/443 для Hy2
 
 if [[ -z "$DOMAIN" || -z "$EMAIL" || -z "$LOGIN" || -z "$PASSWORD" ]]; then
@@ -76,10 +77,10 @@ log "▶ Настройка файрволла UFW..."
 
 ufw allow 22/tcp  >/dev/null 2>&1 || true
 ufw allow 80/tcp  >/dev/null 2>&1 || true
-ufw allow 443/tcp >/dev/null 2>&1 || true
-ufw allow 443/udp >/dev/null 2>&1 || true
+ufw allow ${PORT}/tcp >/dev/null 2>&1 || true
+ufw allow ${PORT}/udp >/dev/null 2>&1 || true
 echo "y" | ufw enable >/dev/null 2>&1 || ufw --force enable >/dev/null 2>&1 || true
-log "✅ Файрволл настроен (22, 80, 443/tcp+udp)"
+log "✅ Файрволл настроен (22, 80, ${PORT}/tcp+udp)"
 
 # ══════════════════════════════════════════════════════
 step 4
@@ -203,7 +204,7 @@ HTMLEOF
     printf '  }\n'
   fi
   printf '}\n\n'
-  printf ':443, %s {\n' "$DOMAIN"
+  printf ':${PORT}, %s {\n' "$DOMAIN"
   printf '  tls %s\n\n' "$EMAIL"
   printf '  forward_proxy {\n'
   printf '    basic_auth %s %s\n' "$LOGIN" "$PASSWORD"
@@ -299,7 +300,7 @@ log ""
 log "╔════════════════════════════════════════════════════╗"
 log "║   ✅ NaiveProxy успешно установлен!                ║"
 log "║   Домен: ${DOMAIN}"
-log "║   naive+https://${LOGIN}:****@${DOMAIN}:443"
+log "║   naive+https://${LOGIN}:****@${DOMAIN}:${PORT}"
 log "╚════════════════════════════════════════════════════╝"
 log ""
 

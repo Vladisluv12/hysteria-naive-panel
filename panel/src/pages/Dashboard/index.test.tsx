@@ -19,6 +19,7 @@ vi.mock('../../api/system', () => ({
     email: 'admin@example.com',
     serverIp: '1.2.3.4',
     arch: 'x64',
+    port: 443,
     naive: { active: true, usersCount: 5 },
     hy2: { active: true, usersCount: 3 },
   }),

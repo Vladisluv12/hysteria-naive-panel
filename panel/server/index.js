@@ -219,7 +219,7 @@ function handleInstallNaive(ws, data) {
   if (!isValidUsername(login)) return ws.send(JSON.stringify({ type: 'install_error', message: 'Неверный логин' }));
   if (!isValidPassword(password)) return ws.send(JSON.stringify({ type: 'install_error', message: 'Пароль минимум 8 символов' }));
 
-  updateConfig(c => {
+  const cfg = updateConfig(c => {
     c.domain = domain;
     c.email = email;
     c.stack.naive = true;
@@ -232,7 +232,8 @@ function handleInstallNaive(ws, data) {
   sendLog(ws, '🚀 Запуск установки NaiveProxy...', 'init', 2, 'info');
   runScript(ws, 'install_naiveproxy.sh', {
     NAIVE_DOMAIN: domain, NAIVE_EMAIL: email,
-    NAIVE_LOGIN: login, NAIVE_PASSWORD: password
+    NAIVE_LOGIN: login, NAIVE_PASSWORD: password,
+    PORT: String(cfg.port || 443)
   }, (code) => {
     if (code === 0) {
       updateConfig(c => { c.installed = true; });
@@ -240,7 +241,7 @@ function handleInstallNaive(ws, data) {
       ws.send(JSON.stringify({
         type: 'install_done',
         links: {
-          naive: `naive+https://${login}:${password}@${domain}:443`
+          naive: `naive+https://${login}:${password}@${domain}:${cfg.port || 443}`
         }
       }));
     } else {
@@ -255,7 +256,7 @@ function handleInstallHy2(ws, data) {
   if (!isValidEmail(email)) return ws.send(JSON.stringify({ type: 'install_error', message: 'Неверный email' }));
   if (!isValidPassword(password)) return ws.send(JSON.stringify({ type: 'install_error', message: 'Пароль минимум 8 символов' }));
 
-  updateConfig(c => {
+  const cfg = updateConfig(c => {
     c.domain = domain;
     c.email = email;
     c.stack.hy2 = true;
@@ -271,7 +272,8 @@ function handleInstallHy2(ws, data) {
   sendLog(ws, '⚡ Запуск установки Hysteria2...', 'init', 2, 'info');
   runScript(ws, 'install_hysteria.sh', {
     HY_DOMAIN: domain, HY_EMAIL: email, HY_PASSWORD: password,
-    USE_CADDY_CERT: useCaddyCert ? '1' : '0'
+    USE_CADDY_CERT: useCaddyCert ? '1' : '0',
+    PORT: String(cfg.port || 443)
   }, (code) => {
     if (code === 0) {
       updateConfig(c => { c.installed = true; });
@@ -279,7 +281,7 @@ function handleInstallHy2(ws, data) {
       ws.send(JSON.stringify({
         type: 'install_done',
         links: {
-          hy2: `hysteria2://default:${encodeURIComponent(password)}@${domain}:443?sni=${domain}&insecure=0#RIXXX`
+          hy2: `hysteria2://default:${encodeURIComponent(password)}@${domain}:${cfg.port || 443}?sni=${domain}&insecure=0#RIXXX`
         }
       }));
     } else {
@@ -296,7 +298,7 @@ function handleInstallBoth(ws, data) {
   if (!isValidPassword(naivePassword)) return ws.send(JSON.stringify({ type: 'install_error', message: 'Naive пароль 8+ символов' }));
   if (!isValidPassword(hy2Password)) return ws.send(JSON.stringify({ type: 'install_error', message: 'Hy2 пароль 8+ символов' }));
 
-  updateConfig(c => {
+  const cfg = updateConfig(c => {
     c.domain = domain;
     c.email = email;
     c.stack.naive = true;
@@ -315,7 +317,8 @@ function handleInstallBoth(ws, data) {
   runScript(ws, 'install_naiveproxy.sh', {
     NAIVE_DOMAIN: domain, NAIVE_EMAIL: email,
     NAIVE_LOGIN: naiveLogin, NAIVE_PASSWORD: naivePassword,
-    WITH_HY2: '1'  // отключит HTTP/3 в Caddy → UDP/443 свободен для Hy2
+    WITH_HY2: '1',
+    PORT: String(cfg.port || 443)
   }, (codeNaive) => {
     if (codeNaive !== 0) {
       ws.send(JSON.stringify({ type: 'install_error', message: `Naive failed: ${codeNaive}` }));
@@ -324,7 +327,8 @@ function handleInstallBoth(ws, data) {
     sendLog(ws, '✅ Naive ок, запускаю Hy2...', null, 50, 'success');
     runScript(ws, 'install_hysteria.sh', {
       HY_DOMAIN: domain, HY_EMAIL: email, HY_PASSWORD: hy2Password,
-      USE_CADDY_CERT: '1'
+      USE_CADDY_CERT: '1',
+      PORT: String(cfg.port || 443)
     }, (codeHy) => {
       if (codeHy === 0) {
         updateConfig(c => { c.installed = true; });
@@ -332,8 +336,8 @@ function handleInstallBoth(ws, data) {
         ws.send(JSON.stringify({
           type: 'install_done',
           links: {
-            naive: `naive+https://${naiveLogin}:${naivePassword}@${domain}:443`,
-            hy2:   `hysteria2://default:${encodeURIComponent(hy2Password)}@${domain}:443?sni=${domain}&insecure=0#RIXXX`
+            naive: `naive+https://${naiveLogin}:${naivePassword}@${domain}:${cfg.port || 443}`,
+            hy2:   `hysteria2://default:${encodeURIComponent(hy2Password)}@${domain}:${cfg.port || 443}?sni=${domain}&insecure=0#RIXXX`
           }
         }));
       } else {
@@ -391,7 +395,8 @@ app.get(/^(?!\/api).*/, (req, res) => {
 });
 
 if (process.env.NODE_ENV !== 'test') {
-  trafficMonitor.ensureRules().then(ok => {
+  const cfg = loadConfig();
+  trafficMonitor.ensureRules(cfg.port).then(ok => {
     if (ok) console.log('[traffic] iptables rules ready');
     else console.log('[traffic] iptables rules not set (not root or error)');
   }).catch(() => {});

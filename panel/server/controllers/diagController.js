@@ -22,7 +22,7 @@ function testPath(systemPath) {
 async function getLogs(req, res) {
   const { kind } = req.params;
   const lines = Math.max(10, Math.min(parseInt(req.query.lines || '60', 10) || 60, 500));
-  const unitMap = { naive: 'caddy', hy2: 'hysteria-server', panel: 'pm2-root' };
+  const unitMap = { naive: 'caddy', caddy: 'caddy', hy2: 'hysteria-server', hysteria: 'hysteria-server', panel: 'pm2-root' };
   const unit = unitMap[kind];
   if (!unit) return res.status(400).json({ error: 'bad kind' });
 
@@ -36,7 +36,8 @@ async function getLogs(req, res) {
 }
 
 async function getPorts(req, res) {
-  const output = await checkPorts();
+  const cfg = loadConfig();
+  const output = await checkPorts(cfg.port);
   res.json({ output });
 }
 

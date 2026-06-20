@@ -12,7 +12,8 @@ function extractCustomBlocks(content, domain, panelDomain) {
     const h = buf.header.trim();
 
     const isGlobal = h === '{';
-    const isProxy = domain && (h.startsWith(`:443, ${domain}`) || h.startsWith(`:443,${domain}`) || h === domain);
+    const proxyMatch = domain ? h.match(/^:\d+,\s*([^\s{]+)/) : null;
+    const isProxy = proxyMatch && proxyMatch[1] === domain || h === domain;
     const isPanel = panelDomain && panelDomain !== domain && (h === panelDomain || h.startsWith(`${panelDomain} `) || h.startsWith(`${panelDomain}:`));
 
     if (!isGlobal && !isProxy && !isPanel) {

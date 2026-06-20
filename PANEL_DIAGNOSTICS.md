@@ -150,6 +150,81 @@
 
 ---
 
+### BUG-10: Install page — hardcoded цвета вместо CSS-переменных
+
+**Severity: MEDIUM — ИСПРАВЛЕНО**
+
+Все hardcoded hex-цвета заменены на `var(--*)` токены:
+
+| Было (hardcoded) | Стало (CSS var) |
+|-------------------|-----------------|
+| `background: #16213e` | `var(--bg-card)` |
+| `background: #2a2a4a` | `var(--bg-surface)` |
+| `color: #7c4dff` | `var(--accent-bright)` |
+| `color: #c9d1d9` | `var(--text-primary)` |
+| `color: #888` | `var(--text-muted)` |
+| `color: #ef5350` | `var(--danger)` |
+| `color: #66bb6a` | `var(--success)` |
+| `background: #0d1117` | `var(--bg-surface)` |
+| `#fff` (кнопки) | `var(--text-primary)` + shiny gradient как у `.btn-shiny` |
+| `border: 2px solid #2a2a4a` | `2px solid var(--bg-surface)` + `var(--border)` на секциях |
+| `font-family: monospace` | `var(--font-mono)` |
+
+Дизайн теперь консистентен с остальными страницами.
+
+---
+
+### BUG-11: Diagnostics — "bad kind" при переключении вкладок
+
+**Severity: HIGH — ИСПРАВЛЕНО**
+
+Фронтенд шлёт `caddy`/`hysteria`, бэкенд ждал `naive`/`hy2`. Добавлены алиасы:
+
+```js
+// server/controllers/diagController.js:25
+const unitMap = { naive: 'caddy', caddy: 'caddy', hy2: 'hysteria-server', hysteria: 'hysteria-server', panel: 'pm2-root' };
+```
+
+### BUG-12: Users — двойная кнопка при overflow
+
+**Severity: MEDIUM — ИСПРАВЛЕНО**
+
+При переполнении таблицы оба toolbar (верхний и нижний) рендерились одновременно, создавая дублирование кнопки "Добавить пользователя".
+
+**Фикс:** bottom toolbar скрывается через `display: none` когда `overflows = true` (`Users/index.tsx:128`).
+
+---
+
+### BUG-13: Users — нет listener на resize окна
+
+**Severity: LOW — ИСПРАВЛЕНО**
+
+ResizeObserver следил только за контейнером `.page`, но не реагировал на resize окна. Если таблица влезала при большом окне, но не влезала при маленьком — это не детектилось.
+
+**Фикс:** добавлен `window.addEventListener('resize', check)` + cleanup (`Users/index.tsx:65-69`).
+
+---
+
+## Сводная таблица
+
+| # | Баг | Статус | Severity |
+|---|-----|--------|----------|
+| 01 | Users API — типы ответа и имена полей | **FIXED** | CRITICAL |
+| 02 | Dashboard — статус сервисов | **FIXED** | CRITICAL |
+| 03 | Diagnostics — логи/порты/конфиг | **FIXED** | HIGH |
+| 04 | Bypass — типы | **FIXED** | HIGH |
+| 05 | ACL page — сломанные стили | **FIXED** | HIGH |
+| 06 | ACL — нет в sidebar | **FIXED** | MEDIUM |
+| 07 | mustChangePassword игнорируется | **FIXED** | HIGH |
+| 08 | Traffic API дублирование | **FIXED** | MEDIUM |
+| 09 | WebSocket auth — substring check | **FIXED** | CRITICAL |
+| 10 | Install — hardcoded цвета | **FIXED** | MEDIUM |
+| 11 | Diagnostics — "bad kind" | **FIXED** | HIGH |
+| 12 | Users — двойная кнопка | **FIXED** | MEDIUM |
+| 13 | Users — нет resize listener | **FIXED** | LOW |
+
+---
+
 ## Итого
 
-**Исправлено: 9/9 багов.** React-фронтенд полностью рабочий.
+**Все 13 багов исправлены.** React-фронтенд полностью рабочий, дизайн консистентен.

@@ -298,7 +298,7 @@ async function renderQuickLinks(status) {
       const { users } = await r.json();
       users.slice(0, 3).forEach(u => {
         hasAny = true;
-        const link = `naive+https://${u.username}:${u.password}@${status.domain}:443`;
+        const link = `naive+https://${u.username}:${u.password}@${status.domain}:${status.port || 443}`;
         listEl.innerHTML += `
           <div class="quick-link-item">
             <span class="ql-type naive-tag">Naive</span>
@@ -318,7 +318,7 @@ async function renderQuickLinks(status) {
       users.slice(0, 3).forEach(u => {
         hasAny = true;
         // userpass: в URI auth = username:password (см. docs hysteria2 URI-Scheme)
-        const link = `hysteria2://${encodeURIComponent(u.username)}:${encodeURIComponent(u.password)}@${status.domain}:443?sni=${status.domain}&insecure=0#${encodeURIComponent(u.username)}`;
+        const link = `hysteria2://${encodeURIComponent(u.username)}:${encodeURIComponent(u.password)}@${status.domain}:${status.port || 443}?sni=${status.domain}&insecure=0#${encodeURIComponent(u.username)}`;
         listEl.innerHTML += `
           <div class="quick-link-item">
             <span class="ql-type hy2-tag">Hy2</span>
@@ -374,17 +374,17 @@ function switchInstallTab(tab) {
     naiveFields.classList.remove('hidden');
     hy2Fields.classList.add('hidden');
     title.textContent = 'Параметры NaiveProxy';
-    note.innerHTML = '<strong>ℹ NaiveProxy</strong> — TCP/443, HTTP/2 forward proxy через Caddy. Маскируется под сайт.';
+    note.innerHTML = '<strong>ℹ NaiveProxy</strong> — TCP, HTTP/2 forward proxy через Caddy. Маскируется под сайт.';
   } else if (tab === 'hy2') {
     naiveFields.classList.add('hidden');
     hy2Fields.classList.remove('hidden');
     title.textContent = 'Параметры Hysteria2';
-    note.innerHTML = '<strong>⚡ Hysteria2</strong> — UDP/443, QUIC-based. Свой congestion control Brutal. Быстрый.';
+    note.innerHTML = '<strong>⚡ Hysteria2</strong> — UDP, QUIC-based. Свой congestion control Brutal. Быстрый.';
   } else { // both
     naiveFields.classList.remove('hidden');
     hy2Fields.classList.remove('hidden');
     title.textContent = 'Naive + Hysteria2 на одном сервере';
-    note.innerHTML = '<strong>✨ Оба протокола</strong> на одном домене и порту 443 (TCP + UDP). Hy2 использует сертификат Caddy.';
+    note.innerHTML = '<strong>✨ Оба протокола</strong> на одном домене и порту (TCP + UDP). Hy2 использует сертификат Caddy.';
   }
 }
 
@@ -594,8 +594,8 @@ async function loadUsers() {
       const t = trafficByUser[u.username] || {};
       const link = status.installed && status.domain
         ? (currentUsersTab === 'naive'
-            ? `naive+https://${u.username}:${u.password}@${status.domain}:443`
-            : `hysteria2://${encodeURIComponent(u.username)}:${encodeURIComponent(u.password)}@${status.domain}:443?sni=${status.domain}&insecure=0#${encodeURIComponent(u.username)}`)
+            ? `naive+https://${u.username}:${u.password}@${status.domain}:${status.port || 443}`
+            : `hysteria2://${encodeURIComponent(u.username)}:${encodeURIComponent(u.password)}@${status.domain}:${status.port || 443}?sni=${status.domain}&insecure=0#${encodeURIComponent(u.username)}`)
         : '';
       const date = u.createdAt ? new Date(u.createdAt).toLocaleDateString('ru') : '—';
       const expireCell = formatExpireCell(u);

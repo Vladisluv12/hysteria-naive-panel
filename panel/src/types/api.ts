@@ -48,6 +48,7 @@ export interface SystemStatus {
   email?: string;
   serverIp?: string;
   arch?: string;
+  port: number;
   naive: { active: boolean; usersCount: number } | null;
   hy2: { active: boolean; usersCount: number } | null;
 }
@@ -60,6 +61,7 @@ export interface Config {
   stack: { naive: boolean; hy2: boolean };
   panelDomain?: string;
   sshOnly?: boolean;
+  port: number;
   [key: string]: unknown;
 }
 

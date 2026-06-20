@@ -1,5 +1,5 @@
 #!/bin/bash
-# vps_test_install.sh — Deploy NaiveProxy + Hysteria2 on port 8443 (self-signed)
+# vps_test_install.sh — Deploy NaiveProxy + Hysteria2 (self-signed)
 # Auto mode:   sudo DOMAIN="vps.example.com" NAIVE_USER="u1" NAIVE_PASS="p1" HY2_PASS="p2" bash vps_test_install.sh
 # Interactive: sudo bash vps_test_install.sh
 set -euo pipefail
@@ -59,6 +59,7 @@ if [[ $AUTO_MODE -eq 1 ]]; then
   NAIVE_USER="${NAIVE_USER:-$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 16)}"
   NAIVE_PASS="${NAIVE_PASS:-$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24)}"
   HY2_PASS="${HY2_PASS:-$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24)}"
+  PROXY_PORT="${PROXY_PORT:-8443}"
   SSH_ONLY=0; LISTEN_HOST="0.0.0.0"; PANEL_DOMAIN=""
   case "$PANEL_ACCESS" in
     nginx)    ACCESS_MODE=1 ;;
@@ -70,7 +71,7 @@ if [[ $AUTO_MODE -eq 1 ]]; then
     { log_warn "MASQUERADE_URL invalid, using default"; MASQUERADE_URL="https://www.iana.org"; }
   TLS_MODE="${TLS_MODE:-selfsigned}"
   EMAIL="${EMAIL:-}"
-  log_info "Auto mode: ${DOMAIN} | TLS=${TLS_MODE} | SQLite=${USE_SQLITE} | React=${USE_NEW_FRONTEND} | Access=${PANEL_ACCESS}"
+  log_info "Auto mode: ${DOMAIN} | TLS=${TLS_MODE} | Port=${PROXY_PORT} | SQLite=${USE_SQLITE} | React=${USE_NEW_FRONTEND} | Access=${PANEL_ACCESS}"
 else
   # ── Interactive mode ─────────────────────────────────────────────────
   echo -e "\n${BOLD}Protocols:${RESET} ${CYAN}1)${RESET} Naive  ${CYAN}2)${RESET} Hysteria2  ${CYAN}3)${RESET} Both (rec)"
@@ -107,6 +108,14 @@ else
   fi
 
   read -rp $'\n'"${BOLD}Domain:${RESET} (A-record -> ${SERVER_IP}): " DOMAIN
+
+  echo -e "\n${BOLD}Proxy port:${RESET} ${CYAN}1)${RESET} 443  ${CYAN}2)${RESET} 8443 (default)  ${CYAN}3)${RESET} Custom"
+  read -rp "Choice [1/2/3]: " _PORT_CHOICE; _PORT_CHOICE="${_PORT_CHOICE:-2}"
+  case "$_PORT_CHOICE" in
+    1) PROXY_PORT=443 ;;
+    3) read -rp "  Port number: " PROXY_PORT; PROXY_PORT="${PROXY_PORT:-8443}" ;;
+    *) PROXY_PORT=8443 ;;
+  esac
 
   [[ $INSTALL_NAIVE -eq 1 ]] && NAIVE_USER=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 16) && NAIVE_PASS=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24) || { NAIVE_USER=""; NAIVE_PASS=""; }
   [[ $INSTALL_HY2   -eq 1 ]] && HY2_PASS=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24) || HY2_PASS=""
@@ -238,9 +247,18 @@ if [[ $INSTALL_NAIVE -eq 1 ]]; then
   touch /var/lib/naive/traffic.json
   chown -R root:root /var/lib/naive
   {
-    printf '{\n  auto_https off\n  order forward_proxy before file_server\n  servers :8443 {\n    protocols h1 h2\n  }\n}\n\n'
-    printf '%s:8443 {\n' "${DOMAIN}"
-    printf '    tls /etc/ssl/selfsigned/server.crt /etc/ssl/selfsigned/server.key\n\n'
+    if [[ "$TLS_MODE" == "letsencrypt" ]]; then
+      # Let's Encrypt: no auto_https off, Caddy goes to ACME itself
+      printf '{\n  order forward_proxy before file_server\n  servers :%s {\n    protocols h1 h2\n  }\n}\n\n' "${PROXY_PORT}"
+    else
+      printf '{\n  auto_https off\n  order forward_proxy before file_server\n  servers :%s {\n    protocols h1 h2\n  }\n}\n\n' "${PROXY_PORT}"
+    fi
+    printf '%s:%s {\n' "${DOMAIN}" "${PROXY_PORT}"
+    if [[ "$TLS_MODE" == "letsencrypt" ]]; then
+      printf '    tls %s\n\n' "${EMAIL}"
+    else
+      printf '    tls /etc/ssl/selfsigned/server.crt /etc/ssl/selfsigned/server.key\n\n'
+    fi
     printf '    forward_proxy {\n'
     printf '        basic_auth %s %s\n' "${NAIVE_USER}" "${NAIVE_PASS}"
     printf '        hide_ip\n        hide_via\n        probe_resistance\n'
@@ -259,7 +277,7 @@ fi
 if [[ $INSTALL_HY2 -eq 1 ]]; then
   # Base listen config
   cat > /etc/hysteria/config.yaml << HYEOF
-listen: :8443
+listen: :${PROXY_PORT}
 
 HYEOF
 
@@ -385,7 +403,7 @@ cat > "${PANEL_DIR}/panel/data/config.json" << CONFIGEOF
   "masqueradeUrl":  "${MASQUERADE_URL:-}",
   "serverIp": "${SERVER_IP}",
   "arch": "${MACHINE_ARCH}",
-  "port": 8443,
+  "port": ${PROXY_PORT},
   "adminPassword": "",
   "naiveUsers": ${NAIVE_JSON},
   "hy2Users":   ${HY2_JSON}
@@ -540,8 +558,8 @@ systemctl daemon-reload
 
 log_step "[13] Configuring UFW..."
 ufw allow 22/tcp   >/dev/null 2>&1 || true
-ufw allow 8443/tcp >/dev/null 2>&1 || true
-ufw allow 8443/udp >/dev/null 2>&1 || true
+ufw allow ${PROXY_PORT}/tcp >/dev/null 2>&1 || true
+ufw allow ${PROXY_PORT}/udp >/dev/null 2>&1 || true
 # Let's Encrypt HTTP-01 ACME challenge
 if [[ "$TLS_MODE" == "letsencrypt" ]]; then
   ufw allow 80/tcp >/dev/null 2>&1 || true
@@ -602,9 +620,9 @@ curl -fsS --max-time 5 "http://127.0.0.1:${INTERNAL_PORT}/" >/dev/null 2>&1 \
   || { log_warn "Panel not responding on :${INTERNAL_PORT}"; _SW=$((_SW+1)); }
 
 [[ $INSTALL_NAIVE -eq 1 ]] && {
-  curl -fsSk --max-time 8 -o /dev/null "https://127.0.0.1:8443/" 2>/dev/null \
-    && log_ok "HTTPS :8443 responds (${TLS_MODE:-selfsigned})" \
-    || { log_warn "HTTPS :8443 not responding"; _SW=$((_SW+1)); }
+  curl -fsSk --max-time 8 -o /dev/null "https://127.0.0.1:${PROXY_PORT}/" 2>/dev/null \
+    && log_ok "HTTPS :${PROXY_PORT} responds (${TLS_MODE:-selfsigned})" \
+    || { log_warn "HTTPS :${PROXY_PORT} not responding"; _SW=$((_SW+1)); }
 }
 
 if [[ $_SF -eq 0 && $_SW -eq 0 ]]; then log_ok "Smoke test: all passed"
@@ -638,17 +656,17 @@ else
 fi
 echo -e "${PURPLE}${BOLD}╠══════════════════════════════════════════════════════════════╣${RESET}"
 if [[ $INSTALL_NAIVE -eq 1 ]]; then
-  echo -e "${CYAN}   NaiveProxy:  naive+https://${NAIVE_USER}:${NAIVE_PASS}@${DOMAIN}:8443${RESET}"
+  echo -e "${CYAN}   NaiveProxy:  naive+https://${NAIVE_USER}:${NAIVE_PASS}@${DOMAIN}:${PROXY_PORT}${RESET}"
   echo -e "${PURPLE}${BOLD}║   User: ${NAIVE_USER}                                         ║${RESET}"
   echo -e "${PURPLE}${BOLD}║   Pass: ${NAIVE_PASS}${RESET}"
 fi
 if [[ $INSTALL_HY2 -eq 1 ]]; then
-  echo -e "${CYAN}   Hysteria2:   hysteria2://default:${HY2_PASS}@${DOMAIN}:8443?sni=${DOMAIN}&insecure=${_INSECURE}#VPS-Test${RESET}"
+  echo -e "${CYAN}   Hysteria2:   hysteria2://default:${HY2_PASS}@${DOMAIN}:${PROXY_PORT}?sni=${DOMAIN}&insecure=${_INSECURE}#VPS-Test${RESET}"
   echo -e "${PURPLE}${BOLD}║   Pass: ${HY2_PASS}${RESET}"
 fi
 echo -e "${PURPLE}${BOLD}╠══════════════════════════════════════════════════════════════╣${RESET}"
-[[ $INSTALL_NAIVE -eq 1 ]] && echo -e "   Sing-box naive: {\"type\":\"naive\",\"server\":\"${DOMAIN}\",\"server_port\":8443,\"username\":\"${NAIVE_USER}\",\"password\":\"${NAIVE_PASS}\",\"tls\":{\"enabled\":true,\"insecure\":${_INSECURE_JSON},\"server_name\":\"${DOMAIN}\"}}"
-[[ $INSTALL_HY2   -eq 1 ]] && echo -e "   Sing-box hy2:   {\"type\":\"hysteria2\",\"server\":\"${DOMAIN}\",\"server_port\":8443,\"password\":\"${HY2_PASS}\",\"tls\":{\"enabled\":true,\"insecure\":${_INSECURE_JSON},\"server_name\":\"${DOMAIN}\"}}"
+[[ $INSTALL_NAIVE -eq 1 ]] && echo -e "   Sing-box naive: {\"type\":\"naive\",\"server\":\"${DOMAIN}\",\"server_port\":${PROXY_PORT},\"username\":\"${NAIVE_USER}\",\"password\":\"${NAIVE_PASS}\",\"tls\":{\"enabled\":true,\"insecure\":${_INSECURE_JSON},\"server_name\":\"${DOMAIN}\"}}"
+[[ $INSTALL_HY2   -eq 1 ]] && echo -e "   Sing-box hy2:   {\"type\":\"hysteria2\",\"server\":\"${DOMAIN}\",\"server_port\":${PROXY_PORT},\"password\":\"${HY2_PASS}\",\"tls\":{\"enabled\":true,\"insecure\":${_INSECURE_JSON},\"server_name\":\"${DOMAIN}\"}}"
 echo -e "${PURPLE}${BOLD}╚══════════════════════════════════════════════════════════════╝${RESET}"
 echo ""
 echo -e "  Traffic: /var/lib/naive/traffic.json + http://${SERVER_IP}:9999 (Hy2 stats)"

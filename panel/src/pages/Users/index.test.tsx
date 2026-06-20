@@ -20,7 +20,7 @@ vi.mock('../../api/hysteria', () => ({
   createUser: vi.fn(), deleteUser: vi.fn(), updateUser: vi.fn(),
 }));
 vi.mock('../../api/system', () => ({
-  getConfig: vi.fn().mockResolvedValue({ domain: 'example.com', installed: true, stack: { naive: true, hy2: false } }),
+  getConfig: vi.fn().mockResolvedValue({ domain: 'example.com', installed: true, stack: { naive: true, hy2: false }, port: 443 }),
   getTraffic: vi.fn(),
   getStatus: vi.fn(), getVersion: vi.fn(), serviceAction: vi.fn(),
 }));

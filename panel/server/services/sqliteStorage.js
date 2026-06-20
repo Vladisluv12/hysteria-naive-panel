@@ -37,6 +37,7 @@ function defaultConfig() {
     email: '',
     serverIp: '',
     arch: '',
+    port: 443,
     naiveUsers: [],
     hy2Users: []
   };
@@ -50,6 +51,10 @@ function loadConfig() {
     if (!cfg.stack) cfg.stack = { naive: !!cfg.installed, hy2: false };
     if (!Array.isArray(cfg.naiveUsers)) cfg.naiveUsers = [];
     if (!Array.isArray(cfg.hy2Users)) cfg.hy2Users = [];
+    if (typeof cfg.port !== 'number' || cfg.port < 1 || cfg.port > 65535) {
+      cfg.port = 443;
+      db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (\'config\', ?)').run(JSON.stringify(cfg));
+    }
     return cfg;
   } catch (e) {
     console.error('[sqliteStorage] loadConfig error:', e.message);

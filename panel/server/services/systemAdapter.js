@@ -129,10 +129,10 @@ function ensureCertPermissions(certPath, keyPath) {
   );
 }
 
-async function checkPorts() {
+async function checkPorts(port) {
   const { stdout } = await runCommand('bash', ['-c',
-    'echo "tcp:$(ss -tlnp 2>/dev/null | grep -E ":443 " || echo none)"; ' +
-    'echo "udp:$(ss -ulnp 2>/dev/null | grep -E ":443 " || echo none)"'
+    `echo "tcp:$(ss -tlnp 2>/dev/null | grep -E ":${port} " || echo none)"; ` +
+    `echo "udp:$(ss -ulnp 2>/dev/null | grep -E ":${port} " || echo none)"`
   ]);
   return stdout;
 }
