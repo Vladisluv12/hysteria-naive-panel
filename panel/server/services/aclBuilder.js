@@ -210,7 +210,7 @@ async function downloadGeoDatasets() {
   fs.mkdirSync(baseDir, { recursive: true });
 
   const geoipUrl = 'https://github.com/v2fly/geoip/releases/latest/download/geoip.dat';
-  const geositeUrl = 'https://github.com/v2fly/domain-list-community/releases/latest/download/geosite.dat';
+  const geositeUrl = 'https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat';
 
   const results = { geoip: false, geosite: false, error: null };
   try {
