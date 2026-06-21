@@ -63,6 +63,34 @@ async function reloadCaddy(useTestApi = false, configPath = '/etc/caddy/Caddyfil
   ]);
 }
 
+async function reloadNaive(useTestApi = false, configPath = '/etc/naive/Caddyfile') {
+  if (TEST_MODE && useTestApi) {
+    const fs = require('fs');
+    const http = require('http');
+    try {
+      const configData = fs.readFileSync(configPath, 'utf8');
+      await new Promise((resolve) => {
+        const req = http.request({
+          hostname: 'caddy-naive', port: 2019, path: '/load',
+          method: 'POST',
+          headers: { 'Content-Type': 'text/caddyfile', 'Content-Length': Buffer.byteLength(configData) },
+        }, (res) => {
+          let body = '';
+          res.on('data', d => body += d);
+          res.on('end', () => { resolve(); });
+        });
+        req.on('error', () => resolve());
+        req.write(configData);
+        req.end();
+      });
+    } catch (e) { /* ignore */ }
+    return;
+  }
+  await runCommand('bash', ['-c',
+    `caddy-naive reload --config ${configPath} --force 2>/dev/null || systemctl reload naive 2>/dev/null || systemctl restart naive 2>/dev/null`
+  ]);
+}
+
 async function restartHysteria() {
   if (TEST_MODE) return;
   await runCommand('systemctl', ['restart', 'hysteria-server']);
@@ -142,6 +170,7 @@ module.exports = {
   serviceIsActive,
   serviceAction,
   reloadCaddy,
+  reloadNaive,
   restartHysteria,
   getJournalctl,
   runPm2Logs,

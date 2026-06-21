@@ -118,7 +118,7 @@ app.use('/api', aclRoutes);
 // ── Экспорт для expireChecker ──
 const { writeCaddyfile } = naiveRoutes;
 const { writeHysteriaConfig } = hysteriaRoutes;
-const { reloadCaddy, restartHysteria: reloadHysteria } = require('./services/systemAdapter.js');
+const { reloadNaive, restartHysteria: reloadHysteria } = require('./services/systemAdapter.js');
 
 //  INSTALL VIA WEBSOCKET
 // ═══════════════════════════════════════════════════════════
@@ -371,7 +371,7 @@ async function expireChecker() {
     console.log(`[expire-check] naive=${naiveExpired} hy2=${hy2Expired} — обновляю конфиги`);
     if (cfg.stack.naive && naiveExpired > 0) {
       writeCaddyfile(cfg);
-      await reloadCaddy();
+      await reloadNaive();
     }
     if (cfg.stack.hy2 && hy2Expired > 0) {
       writeHysteriaConfig(cfg);

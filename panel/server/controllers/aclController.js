@@ -6,7 +6,7 @@ const {
   downloadGeoDatasets, geoDatasetsExist,
   GEOSITE_CATEGORIES, GEOIP_COUNTRIES,
 } = require('../services/aclBuilder.js');
-const { restartHysteria, reloadCaddy } = require('../services/systemAdapter.js');
+const { restartHysteria, reloadNaive } = require('../services/systemAdapter.js');
 const { writeHysteriaConfig } = require('./hysteriaController.js');
 const { writeCaddyfile: writeNaiveCaddyfile } = require('./naiveController.js');
 
@@ -68,7 +68,7 @@ async function updateAcl(req, res) {
   if (cfg.installed && cfg.stack.naive) {
     try {
       writeNaiveCaddyfile(cfg);
-      await reloadCaddy(process.env.TEST_MODE === '1');
+      await reloadNaive(process.env.TEST_MODE === '1');
     } catch (e) {
       console.error('[acl] caddy reload failed after save:', e.message);
     }
@@ -97,7 +97,7 @@ async function geoUpdate(req, res) {
     if (cfg.installed && cfg.stack.naive) {
       try {
         writeNaiveCaddyfile(cfg);
-        await reloadCaddy(process.env.TEST_MODE === '1');
+        await reloadNaive(process.env.TEST_MODE === '1');
       } catch (e) {
         console.error('[acl] caddy reload failed after geo update:', e.message);
       }

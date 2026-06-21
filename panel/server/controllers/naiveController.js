@@ -6,7 +6,7 @@ const { updateConfig } = require('../services/atomicUpdate.js');
 const { buildCaddyContent } = require('../services/configBuilder.js');
 const { loadAcl } = require('../services/aclBuilder.js');
 const { isValidUsername, isValidPassword, isValidExpireDays, computeExpiresAt, isExpired, remainingSeconds } = require('../utils/validators.js');
-const { reloadCaddy } = require('../services/systemAdapter.js');
+const { reloadNaive } = require('../services/systemAdapter.js');
 const { AtomicFileTransaction, caddyValidator } = require('../services/atomicConfig.js');
 const { extractCustomBlocks } = require('../caddyfile.js');
 
@@ -17,14 +17,15 @@ function testPath(systemPath) {
   return systemPath;
 }
 
+const NAIVE_CADDYFILE_PATH = testPath('/etc/naive/Caddyfile');
+
 function writeCaddyfile(cfg) {
   if (!cfg.stack.naive || !cfg.domain) return false;
 
   let customBlocks = '';
   try {
-    const existingPath = testPath('/etc/caddy/Caddyfile');
-    if (fs.existsSync(existingPath)) {
-      const existing = fs.readFileSync(existingPath, 'utf8');
+    if (fs.existsSync(NAIVE_CADDYFILE_PATH)) {
+      const existing = fs.readFileSync(NAIVE_CADDYFILE_PATH, 'utf8');
       customBlocks = extractCustomBlocks(existing, cfg.domain, cfg.panelDomain);
     }
   } catch (e) {
@@ -33,9 +34,8 @@ function writeCaddyfile(cfg) {
 
   const acl = loadAcl();
   const content = buildCaddyContent(cfg, customBlocks, acl);
-  const targetPath = testPath('/etc/caddy/Caddyfile');
 
-  const tx = new AtomicFileTransaction(targetPath);
+  const tx = new AtomicFileTransaction(NAIVE_CADDYFILE_PATH);
   return tx.execute(content, caddyValidator);
 }
 
@@ -69,7 +69,7 @@ async function createUser(req, res) {
 
   if (cfg.installed && cfg.stack.naive) {
     writeCaddyfile(cfg);
-    await reloadCaddy(process.env.TEST_MODE === '1', testPath('/etc/caddy/Caddyfile'));
+    await reloadNaive(process.env.TEST_MODE === '1');
   }
 
   res.json({
@@ -87,7 +87,7 @@ async function deleteUser(req, res) {
   if (cfg.naiveUsers.length === before) return res.json({ success: false, message: 'Не найден' });
   if (cfg.installed && cfg.stack.naive) {
     writeCaddyfile(cfg);
-    await reloadCaddy(process.env.TEST_MODE === '1', testPath('/etc/caddy/Caddyfile'));
+    await reloadNaive(process.env.TEST_MODE === '1');
   }
   res.json({ success: true });
 }
@@ -108,7 +108,7 @@ async function updateUser(req, res) {
 
   if (cfg.installed && cfg.stack.naive) {
     writeCaddyfile(cfg);
-    await reloadCaddy(process.env.TEST_MODE === '1', testPath('/etc/caddy/Caddyfile'));
+    await reloadNaive(process.env.TEST_MODE === '1');
   }
   res.json({ success: true, expiresAt });
 }
