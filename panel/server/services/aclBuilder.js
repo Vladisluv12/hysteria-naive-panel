@@ -250,13 +250,13 @@ function generateNaiveAcl(acl) {
 
     (acl.blockGeosite || []).forEach(c => {
       if (c && GEOSITE_CATEGORIES.includes(c)) {
-        lines.push(`    geosite:${c} deny`);
+        lines.push(`    geosite ${c} deny`);
       }
     });
 
     (acl.blockGeoip || []).forEach(c => {
       if (c && GEOIP_COUNTRIES.includes(c)) {
-        lines.push(`    geoip:${c.toUpperCase()} deny`);
+        lines.push(`    geoip ${c.toUpperCase()} deny`);
       }
     });
   }
@@ -273,7 +273,7 @@ function generateNaiveAcl(acl) {
 
   if (lines.length === 0) return '';
 
-  return '  acl {\n' + lines.join('\n') + '\n  }';
+  return '    acl {\n' + lines.join('\n') + '\n    }';
 }
 
 module.exports = {
