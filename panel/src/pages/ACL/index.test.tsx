@@ -73,7 +73,7 @@ describe('AclPage', () => {
   it('renders ACL preview section', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('Предпросмотр ACL-файла')).toBeDefined();
+      expect(screen.getByText('Предпросмотр ACL')).toBeDefined();
     });
   });
 });

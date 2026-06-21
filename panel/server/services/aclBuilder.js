@@ -232,8 +232,52 @@ function geoDatasetsExist() {
   return fs.existsSync(HY2_GEOIP_PATH) && fs.existsSync(HY2_GEOSITE_PATH);
 }
 
+function generateNaiveAcl(acl) {
+  const lines = [];
+
+  if (acl.blockPrivateIPs === false) {
+    lines.push('    bypass_private');
+  }
+
+  if (acl.enabled) {
+    (acl.blockDomains || []).forEach(d => {
+      const domain = normalizeDomain(d);
+      if (domain && domain.length <= 253) {
+        lines.push(`    deny *.${domain}`);
+        lines.push(`    deny ${domain}`);
+      }
+    });
+
+    (acl.blockGeosite || []).forEach(c => {
+      if (c && GEOSITE_CATEGORIES.includes(c)) {
+        lines.push(`    geosite:${c} deny`);
+      }
+    });
+
+    (acl.blockGeoip || []).forEach(c => {
+      if (c && GEOIP_COUNTRIES.includes(c)) {
+        lines.push(`    geoip:${c.toUpperCase()} deny`);
+      }
+    });
+  }
+
+  dedupCidrs(acl.directCidrs || []).forEach(cidr => {
+    if (cidr && isValidCidr(cidr)) {
+      lines.push(`    allow ${cidr}`);
+    }
+  });
+
+  if (acl.directAll !== false) {
+    lines.push('    allow all');
+  }
+
+  if (lines.length === 0) return '';
+
+  return '  acl {\n' + lines.join('\n') + '\n  }';
+}
+
 module.exports = {
-  loadAcl, saveAcl, generateAclContent, writeAclFile,
+  loadAcl, saveAcl, generateAclContent, generateNaiveAcl, writeAclFile,
   hasBlockRules, needsGeoDatasets, downloadGeoDatasets, geoDatasetsExist,
   isValidCidr, dedupCidrs, testPath,
   GEOSITE_CATEGORIES, GEOIP_COUNTRIES, PRIVATE_CIDRS,

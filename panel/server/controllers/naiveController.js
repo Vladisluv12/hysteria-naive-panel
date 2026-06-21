@@ -4,6 +4,7 @@ const fs = require('fs');
 const { loadConfig } = require('../services/storageFactory.js');
 const { updateConfig } = require('../services/atomicUpdate.js');
 const { buildCaddyContent } = require('../services/configBuilder.js');
+const { loadAcl } = require('../services/aclBuilder.js');
 const { isValidUsername, isValidPassword, isValidExpireDays, computeExpiresAt, isExpired, remainingSeconds } = require('../utils/validators.js');
 const { reloadCaddy } = require('../services/systemAdapter.js');
 const { AtomicFileTransaction, caddyValidator } = require('../services/atomicConfig.js');
@@ -30,7 +31,8 @@ function writeCaddyfile(cfg) {
     console.warn('[writeCaddyfile] could not preserve custom blocks:', e.message);
   }
 
-  const content = buildCaddyContent(cfg, customBlocks);
+  const acl = loadAcl();
+  const content = buildCaddyContent(cfg, customBlocks, acl);
   const targetPath = testPath('/etc/caddy/Caddyfile');
 
   const tx = new AtomicFileTransaction(targetPath);

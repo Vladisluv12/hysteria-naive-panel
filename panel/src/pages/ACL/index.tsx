@@ -46,6 +46,44 @@ function generateAclPreview(params: {
   return lines.join('\n');
 }
 
+function generateNaiveAclPreview(params: {
+  blockPrivateIPs: boolean;
+  enabled: boolean;
+  blockDomains: string[];
+  blockGeosite: string[];
+  blockGeoip: string[];
+  directCidrs: string[];
+  directAll: boolean;
+}): string {
+  const lines: string[] = [];
+
+  if (!params.blockPrivateIPs) {
+    lines.push('  bypass_private');
+  }
+
+  if (params.enabled) {
+    params.blockDomains.forEach(d => {
+      const domain = d.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '');
+      if (domain && domain.length <= 253) {
+        lines.push(`  deny *.${domain}`);
+        lines.push(`  deny ${domain}`);
+      }
+    });
+    params.blockGeosite.forEach(c => lines.push(`  geosite:${c} deny`));
+    params.blockGeoip.forEach(c => lines.push(`  geoip:${c.toUpperCase()} deny`));
+  }
+
+  params.directCidrs.forEach(cidr => {
+    if (cidr.trim()) lines.push(`  allow ${cidr.trim()}`);
+  });
+
+  if (params.directAll) lines.push('  allow all');
+
+  if (lines.length === 0) return '';
+
+  return 'acl {\n' + lines.join('\n') + '\n}';
+}
+
 export function AclPage() {
   const { addToast } = useToast();
   const [acl, setAcl] = useState<AclConfig | null>(null);
@@ -63,6 +101,7 @@ export function AclPage() {
   const [geoipList, setGeoipList] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [geoUpdating, setGeoUpdating] = useState(false);
+  const [previewTab, setPreviewTab] = useState<'hy2' | 'naive'>('hy2');
 
   const loadData = useCallback(async () => {
     try {
@@ -139,6 +178,16 @@ export function AclPage() {
   };
 
   const aclPreview = useMemo(() => generateAclPreview({
+    blockPrivateIPs,
+    enabled,
+    blockDomains: blockDomains.split('\n').map(d => d.trim()).filter(Boolean),
+    blockGeosite,
+    blockGeoip,
+    directCidrs: directCidrs.split('\n').map(c => c.trim()).filter(Boolean),
+    directAll,
+  }), [blockPrivateIPs, enabled, blockDomains, blockGeosite, blockGeoip, directCidrs, directAll]);
+
+  const naiveAclPreview = useMemo(() => generateNaiveAclPreview({
     blockPrivateIPs,
     enabled,
     blockDomains: blockDomains.split('\n').map(d => d.trim()).filter(Boolean),
@@ -315,10 +364,28 @@ export function AclPage() {
 
       <div className={styles.card} style={{ marginTop: 16 }}>
         <div className={styles.cardHeader}>
-          <h3 className={styles.cardTitle}>Предпросмотр ACL-файла</h3>
+          <h3 className={styles.cardTitle}>Предпросмотр ACL</h3>
         </div>
         <div className={styles.cardBody}>
-          <pre className={styles.aclPreview}>{aclPreview || '(пусто)'}</pre>
+          <div className={styles.tabs}>
+            <button
+              className={`${styles.tab} ${previewTab === 'hy2' ? styles.tabActive : ''}`}
+              onClick={() => setPreviewTab('hy2')}
+            >
+              Hysteria2
+            </button>
+            <button
+              className={`${styles.tab} ${previewTab === 'naive' ? styles.tabActive : ''}`}
+              onClick={() => setPreviewTab('naive')}
+            >
+              NaiveProxy (Caddy)
+            </button>
+          </div>
+          <pre className={styles.aclPreview}>
+            {previewTab === 'hy2'
+              ? (aclPreview || '(пусто)')
+              : (naiveAclPreview || '(пусто)')}
+          </pre>
         </div>
       </div>
 

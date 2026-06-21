@@ -2,8 +2,9 @@
 
 const crypto = require('crypto');
 const yaml = require('js-yaml');
+const { generateNaiveAcl, needsGeoDatasets, HY2_GEOIP_PATH, HY2_GEOSITE_PATH } = require('./aclBuilder.js');
 
-function buildCaddyContent(cfg, customBlocks) {
+function buildCaddyContent(cfg, customBlocks, acl) {
   if (!cfg.stack || !cfg.stack.naive || !cfg.domain) return '';
 
   const lines = (cfg.naiveUsers || [])
@@ -20,7 +21,19 @@ function buildCaddyContent(cfg, customBlocks) {
     ? `  reverse_proxy ${cfg.masqueradeUrl} {\n    header_up Host {upstream_hostport}\n    transport http {\n      tls_insecure_skip_verify\n    }\n  }`
     : `  file_server {\n    root /var/www/html\n  }`;
 
-  let content = `${globalBlock}\n\n:${cfg.port}, ${cfg.domain} {\n  tls ${cfg.email}\n\n  forward_proxy {\n${lines || '    # no users yet'}\n    hide_ip\n    hide_via\n    probe_resistance\n  }\n\n${masqueradeBlock}\n}\n`;
+  let forwardProxyBlock = `${lines || '    # no users yet'}\n    hide_ip\n    hide_via\n    probe_resistance`;
+
+  if (acl && needsGeoDatasets()) {
+    forwardProxyBlock += `\n    geoip_dat ${HY2_GEOIP_PATH}`;
+    forwardProxyBlock += `\n    geosite_dat ${HY2_GEOSITE_PATH}`;
+  }
+
+  const aclBlock = acl ? generateNaiveAcl(acl) : '';
+  if (aclBlock) {
+    forwardProxyBlock += '\n' + aclBlock;
+  }
+
+  let content = `${globalBlock}\n\n:${cfg.port}, ${cfg.domain} {\n  tls ${cfg.email}\n\n  forward_proxy {\n${forwardProxyBlock}\n  }\n\n${masqueradeBlock}\n}\n`;
 
   const internalPort = process.env.PORT || 3000;
   if (cfg.panelDomain && cfg.panelDomain !== cfg.domain && cfg.sshOnly !== 1) {
