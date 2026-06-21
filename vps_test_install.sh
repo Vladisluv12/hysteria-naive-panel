@@ -253,7 +253,7 @@ if [[ $INSTALL_NAIVE -eq 1 ]]; then
       printf '  servers {\n    protocols h1 h2\n  }\n'
     fi
     printf '}\n\n'
-    printf '%s:%s {\n' "${DOMAIN}" "${PROXY_PORT}"
+    printf ':%s, %s {\n' "${PROXY_PORT}" "${DOMAIN}"
     if [[ "$TLS_MODE" == "letsencrypt" ]]; then
       printf '    tls %s\n\n' "${EMAIL}"
     else
@@ -620,7 +620,7 @@ curl -fsS --max-time 5 "http://127.0.0.1:${INTERNAL_PORT}/" >/dev/null 2>&1 \
   || { log_warn "Panel not responding on :${INTERNAL_PORT}"; _SW=$((_SW+1)); }
 
 [[ $INSTALL_NAIVE -eq 1 ]] && {
-  curl -fsSk --max-time 8 -o /dev/null "https://127.0.0.1:${PROXY_PORT}/" 2>/dev/null \
+  curl -fsSk --max-time 8 -o /dev/null "https://${DOMAIN}:${PROXY_PORT}/" 2>/dev/null \
     && log_ok "HTTPS :${PROXY_PORT} responds (${TLS_MODE:-selfsigned})" \
     || { log_warn "HTTPS :${PROXY_PORT} not responding"; _SW=$((_SW+1)); }
 }
