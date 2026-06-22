@@ -41,8 +41,16 @@ function parseIptablesLine(line, commentTag) {
   return { pkts, bytes };
 }
 
-function needsRules(output, commentTag) {
-  return !output.includes(commentTag);
+function needsRules(output, commentTag, port) {
+  if (!output.includes(commentTag)) return true;
+  if (port && !output.includes(`${commentTag}`)) return true;
+  const lines = output.split('\n');
+  for (const line of lines) {
+    if (line.includes(`/* ${commentTag} */`)) {
+      if (port && !line.includes(String(port))) return true;
+    }
+  }
+  return false;
 }
 
 async function ensureRules(port) {
@@ -66,8 +74,19 @@ async function ensureRules(port) {
 
   const portStr = String(port || 443);
   for (const rule of rules) {
-    if (needsRules(existing, rule.tag)) {
+    if (needsRules(existing, rule.tag, portStr)) {
       try {
+        const out = await iptables(['-L', rule.chain, '-v', '-n', '-x']);
+        const lines = out.split('\n');
+        for (const line of lines) {
+          if (line.includes(`/* ${rule.tag} */`) && !line.includes(portStr)) {
+            const oldPort = line.match(/--(?:d|s)port\s+(\S+)/)?.[1];
+            if (oldPort) {
+              await iptables(['-D', rule.chain, '-p', rule.proto, `--${rule.port}`, oldPort,
+                '-m', 'comment', '--comment', rule.tag]).catch(() => {});
+            }
+          }
+        }
         await iptables(['-A', rule.chain, '-p', rule.proto, `--${rule.port}`, portStr,
           '-m', 'comment', '--comment', rule.tag]);
       } catch {

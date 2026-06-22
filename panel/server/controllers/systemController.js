@@ -29,8 +29,8 @@ async function getStatus(req, res) {
     return res.json({ installed: false, stack: cfg.stack || { naive: false, hy2: false } });
   }
   const [naiveActive, hy2Active] = await Promise.all([
-    cfg.stack.naive ? serviceIsActive('caddy') : Promise.resolve(null),
-    cfg.stack.hy2 ? serviceIsActive('hysteria-server') : Promise.resolve(null)
+    cfg.stack.naive ? serviceIsActive('naive') : Promise.resolve(null),
+    cfg.stack.hy2 ? serviceIsActive('hysteria') : Promise.resolve(null)
   ]);
   res.json({
     installed: true,
@@ -57,7 +57,7 @@ async function getTrafficHandler(req, res) {
 async function serviceActionHandler(req, res) {
   const { kind, action } = req.params;
   if (!['start', 'stop', 'restart'].includes(action)) return res.status(400).json({ error: 'bad action' });
-  const unit = kind === 'naive' ? 'caddy' : kind === 'hy2' ? 'hysteria-server' : null;
+  const unit = kind === 'naive' ? 'naive' : kind === 'hy2' ? 'hysteria' : null;
   if (!unit) return res.status(400).json({ error: 'bad kind' });
 
   const result = await serviceAction(action, unit);

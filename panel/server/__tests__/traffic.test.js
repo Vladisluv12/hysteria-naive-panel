@@ -51,7 +51,7 @@ describe('collectNaiveUsers', () => {
   });
 
   test('parses valid traffic JSON with formatted fields', async () => {
-    const naiveFile = path.join(TMP_DIR, 'naive_users.json');
+    const naiveFile = path.join(TMP_DIR, 'traffic.json');
     const data = {
       users: {
         alice: { rx: 1024, tx: 512, conns: 2 },
@@ -79,7 +79,7 @@ describe('collectNaiveUsers', () => {
   });
 
   test('handles empty users object', async () => {
-    const naiveFile = path.join(TMP_DIR, 'naive_users.json');
+    const naiveFile = path.join(TMP_DIR, 'traffic.json');
     fs.writeFileSync(naiveFile, JSON.stringify({ users: {}, updated_at: 0 }));
 
     const { collectNaiveUsers } = await import('../traffic.js');
@@ -88,7 +88,7 @@ describe('collectNaiveUsers', () => {
   });
 
   test('handles corrupted JSON gracefully', async () => {
-    const naiveFile = path.join(TMP_DIR, 'naive_users.json');
+    const naiveFile = path.join(TMP_DIR, 'traffic.json');
     fs.writeFileSync(naiveFile, 'not-valid-json{{{');
 
     const { collectNaiveUsers } = await import('../traffic.js');
@@ -97,7 +97,7 @@ describe('collectNaiveUsers', () => {
   });
 
   test('handles missing users key', async () => {
-    const naiveFile = path.join(TMP_DIR, 'naive_users.json');
+    const naiveFile = path.join(TMP_DIR, 'traffic.json');
     fs.writeFileSync(naiveFile, JSON.stringify({ updated_at: 123 }));
 
     const { collectNaiveUsers } = await import('../traffic.js');
@@ -106,7 +106,7 @@ describe('collectNaiveUsers', () => {
   });
 
   test('handles partially written file (race with atomic rename)', async () => {
-    const naiveFile = path.join(TMP_DIR, 'naive_users.json');
+    const naiveFile = path.join(TMP_DIR, 'traffic.json');
     // Simulate a truncated write (partial JSON)
     fs.writeFileSync(naiveFile, '{"users":{"alice":{"rx":100,"tx":');
 

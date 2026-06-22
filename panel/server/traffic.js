@@ -15,7 +15,7 @@ function testPath(systemPath) {
 }
 
 const TRAFFIC_FILE = testPath('/etc/rixxx-panel/traffic.json');
-const NAIVE_USERS_FILE = testPath('/etc/rixxx-panel/naive_users.json');
+const NAIVE_USERS_FILE = testPath('/var/lib/naive/traffic.json');
 const NET_DEV = '/proc/net/dev';
 
 function loadTrafficData() {
@@ -183,7 +183,7 @@ async function collectActiveConnections() {
     result.naive = naiveCount ? parseInt(naiveCount) || null : null;
 
     const hyCount = await execSimple(
-      "journalctl -u hysteria-server -n 50 --no-pager 2>/dev/null | grep -c 'connected\\|authenticated' || true"
+      "journalctl -u hysteria -n 50 --no-pager 2>/dev/null | grep -c 'connected\\|authenticated' || true"
     );
     result.hy2 = hyCount ? parseInt(hyCount) || null : null;
   } else {
