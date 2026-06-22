@@ -42,6 +42,7 @@ function writeCaddyfile(cfg) {
 function enrichUser(u) {
   return {
     ...u,
+    nickname: u.nickname || '',
     expiresAt: u.expiresAt || null,
     remainingSec: remainingSeconds(u),
     expired: isExpired(u)
@@ -54,7 +55,7 @@ function listUsers(req, res) {
 }
 
 async function createUser(req, res) {
-  const { username, password, expireDays } = req.body || {};
+  const { username, password, expireDays, nickname } = req.body || {};
   if (!isValidUsername(username)) return res.json({ success: false, message: 'Логин 1-32 симв. (A-Z, a-z, 0-9, . _ -)' });
   if (!isValidPassword(password)) return res.json({ success: false, message: 'Пароль 8-128 символов (без пробелов)' });
   if (!isValidExpireDays(expireDays)) return res.json({ success: false, message: 'Срок: 1..3650 дней или 0 (бессрочно)' });
@@ -64,7 +65,7 @@ async function createUser(req, res) {
 
   const expiresAt = computeExpiresAt(expireDays);
   const cfg = updateConfig(c => {
-    c.naiveUsers.push({ username, password, createdAt: new Date().toISOString(), expiresAt });
+    c.naiveUsers.push({ username, password, nickname: nickname || '', createdAt: new Date().toISOString(), expiresAt });
   });
 
   if (cfg.installed && cfg.stack.naive) {
@@ -74,7 +75,7 @@ async function createUser(req, res) {
 
   res.json({
     success: true,
-    link: cfg.domain ? `naive+https://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${cfg.domain}:${cfg.port}#${encodeURIComponent(username)}` : null,
+    link: cfg.domain ? `naive+https://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${cfg.domain}:${cfg.port}#easy-xray` : null,
   });
 }
 
@@ -94,7 +95,7 @@ async function deleteUser(req, res) {
 
 async function updateUser(req, res) {
   const { username } = req.params;
-  const { expireDays } = req.body || {};
+  const { expireDays, nickname } = req.body || {};
   if (!isValidExpireDays(expireDays)) return res.json({ success: false, message: 'Срок: 1..3650 дней или 0' });
 
   const user = loadConfig().naiveUsers.find(u => u.username === username);
@@ -103,7 +104,10 @@ async function updateUser(req, res) {
   const expiresAt = computeExpiresAt(expireDays);
   const cfg = updateConfig(c => {
     const u = c.naiveUsers.find(u => u.username === username);
-    if (u) u.expiresAt = expiresAt;
+    if (u) {
+      u.expiresAt = expiresAt;
+      if (nickname !== undefined) u.nickname = nickname;
+    }
   });
 
   if (cfg.installed && cfg.stack.naive) {

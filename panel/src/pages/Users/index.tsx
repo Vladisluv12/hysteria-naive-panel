@@ -71,11 +71,11 @@ export function UsersPage() {
     return () => { ro.disconnect(); window.removeEventListener('resize', check); };
   }, [users]);
 
-  const handleCreate = async (data: { username: string; password: string; expiry: string | null }) => {
+  const handleCreate = async (data: { username: string; password: string; nickname: string; expiry: string | null }) => {
     const api = isNaive ? naiveApi : hysteriaApi;
-    const res = await api.createUser(data);
+    const res = await api.createUser({ ...data, expireDays: undefined });
     if (!res.success) throw new Error(res.message || 'Create failed');
-    addToast(`User ${data.username} created`, 'success');
+    addToast(`User ${data.nickname || data.username} created`, 'success');
     loadUsers();
   };
 
@@ -106,8 +106,8 @@ export function UsersPage() {
   };
 
   const makeLink = (username: string, password: string) => {
-    if (isNaive) return `naive+https://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${domain}:${port}#${encodeURIComponent(username)}`;
-    return `hysteria2://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${domain}:${port}?sni=${domain}&insecure=0#${encodeURIComponent(username)}`;
+    if (isNaive) return `naive+https://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${domain}:${port}#easy-xray`;
+    return `hysteria2://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${domain}:${port}?sni=${domain}&insecure=0#easy-xray`;
   };
 
   return (

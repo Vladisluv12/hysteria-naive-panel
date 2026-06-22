@@ -35,6 +35,7 @@ function writeHysteriaConfig(cfg) {
 function enrichUser(u) {
   return {
     ...u,
+    nickname: u.nickname || '',
     expiresAt: u.expiresAt || null,
     remainingSec: remainingSeconds(u),
     expired: isExpired(u)
@@ -47,7 +48,7 @@ function listUsers(req, res) {
 }
 
 async function createUser(req, res) {
-  const { username, password, expireDays } = req.body || {};
+  const { username, password, expireDays, nickname } = req.body || {};
   if (!isValidUsername(username)) return res.json({ success: false, message: 'Логин 1-32 символа' });
   if (!isValidPassword(password)) return res.json({ success: false, message: 'Пароль 8-128 символов' });
   if (!isValidExpireDays(expireDays)) return res.json({ success: false, message: 'Срок: 1..3650 дней или 0 (бессрочно)' });
@@ -57,7 +58,7 @@ async function createUser(req, res) {
   }
   const expiresAt = computeExpiresAt(expireDays);
   const cfg = updateConfig(c => {
-    c.hy2Users.push({ username, password, createdAt: new Date().toISOString(), expiresAt });
+    c.hy2Users.push({ username, password, nickname: nickname || '', createdAt: new Date().toISOString(), expiresAt });
   });
 
   if (cfg.installed && cfg.stack.hy2) {
@@ -67,7 +68,7 @@ async function createUser(req, res) {
   res.json({
     success: true,
     link: cfg.domain
-      ? `hysteria2://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${cfg.domain}:${cfg.port}?sni=${cfg.domain}&insecure=0#${encodeURIComponent(username)}`
+      ? `hysteria2://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${cfg.domain}:${cfg.port}?sni=${cfg.domain}&insecure=0#easy-xray`
       : null
   });
 }
@@ -88,7 +89,7 @@ async function deleteUser(req, res) {
 
 async function updateUser(req, res) {
   const { username } = req.params;
-  const { expireDays } = req.body || {};
+  const { expireDays, nickname } = req.body || {};
   if (!isValidExpireDays(expireDays)) return res.json({ success: false, message: 'Срок: 1..3650 дней или 0' });
 
   const user = loadConfig().hy2Users.find(u => u.username === username);
@@ -97,7 +98,10 @@ async function updateUser(req, res) {
   const expiresAt = computeExpiresAt(expireDays);
   const cfg = updateConfig(c => {
     const u = c.hy2Users.find(u => u.username === username);
-    if (u) u.expiresAt = expiresAt;
+    if (u) {
+      u.expiresAt = expiresAt;
+      if (nickname !== undefined) u.nickname = nickname;
+    }
   });
 
   if (cfg.installed && cfg.stack.hy2) {

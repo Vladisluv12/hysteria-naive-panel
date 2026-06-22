@@ -298,11 +298,11 @@ async function renderQuickLinks(status) {
       const { users } = await r.json();
       users.slice(0, 3).forEach(u => {
         hasAny = true;
-        const link = `naive+https://${encodeURIComponent(u.username)}:${encodeURIComponent(u.password)}@${status.domain}:${status.port || 443}#${encodeURIComponent(u.username)}`;
+        const link = `naive+https://${encodeURIComponent(u.username)}:${encodeURIComponent(u.password)}@${status.domain}:${status.port || 443}#easy-xray`;
         listEl.innerHTML += `
           <div class="quick-link-item">
             <span class="ql-type naive-tag">Naive</span>
-            <span class="ql-user">${escapeHtml(u.username)}</span>
+            <span class="ql-user">${escapeHtml(u.nickname || u.username)}</span>
             <span class="ql-url">${escapeHtml(link)}</span>
             <button class="quick-link-copy" onclick="copyText('${escapeHtml(link)}')">Копировать</button>
           </div>`;
@@ -318,11 +318,11 @@ async function renderQuickLinks(status) {
       users.slice(0, 3).forEach(u => {
         hasAny = true;
         // userpass: в URI auth = username:password (см. docs hysteria2 URI-Scheme)
-        const link = `hysteria2://${encodeURIComponent(u.username)}:${encodeURIComponent(u.password)}@${status.domain}:${status.port || 443}?sni=${status.domain}&insecure=0#${encodeURIComponent(u.username)}`;
+        const link = `hysteria2://${encodeURIComponent(u.username)}:${encodeURIComponent(u.password)}@${status.domain}:${status.port || 443}?sni=${status.domain}&insecure=0#easy-xray`;
         listEl.innerHTML += `
           <div class="quick-link-item">
             <span class="ql-type hy2-tag">Hy2</span>
-            <span class="ql-user">${escapeHtml(u.username)}</span>
+            <span class="ql-user">${escapeHtml(u.nickname || u.username)}</span>
             <span class="ql-url">${escapeHtml(link)}</span>
             <button class="quick-link-copy" onclick="copyText('${escapeHtml(link)}')">Копировать</button>
           </div>`;
@@ -594,8 +594,8 @@ async function loadUsers() {
       const t = trafficByUser[u.username] || {};
       const link = status.installed && status.domain
         ? (currentUsersTab === 'naive'
-            ? `naive+https://${encodeURIComponent(u.username)}:${encodeURIComponent(u.password)}@${status.domain}:${status.port || 443}#${encodeURIComponent(u.username)}`
-            : `hysteria2://${encodeURIComponent(u.username)}:${encodeURIComponent(u.password)}@${status.domain}:${status.port || 443}?sni=${status.domain}&insecure=0#${encodeURIComponent(u.username)}`)
+            ? `naive+https://${encodeURIComponent(u.username)}:${encodeURIComponent(u.password)}@${status.domain}:${status.port || 443}#easy-xray`
+            : `hysteria2://${encodeURIComponent(u.username)}:${encodeURIComponent(u.password)}@${status.domain}:${status.port || 443}?sni=${status.domain}&insecure=0#easy-xray`)
         : '';
       const date = u.createdAt ? new Date(u.createdAt).toLocaleDateString('ru') : '—';
       const expireCell = formatExpireCell(u);
@@ -603,8 +603,7 @@ async function loadUsers() {
       tbody.innerHTML += `
         <tr class="${rowClass}">
           <td>${i + 1}</td>
-          <td class="td-login">${escapeHtml(u.username)}</td>
-          <td class="td-pwd">${escapeHtml(u.password)}</td>
+          <td class="td-login">${escapeHtml(u.nickname || u.username)}</td>
           <td class="td-link" title="${escapeHtml(link)}">
             ${link ? `<span style="cursor:pointer" onclick="copyText('${escapeHtml(link)}')" title="Скопировать">${escapeHtml(link)}</span>` : '<span style="color:var(--text-muted)">Сервер не установлен</span>'}
           </td>

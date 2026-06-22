@@ -1,6 +1,7 @@
 export interface NaiveUser {
   username: string;
   password: string;
+  nickname: string;
   createdAt: string;
   expiresAt: string | null;
   remainingSec: number;
@@ -10,6 +11,7 @@ export interface NaiveUser {
 export interface HysteriaUser {
   username: string;
   password: string;
+  nickname: string;
   createdAt: string;
   expiresAt: string | null;
   remainingSec: number;
@@ -143,6 +145,7 @@ export interface ApiError {
 export interface CreateUserInput {
   username: string;
   password: string;
+  nickname?: string;
   expireDays?: number;
   expiry?: string | null;
 }

@@ -5,6 +5,7 @@ import styles from '../styles.module.css';
 interface User {
   username: string;
   password: string;
+  nickname: string;
   createdAt: string;
   expiresAt: string | null;
   expired: boolean;
@@ -39,8 +40,7 @@ export function UserTable({ users, trafficByUser, onExtend, onDelete, onCopyLink
       <table className={styles.table}>
         <thead className={styles.tableHead}>
           <tr>
-            <th className={styles.th}>Логин</th>
-            <th className={styles.th}>Пароль</th>
+            <th className={styles.th}>Никнейм</th>
             <th className={styles.th}>Ссылка подключения</th>
             <th className={styles.th}>Создан</th>
             <th className={styles.th}>Срок</th>
@@ -57,8 +57,7 @@ export function UserTable({ users, trafficByUser, onExtend, onDelete, onCopyLink
             const t = trafficByUser[u.username];
             return (
               <tr key={u.username} className={`${styles.tr} ${u.expired ? styles.trExpired : ''}`}>
-                <td className={`${styles.td} ${styles.tdUsername}`}>{u.username}</td>
-                <td className={styles.td}>{u.password}</td>
+                <td className={`${styles.td} ${styles.tdUsername}`}>{u.nickname || u.username}</td>
                 <td className={`${styles.td} ${styles.tdLink}`}>
                   <div className={styles.linkRow}>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{onCopyLink(u.username, u.password).slice(0, 40)}...</span>

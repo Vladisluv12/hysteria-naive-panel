@@ -22,12 +22,13 @@ interface CreateUserModalProps {
   title: string;
   isNaive: boolean;
   onClose: () => void;
-  onSubmit: (data: { username: string; password: string; expiry: string | null }) => Promise<void>;
+  onSubmit: (data: { username: string; password: string; nickname: string; expiry: string | null }) => Promise<void>;
 }
 
 export function CreateUserModal({ title, isNaive, onClose, onSubmit }: CreateUserModalProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [nickname, setNickname] = useState('');
   const [expiry, setExpiry] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -41,7 +42,7 @@ export function CreateUserModal({ title, isNaive, onClose, onSubmit }: CreateUse
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault(); setError(''); setLoading(true);
-    try { await onSubmit({ username, password, expiry: expiry || null }); onClose(); }
+    try { await onSubmit({ username, password, nickname, expiry: expiry || null }); onClose(); }
     catch (err) { setError(err instanceof Error ? err.message : 'Ошибка создания'); }
     finally { setLoading(false); }
   };
@@ -51,8 +52,12 @@ export function CreateUserModal({ title, isNaive, onClose, onSubmit }: CreateUse
       <form className={styles.form} onSubmit={handleSubmit}>
         {error && <div className={styles.formError}>{error}</div>}
         <div className={styles.formGroup}>
+          <label className={styles.formLabel}>Никнейм</label>
+          <input className={styles.formInput} type="text" value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="Например: Телефон Димы" autoFocus />
+        </div>
+        <div className={styles.formGroup}>
           <label className={styles.formLabel}>Логин</label>
-          <input className={styles.formInput} type="text" value={username} onChange={(e) => setUsername(e.target.value)} readOnly={!isNaive} autoFocus />
+          <input className={styles.formInput} type="text" value={username} onChange={(e) => setUsername(e.target.value)} readOnly={!isNaive} />
         </div>
         <div className={styles.formGroup}>
           <label className={styles.formLabel}>Пароль</label>
