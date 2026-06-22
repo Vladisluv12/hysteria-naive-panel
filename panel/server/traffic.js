@@ -174,21 +174,32 @@ async function collectHy2Users() {
 }
 
 async function collectActiveConnections() {
-  const result = { naive: null, hy2: null };
+  const result = { naive: 0, hy2: 0 };
 
   if (!TEST_MODE) {
-    const naiveCount = await execSimple(
-      "curl -sf http://localhost:2019/config/ 2>/dev/null | head -5 | wc -l"
-    );
-    result.naive = naiveCount ? parseInt(naiveCount) || null : null;
+    // NaiveProxy: sum conns from per-user traffic (Caddy tracks this)
+    try {
+      const raw = JSON.parse(fs.readFileSync(NAIVE_USERS_FILE, 'utf8'));
+      if (raw && raw.users) {
+        result.naive = Object.values(raw.users).reduce((sum, u) => sum + (u.conns || 0), 0);
+      }
+    } catch { /* ignore */ }
 
-    const hyCount = await execSimple(
-      "journalctl -u hysteria -n 50 --no-pager 2>/dev/null | grep -c 'connected\\|authenticated' || true"
-    );
-    result.hy2 = hyCount ? parseInt(hyCount) || null : null;
-  } else {
-    result.naive = 0;
-    result.hy2 = 0;
+    // Hysteria2: use :9999/online API
+    try {
+      const configPath = testPath('/etc/hysteria/config.yaml');
+      if (fs.existsSync(configPath)) {
+        const yaml = require('js-yaml');
+        const config = yaml.load(fs.readFileSync(configPath, 'utf8'));
+        const ts = config && config.trafficStats;
+        if (ts && ts.listen) {
+          const port = ts.listen.split(':').pop();
+          const onlineRaw = await httpGet(`http://127.0.0.1:${port}/online`);
+          const onlineData = JSON.parse(onlineRaw);
+          result.hy2 = Object.values(onlineData).reduce((sum, v) => sum + (Number(v) || 0), 0);
+        }
+      }
+    } catch { /* ignore */ }
   }
 
   return result;
