@@ -92,13 +92,25 @@ export interface PerUserTraffic {
   updated_at: number;
 }
 
+export interface ProtoTraffic {
+  rx: number;
+  tx: number;
+  rxFormatted: string;
+  txFormatted: string;
+  totalFormatted: string;
+}
+
 export interface TrafficResponse {
+  perProto?: {
+    naive?: ProtoTraffic;
+    hy2?: ProtoTraffic;
+  };
   perUser?: {
     naive?: PerUserTraffic;
     hy2?: PerUserTraffic;
-  } & { [key: string]: PerUserTraffic | undefined };
+  };
   daily?: unknown;
-  connections?: unknown;
+  connections?: { naive: number | null; hy2: number | null };
   hourly?: unknown[];
   lastReset?: unknown;
   error?: string;

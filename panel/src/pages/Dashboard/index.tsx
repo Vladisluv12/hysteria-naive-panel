@@ -2,19 +2,24 @@ import { useState, useEffect, useCallback } from 'react';
 import * as systemApi from '../../api/system';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import type { SystemStatus } from '../../types/api';
+import type { SystemStatus, TrafficResponse } from '../../types/api';
 import styles from './styles.module.css';
 
 export function DashboardPage() {
   const { mustChangePassword } = useAuth();
   const { addToast } = useToast();
   const [status, setStatus] = useState<SystemStatus | null>(null);
+  const [traffic, setTraffic] = useState<TrafficResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     try {
-      const s = await systemApi.getStatus();
+      const [s, t] = await Promise.all([
+        systemApi.getStatus(),
+        systemApi.getTraffic().catch(() => null),
+      ]);
       setStatus(s);
+      setTraffic(t);
     } catch (err) {
       addToast(err instanceof Error ? err.message : 'Failed to load', 'error');
     } finally {
@@ -176,6 +181,60 @@ export function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {traffic && (
+        <div className={`${styles.card} ${styles.trafficCard}`}>
+          <div className={styles.cardHeader}>
+            <h3 className={styles.cardTitle}>Трафик</h3>
+          </div>
+          <div className={styles.cardBody}>
+            <div className={styles.trafficGrid}>
+              <div className={styles.trafficGroup}>
+                <div className={styles.trafficTitle}>NaiveProxy (TCP)</div>
+                <div className={styles.trafficRow}>
+                  <span className={styles.trafficLabel}>RX (загрузка)</span>
+                  <span className={styles.trafficValue}>{traffic.perProto?.naive?.rxFormatted || '0 B'}</span>
+                </div>
+                <div className={styles.trafficRow}>
+                  <span className={styles.trafficLabel}>TX (отдача)</span>
+                  <span className={styles.trafficValue}>{traffic.perProto?.naive?.txFormatted || '0 B'}</span>
+                </div>
+                <div className={styles.trafficRow}>
+                  <span className={styles.trafficLabel}>Активных</span>
+                  <span className={styles.trafficValue}>{traffic.connections?.naive ?? '—'}</span>
+                </div>
+                {traffic.perUser?.naive?.users && Object.entries(traffic.perUser.naive.users).map(([user, u]) => (
+                  <div key={user} className={styles.trafficRow}>
+                    <span className={styles.trafficLabel}>{user}</span>
+                    <span className={styles.trafficValue}>{u.totalFormatted}</span>
+                  </div>
+                ))}
+              </div>
+              <div className={styles.trafficGroup}>
+                <div className={styles.trafficTitle}>Hysteria2 (UDP)</div>
+                <div className={styles.trafficRow}>
+                  <span className={styles.trafficLabel}>RX (загрузка)</span>
+                  <span className={styles.trafficValue}>{traffic.perProto?.hy2?.rxFormatted || '0 B'}</span>
+                </div>
+                <div className={styles.trafficRow}>
+                  <span className={styles.trafficLabel}>TX (отдача)</span>
+                  <span className={styles.trafficValue}>{traffic.perProto?.hy2?.txFormatted || '0 B'}</span>
+                </div>
+                <div className={styles.trafficRow}>
+                  <span className={styles.trafficLabel}>Активных</span>
+                  <span className={styles.trafficValue}>{traffic.connections?.hy2 ?? '—'}</span>
+                </div>
+                {traffic.perUser?.hy2?.users && Object.entries(traffic.perUser.hy2.users).map(([user, u]) => (
+                  <div key={user} className={styles.trafficRow}>
+                    <span className={styles.trafficLabel}>{user}</span>
+                    <span className={styles.trafficValue}>{u.totalFormatted}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
