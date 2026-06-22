@@ -12,7 +12,7 @@ vi.mock('../../api/auth', () => ({
   login: vi.fn(), logout: vi.fn(),
 }));
 vi.mock('../../api/naive', () => ({
-  listUsers: vi.fn().mockResolvedValue({ users: [{ username: 'user1', password: 'pass1', expiresAt: '2026-12-31', expired: false, createdAt: '2026-01-01', remainingSec: 86400 }] }),
+  listUsers: vi.fn().mockResolvedValue({ users: [{ username: 'user1', password: 'pass1', nickname: 'User One', expiresAt: '2026-12-31', expired: false, createdAt: '2026-01-01', remainingSec: 86400 }] }),
   createUser: vi.fn(), deleteUser: vi.fn(), updateUser: vi.fn(),
 }));
 vi.mock('../../api/hysteria', () => ({
@@ -33,7 +33,7 @@ describe('UsersPage', () => {
   it('renders user table with data', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('user1')).toBeDefined();
+      expect(screen.getByText('User One')).toBeDefined();
     });
   });
   it('renders add user button', async () => {
@@ -45,8 +45,8 @@ describe('UsersPage', () => {
 function renderUserTable(overrides: Partial<Parameters<typeof UserTable>[0]> = {}) {
   const props = {
     users: [
-      { username: 'alice', password: 'pass1', expiresAt: '2026-12-31', expired: false, createdAt: '2026-01-01' },
-      { username: 'bob', password: 'pass2', expiresAt: null, expired: false, createdAt: '2026-02-01' },
+      { username: 'alice', password: 'pass1', nickname: 'Alice', expiresAt: '2026-12-31', expired: false, createdAt: '2026-01-01' },
+      { username: 'bob', password: 'pass2', nickname: 'Bob', expiresAt: null, expired: false, createdAt: '2026-02-01' },
     ],
     trafficByUser: {} as Record<string, { rx: number; tx: number; conns: number; rxFormatted: string; txFormatted: string; totalFormatted: string }>,
     onExtend: vi.fn(),
@@ -126,7 +126,7 @@ describe('UsersPage traffic', () => {
 
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('user1')).toBeDefined();
+      expect(screen.getByText('User One')).toBeDefined();
     });
     const dashes = screen.getAllByText('—');
     expect(dashes.length).toBeGreaterThan(0);
@@ -137,7 +137,7 @@ describe('UsersPage traffic', () => {
 
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('user1')).toBeDefined();
+      expect(screen.getByText('User One')).toBeDefined();
     });
     const dashes = screen.getAllByText('—');
     expect(dashes.length).toBeGreaterThan(0);
