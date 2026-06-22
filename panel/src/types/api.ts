@@ -132,11 +132,6 @@ export interface HysteriaConfigResponse {
   output: string;
 }
 
-export interface TuningStatus {
-  bbr: boolean;
-  udpBuffers: boolean;
-}
-
 export interface ApiError {
   error: string;
   details?: string;

@@ -105,7 +105,6 @@ function goToPage(page) {
 
   if (page === 'dashboard') loadDashboard();
   if (page === 'users') loadUsers();
-  if (page === 'tuning') loadTuning();
   if (page === 'diag') loadDiagPorts();
   if (page === 'bypass') loadBypass();
   if (page === 'settings') loadSettingsInfo();
@@ -751,61 +750,6 @@ async function confirmDeleteUser() {
     }
   } catch {
     showToast('Ошибка соединения', 'error');
-  }
-}
-
-// ─── TUNING ─────────────────────────────────────────────
-async function loadTuning() {
-  try {
-    const res = await fetch('/api/tuning/status');
-    const d = await res.json();
-
-    document.getElementById('ccVal').textContent = d.cc || '—';
-    document.getElementById('qdiscVal').textContent = d.qdisc || '—';
-    document.getElementById('rmemVal').textContent = formatBytes(d.rmem_max);
-    document.getElementById('wmemVal').textContent = formatBytes(d.wmem_max);
-
-    setBadge('bbrBadge', d.bbrOn, d.bbrOn ? 'BBR активен' : 'BBR выключен');
-    setBadge('udpBadge', d.udpBufOk, d.udpBufOk ? 'буферы 16MB+' : 'буферы мало');
-  } catch {
-    showToast('Ошибка загрузки тюнинга', 'error');
-  }
-}
-
-function setBadge(id, ok, label) {
-  const el = document.getElementById(id);
-  if (ok === null) el.innerHTML = '<span class="dot dot-gray"></span> —';
-  else el.innerHTML = ok ? `<span class="dot dot-green"></span> ${label}` : `<span class="dot dot-yellow"></span> ${label}`;
-}
-
-function formatBytes(v) {
-  const n = Number(v || 0);
-  if (!n) return '—';
-  if (n >= 1048576) return (n / 1048576).toFixed(1) + ' MB';
-  if (n >= 1024) return (n / 1024).toFixed(0) + ' KB';
-  return n + ' B';
-}
-
-async function applyTuning() {
-  const btn = document.getElementById('applyTuneBtn');
-  const resEl = document.getElementById('tuneResult');
-  btn.disabled = true;
-  btn.innerHTML = `<svg class="spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Применяю...`;
-
-  try {
-    const r = await fetch('/api/tuning/apply', { method: 'POST' });
-    const d = await r.json();
-    if (d.success) {
-      showAlert(resEl, '✅ Оптимизации применены! Изменения активны.', 'success');
-      loadTuning();
-    } else {
-      showAlert(resEl, '❌ Ошибка: ' + (d.message || d.error || 'unknown'), 'error');
-    }
-  } catch {
-    showAlert(resEl, '❌ Ошибка соединения', 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> Применить тюнинг`;
   }
 }
 
