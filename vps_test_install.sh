@@ -56,9 +56,18 @@ if [[ $AUTO_MODE -eq 1 ]]; then
   PANEL_ACCESS="${PANEL_ACCESS:-nginx}"
   MASQUERADE_MODE="${MASQUERADE_MODE:-local}"
   MASQUERADE_URL="${MASQUERADE_URL:-}"
-  NAIVE_USER="${NAIVE_USER:-$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 16)}"
-  NAIVE_PASS="${NAIVE_PASS:-$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24)}"
-  HY2_PASS="${HY2_PASS:-$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24)}"
+  # If config.json already exists, reuse its credentials to avoid mismatch
+  EXISTING_CFG="${PANEL_DIR}/panel/data/config.json"
+  if [[ -f "${EXISTING_CFG}" ]]; then
+    NAIVE_USER="${NAIVE_USER:-$(python3 -c "import json; c=json.load(open('${EXISTING_CFG}')); print(c['naiveUsers'][0]['username'])" 2>/dev/null || openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 16)}"
+    NAIVE_PASS="${NAIVE_PASS:-$(python3 -c "import json; c=json.load(open('${EXISTING_CFG}')); print(c['naiveUsers'][0]['password'])" 2>/dev/null || openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24)}"
+    HY2_PASS="${HY2_PASS:-$(python3 -c "import json; c=json.load(open('${EXISTING_CFG}')); print(c['hy2Users'][0]['password'])" 2>/dev/null || openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24)}"
+    log_info "Reusing existing credentials from config.json"
+  else
+    NAIVE_USER="${NAIVE_USER:-$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 16)}"
+    NAIVE_PASS="${NAIVE_PASS:-$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24)}"
+    HY2_PASS="${HY2_PASS:-$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24)}"
+  fi
   PROXY_PORT="${PROXY_PORT:-8443}"
   SSH_ONLY=0; LISTEN_HOST="0.0.0.0"; PANEL_DOMAIN=""
   case "$PANEL_ACCESS" in
