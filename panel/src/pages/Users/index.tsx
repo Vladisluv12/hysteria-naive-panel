@@ -132,7 +132,7 @@ export function UsersPage() {
         <span style={{ color: '#888', fontSize: 14 }}>{users.length} user{users.length !== 1 ? 's' : ''}</span>
         <button className={styles.btn} onClick={() => setShowCreate(true)}>+ Добавить пользователя</button>
       </div>
-      {showCreate && <CreateUserModal title={`Add ${isNaive ? 'NaiveProxy' : 'Hysteria2'} User`} isNaive={isNaive} onClose={() => setShowCreate(false)} onSubmit={handleCreate} />}
+      {showCreate && <CreateUserModal title={`Add ${isNaive ? 'NaiveProxy' : 'Hysteria2'} User`} onClose={() => setShowCreate(false)} onSubmit={handleCreate} />}
       {extendUser && <ExtendModal username={extendUser.username} currentExpiry={extendUser.expiry} onClose={() => setExtendUser(null)} onSubmit={handleExtend} />}
     </div>
   );

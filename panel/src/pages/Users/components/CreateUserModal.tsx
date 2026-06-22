@@ -20,12 +20,11 @@ function randomString(len: number) {
 
 interface CreateUserModalProps {
   title: string;
-  isNaive: boolean;
   onClose: () => void;
   onSubmit: (data: { username: string; password: string; nickname: string; expiry: string | null }) => Promise<void>;
 }
 
-export function CreateUserModal({ title, isNaive, onClose, onSubmit }: CreateUserModalProps) {
+export function CreateUserModal({ title, onClose, onSubmit }: CreateUserModalProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
@@ -34,11 +33,9 @@ export function CreateUserModal({ title, isNaive, onClose, onSubmit }: CreateUse
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!isNaive) {
-      setUsername(randomString(16));
-      setPassword(randomString(32));
-    }
-  }, [isNaive]);
+    setUsername(randomString(16));
+    setPassword(randomString(32));
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault(); setError(''); setLoading(true);
@@ -57,11 +54,11 @@ export function CreateUserModal({ title, isNaive, onClose, onSubmit }: CreateUse
         </div>
         <div className={styles.formGroup}>
           <label className={styles.formLabel}>Логин</label>
-          <input className={styles.formInput} type="text" value={username} onChange={(e) => setUsername(e.target.value)} readOnly={!isNaive} />
+          <input className={styles.formInput} type="text" value={username} onChange={(e) => setUsername(e.target.value)} readOnly />
         </div>
         <div className={styles.formGroup}>
           <label className={styles.formLabel}>Пароль</label>
-          <input className={styles.formInput} type="text" value={password} onChange={(e) => setPassword(e.target.value)} readOnly={!isNaive} />
+          <input className={styles.formInput} type="text" value={password} onChange={(e) => setPassword(e.target.value)} readOnly />
         </div>
         <div className={styles.formGroup}>
           <label className={styles.formLabel}>Срок действия</label>
