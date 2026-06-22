@@ -337,15 +337,15 @@ describe('aclBuilder', () => {
     test('generates geosite deny rules', () => {
       const acl = makeAcl({ blockDomains: [], blockGeosite: ['netflix', 'youtube'], blockGeoip: [], directCidrs: [], directAll: false });
       const result = aclBuilder.generateNaiveAcl(acl);
-      expect(result).toContain('geosite:netflix deny');
-      expect(result).toContain('geosite:youtube deny');
+      expect(result).toContain('geosite netflix deny');
+      expect(result).toContain('geosite youtube deny');
     });
 
     test('generates geoip deny rules with uppercase country codes', () => {
       const acl = makeAcl({ blockDomains: [], blockGeosite: [], blockGeoip: ['cn', 'ru'], directCidrs: [], directAll: false });
       const result = aclBuilder.generateNaiveAcl(acl);
-      expect(result).toContain('geoip:CN deny');
-      expect(result).toContain('geoip:RU deny');
+      expect(result).toContain('geoip CN deny');
+      expect(result).toContain('geoip RU deny');
     });
 
     test('generates allow rules for CIDRs', () => {
@@ -388,8 +388,8 @@ describe('aclBuilder', () => {
       const lines = result.split('\n');
       const bypassIdx = lines.findIndex(l => l.includes('bypass_private'));
       const denyIdx = lines.findIndex(l => l.includes('deny *.example.com'));
-      const geositeIdx = lines.findIndex(l => l.includes('geosite:netflix'));
-      const geoipIdx = lines.findIndex(l => l.includes('geoip:CN'));
+      const geositeIdx = lines.findIndex(l => l.includes('geosite netflix'));
+      const geoipIdx = lines.findIndex(l => l.includes('geoip CN'));
       const allowIdx = lines.findIndex(l => l.includes('allow 8.8.8.0/24'));
       const allowAllIdx = lines.findIndex(l => l.includes('allow all'));
       expect(bypassIdx).toBeLessThan(denyIdx);
@@ -410,14 +410,14 @@ describe('aclBuilder', () => {
     test('filters invalid geosite categories', () => {
       const acl = makeAcl({ blockDomains: [], blockGeosite: ['netflix', 'nonexistent'], blockGeoip: [], directCidrs: [], directAll: false });
       const result = aclBuilder.generateNaiveAcl(acl);
-      expect(result).toContain('geosite:netflix deny');
+      expect(result).toContain('geosite netflix deny');
       expect(result).not.toContain('nonexistent');
     });
 
     test('filters invalid geoip countries', () => {
       const acl = makeAcl({ blockDomains: [], blockGeosite: [], blockGeoip: ['cn', 'zz'], directCidrs: [], directAll: false });
       const result = aclBuilder.generateNaiveAcl(acl);
-      expect(result).toContain('geoip:CN deny');
+      expect(result).toContain('geoip CN deny');
       expect(result).not.toContain('zz');
     });
   });

@@ -9,6 +9,7 @@ const {
   findCertFile, getSysctlParams, ensureCertPermissions,
   checkPorts
 } = require('../services/systemAdapter.js');
+const { AtomicFileTransaction, yamlSelfValidator } = require('../services/atomicConfig.js');
 
 const TEST_MODE = process.env.TEST_MODE === '1';
 
@@ -83,7 +84,10 @@ async function fixHy2Tls(req, res) {
 
     delete hyCfg.acme;
     hyCfg.tls = { cert: tlsBlock.cert, key: tlsBlock.key };
-    fs.writeFileSync(hyCfgPath, yaml.dump(hyCfg, { lineWidth: 120, quotingType: '"' }), 'utf8');
+
+    const tx = new AtomicFileTransaction(hyCfgPath);
+    const newContent = yaml.dump(hyCfg, { lineWidth: 120, quotingType: '"' });
+    tx.execute(newContent, (tmpPath) => yamlSelfValidator(fs.readFileSync(tmpPath, 'utf8')));
 
     if (!TEST_MODE) {
       execSyncSafe('systemctl reset-failed hysteria-server 2>/dev/null');

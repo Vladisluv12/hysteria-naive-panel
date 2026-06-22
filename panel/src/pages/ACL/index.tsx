@@ -91,8 +91,8 @@ export function AclPage() {
 
   const [enabled, setEnabled] = useState(false);
   const [blockDomains, setBlockDomains] = useState('');
-  const [blockGeosite, setBlockGeosite] = useState<string[]>([]);
-  const [blockGeoip, setBlockGeoip] = useState<string[]>([]);
+  const [blockGeosite, setBlockGeosite] = useState('');
+  const [blockGeoip, setBlockGeoip] = useState('');
   const [blockPrivateIPs, setBlockPrivateIPs] = useState(true);
   const [directCidrs, setDirectCidrs] = useState('');
   const [directAll, setDirectAll] = useState(true);
@@ -113,8 +113,8 @@ export function AclPage() {
       setAcl(aclData);
       setEnabled(aclData.enabled);
       setBlockDomains((aclData.blockDomains || []).join('\n'));
-      setBlockGeosite(aclData.blockGeosite || []);
-      setBlockGeoip(aclData.blockGeoip || []);
+      setBlockGeosite((aclData.blockGeosite || []).join(', '));
+      setBlockGeoip((aclData.blockGeoip || []).join(', '));
       setBlockPrivateIPs(aclData.blockPrivateIPs !== false);
       setDirectCidrs((aclData.directCidrs || []).join('\n'));
       setDirectAll(aclData.directAll);
@@ -134,11 +134,13 @@ export function AclPage() {
     try {
       const domains = blockDomains.split('\n').map(d => d.trim()).filter(Boolean);
       const cidrs = directCidrs.split('\n').map(c => c.trim()).filter(Boolean);
+      const geositeArr = blockGeosite.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+      const geoipArr = blockGeoip.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
       const result = await aclApi.updateAcl({
         enabled,
         blockDomains: domains,
-        blockGeosite,
-        blockGeoip,
+        blockGeosite: geositeArr,
+        blockGeoip: geoipArr,
         blockPrivateIPs,
         directCidrs: cidrs,
         directAll,
@@ -165,24 +167,12 @@ export function AclPage() {
     }
   };
 
-  const toggleGeosite = (cat: string) => {
-    setBlockGeosite(prev =>
-      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-    );
-  };
-
-  const toggleGeoip = (country: string) => {
-    setBlockGeoip(prev =>
-      prev.includes(country) ? prev.filter(c => c !== country) : [...prev, country]
-    );
-  };
-
   const aclPreview = useMemo(() => generateAclPreview({
     blockPrivateIPs,
     enabled,
     blockDomains: blockDomains.split('\n').map(d => d.trim()).filter(Boolean),
-    blockGeosite,
-    blockGeoip,
+    blockGeosite: blockGeosite.split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
+    blockGeoip: blockGeoip.split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
     directCidrs: directCidrs.split('\n').map(c => c.trim()).filter(Boolean),
     directAll,
   }), [blockPrivateIPs, enabled, blockDomains, blockGeosite, blockGeoip, directCidrs, directAll]);
@@ -191,8 +181,8 @@ export function AclPage() {
     blockPrivateIPs,
     enabled,
     blockDomains: blockDomains.split('\n').map(d => d.trim()).filter(Boolean),
-    blockGeosite,
-    blockGeoip,
+    blockGeosite: blockGeosite.split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
+    blockGeoip: blockGeoip.split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
     directCidrs: directCidrs.split('\n').map(c => c.trim()).filter(Boolean),
     directAll,
   }), [blockPrivateIPs, enabled, blockDomains, blockGeosite, blockGeoip, directCidrs, directAll]);
@@ -327,18 +317,39 @@ export function AclPage() {
           <h3 className={styles.cardTitle}>Блокировка Geosite категорий</h3>
         </div>
         <div className={styles.cardBody}>
-          <div className={styles.checkGrid}>
-            {geositeList.map(cat => (
-              <label key={cat} className={styles.checkItem}>
-                <input
-                  type="checkbox"
-                  checked={blockGeosite.includes(cat)}
-                  onChange={() => toggleGeosite(cat)}
-                />
-                {cat}
-              </label>
-            ))}
+          <p className={styles.tuningDesc}>
+            Через запятую. Доступно {geositeList.length} категорий из geosite.dat.
+            Пример: <code>google, youtube, netflix</code>
+          </p>
+          <div className={styles.formGroup}>
+            <textarea
+              className={styles.formInput}
+              rows={4}
+              value={blockGeosite}
+              onChange={(e) => setBlockGeosite(e.target.value)}
+              placeholder="google, youtube, netflix, facebook"
+              style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}
+            />
           </div>
+          <details style={{ marginTop: 8 }}>
+            <summary style={{ cursor: 'pointer', fontSize: 12, color: 'var(--text-secondary)' }}>
+              Показать все категории ({geositeList.length})
+            </summary>
+            <div className={styles.checkGrid} style={{ marginTop: 8, maxHeight: 200, overflow: 'auto' }}>
+              {geositeList.map(cat => (
+                <span
+                  key={cat}
+                  style={{ cursor: 'pointer', fontSize: 11, padding: '2px 6px', background: 'var(--bg-secondary)', borderRadius: 4 }}
+                  onClick={() => {
+                    const current = blockGeosite.split(',').map(s => s.trim()).filter(Boolean);
+                    if (!current.includes(cat)) setBlockGeosite(current.length ? blockGeosite + ', ' + cat : cat);
+                  }}
+                >
+                  {cat}
+                </span>
+              ))}
+            </div>
+          </details>
         </div>
       </div>
 
@@ -347,18 +358,39 @@ export function AclPage() {
           <h3 className={styles.cardTitle}>Блокировка Geoip стран</h3>
         </div>
         <div className={styles.cardBody}>
-          <div className={styles.checkGrid}>
-            {geoipList.map(country => (
-              <label key={country} className={styles.checkItem}>
-                <input
-                  type="checkbox"
-                  checked={blockGeoip.includes(country)}
-                  onChange={() => toggleGeoip(country)}
-                />
-                {country.toUpperCase()}
-              </label>
-            ))}
+          <p className={styles.tuningDesc}>
+            Через запятую (коды стран ISO 3166-1). Доступно {geoipList.length} стран из geoip.dat.
+            Пример: <code>ru, cn, ir</code>
+          </p>
+          <div className={styles.formGroup}>
+            <textarea
+              className={styles.formInput}
+              rows={3}
+              value={blockGeoip}
+              onChange={(e) => setBlockGeoip(e.target.value)}
+              placeholder="ru, cn, ir, kp"
+              style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}
+            />
           </div>
+          <details style={{ marginTop: 8 }}>
+            <summary style={{ cursor: 'pointer', fontSize: 12, color: 'var(--text-secondary)' }}>
+              Показать все страны ({geoipList.length})
+            </summary>
+            <div className={styles.checkGrid} style={{ marginTop: 8, maxHeight: 200, overflow: 'auto' }}>
+              {geoipList.map(country => (
+                <span
+                  key={country}
+                  style={{ cursor: 'pointer', fontSize: 11, padding: '2px 6px', background: 'var(--bg-secondary)', borderRadius: 4 }}
+                  onClick={() => {
+                    const current = blockGeoip.split(',').map(s => s.trim()).filter(Boolean);
+                    if (!current.includes(country)) setBlockGeoip(current.length ? blockGeoip + ', ' + country : country);
+                  }}
+                >
+                  {country.toUpperCase()}
+                </span>
+              ))}
+            </div>
+          </details>
         </div>
       </div>
 

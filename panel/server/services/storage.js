@@ -70,15 +70,39 @@ function loadConfig() {
     return raw;
   } catch (e) {
     console.error('config.json parse error, resetting:', e.message);
+    backupConfig(cfgPath);
     const cfg = defaultConfig();
     fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
     return cfg;
   }
 }
 
+function backupConfig(cfgPath) {
+  try {
+    if (fs.existsSync(cfgPath)) {
+      const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const bakPath = cfgPath + '.' + ts + '.bak';
+      fs.copyFileSync(cfgPath, bakPath);
+      // Keep only last 5 backups
+      const dir = path.dirname(cfgPath);
+      const base = path.basename(cfgPath);
+      const baks = fs.readdirSync(dir)
+        .filter(f => f.startsWith(base + '.') && f.endsWith('.bak'))
+        .sort().reverse();
+      baks.slice(5).forEach(f => {
+        try { fs.unlinkSync(path.join(dir, f)); } catch (_) {}
+      });
+    }
+  } catch (e) {
+    console.error('[storage] backup failed:', e.message);
+  }
+}
+
 function saveConfig(cfg) {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(testPath(CONFIG_FILE), JSON.stringify(cfg, null, 2));
+  const cfgPath = testPath(CONFIG_FILE);
+  backupConfig(cfgPath);
+  fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
 }
 
 function loadUsers() {

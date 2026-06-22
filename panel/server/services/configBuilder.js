@@ -1,6 +1,5 @@
 'use strict';
 
-const crypto = require('crypto');
 const yaml = require('js-yaml');
 const { generateNaiveAcl, needsGeoDatasets, HY2_GEOIP_PATH, HY2_GEOSITE_PATH } = require('./aclBuilder.js');
 
@@ -23,7 +22,7 @@ function buildCaddyContent(cfg, customBlocks, acl) {
 
   let forwardProxyBlock = `${lines || '    # no users yet'}\n    hide_ip\n    hide_via\n    probe_resistance`;
 
-  if (acl && needsGeoDatasets()) {
+  if (acl && needsGeoDatasets() && !process.env.NO_GEO_DATA) {
     forwardProxyBlock += `\n    geoip_dat ${HY2_GEOIP_PATH}`;
     forwardProxyBlock += `\n    geosite_dat ${HY2_GEOSITE_PATH}`;
   }
@@ -56,7 +55,8 @@ function buildHysteriaConfigObject(cfg, existingYaml, tlsBlock) {
     if (u.username && u.password && !isExpired(u)) userpass[u.username] = u.password;
   });
   if (Object.keys(userpass).length === 0) {
-    userpass.default = crypto.randomBytes(16).toString('base64url');
+    console.error('[configBuilder] No active Hy2 users — config not written (all expired or missing)');
+    return null;
   }
 
   if (existingYaml && typeof existingYaml === 'object') {

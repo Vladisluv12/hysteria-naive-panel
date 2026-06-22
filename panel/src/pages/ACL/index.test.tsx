@@ -45,13 +45,13 @@ describe('AclPage', () => {
     });
   });
 
-  it('renders geosite and geoip checkboxes', async () => {
+  it('renders geosite and geoip text inputs', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('netflix')).toBeDefined();
-      expect(screen.getByText('youtube')).toBeDefined();
-      expect(screen.getByText('CN')).toBeDefined();
-      expect(screen.getByText('RU')).toBeDefined();
+      const textareas = document.querySelectorAll('textarea');
+      expect(textareas.length).toBeGreaterThanOrEqual(2);
+      expect(screen.getByPlaceholderText('google, youtube, netflix, facebook')).toBeDefined();
+      expect(screen.getByPlaceholderText('ru, cn, ir, kp')).toBeDefined();
     });
   });
 

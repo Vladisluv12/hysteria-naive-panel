@@ -387,7 +387,12 @@ NAIVE_JSON="[]"; HY2_JSON="[]"
 [[ $INSTALL_NAIVE -eq 1 ]] && STACK_NAIVE="true" || STACK_NAIVE="false"
 [[ $INSTALL_HY2   -eq 1 ]] && STACK_HY2="true"   || STACK_HY2="false"
 
-cat > "${PANEL_DIR}/panel/data/config.json" << CONFIGEOF
+CFG_FILE="${PANEL_DIR}/panel/data/config.json"
+if [[ -f "${CFG_FILE}" ]]; then
+  log_warn "config.json already exists — preserving existing credentials"
+  cp -a "${CFG_FILE}" "${CFG_FILE}.bak" 2>/dev/null || true
+else
+  cat > "${CFG_FILE}" << CONFIGEOF
 {
   "installed": true,
   "stack": { "naive": ${STACK_NAIVE}, "hy2": ${STACK_HY2} },
@@ -409,7 +414,8 @@ cat > "${PANEL_DIR}/panel/data/config.json" << CONFIGEOF
   "hy2Users":   ${HY2_JSON}
 }
 CONFIGEOF
-log_ok "config.json written"
+  log_ok "config.json written"
+fi
 
 
 # [10] Nginx reverse proxy (if PANEL_ACCESS=nginx)

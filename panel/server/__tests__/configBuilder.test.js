@@ -156,15 +156,14 @@ describe('buildHysteriaConfigObject', () => {
     expect(out.auth.userpass).toEqual({ alice: 'pass1' });
   });
 
-  test('creates random fallback password when all users expired', () => {
+  test('returns null when all users expired (no random fallback)', () => {
     const expired = new Date(Date.now() - 10000).toISOString();
     const out = buildHysteriaConfigObject(makeHyCfg({
       hy2Users: [
         { username: 'alice', password: 'pass1', expiresAt: expired },
       ],
     }), null, null);
-    expect(out.auth.userpass.default).toBeDefined();
-    expect(out.auth.userpass.default).not.toBe('pass1');
+    expect(out).toBeNull();
   });
 
   test('mirror masquerade mode', () => {

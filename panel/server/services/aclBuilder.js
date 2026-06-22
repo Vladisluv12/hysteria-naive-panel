@@ -9,15 +9,27 @@ const DATA_DIR = (process.env.TEST_CONFIG_DIR)
   : path.join(__dirname, '../../data');
 const ACL_FILE = path.join(DATA_DIR, 'acl.json');
 
-const GEOSITE_CATEGORIES = [
-  'netflix', 'youtube', 'twitter', 'facebook', 'instagram', 'tiktok',
-  'spotify', 'discord', 'telegram', 'whatsapp', 'amazon', 'microsoft',
-  'apple', 'google', 'cloudflare', 'openai', 'category-games',
-];
+const REAL_DATA_DIR = path.join(__dirname, '../data');
 
-const GEOIP_COUNTRIES = [
-  'cn', 'ru', 'ir', 'kp', 'cu', 'sy', 'by', 'af', 've', 'mm',
-];
+function loadJsonList(filename, fallback) {
+  const candidates = [
+    path.join(DATA_DIR, filename),
+    ...(DATA_DIR !== REAL_DATA_DIR ? [path.join(REAL_DATA_DIR, filename)] : []),
+  ];
+  for (const filePath of candidates) {
+    try {
+      if (fs.existsSync(filePath)) {
+        const raw = fs.readFileSync(filePath, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+  }
+  return fallback;
+}
+
+const GEOSITE_CATEGORIES = loadJsonList('geosite_categories.json', []);
+const GEOIP_COUNTRIES = loadJsonList('geoip_countries.json', []);
 
 const PRIVATE_CIDRS = [
   '10.0.0.0/8',
