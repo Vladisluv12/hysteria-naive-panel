@@ -241,7 +241,7 @@ function handleInstallNaive(ws, data) {
       ws.send(JSON.stringify({
         type: 'install_done',
         links: {
-          naive: `naive+https://${login}:${password}@${domain}:${cfg.port || 443}`
+          naive: `naive+https://${encodeURIComponent(login)}:${encodeURIComponent(password)}@${domain}:${cfg.port || 443}#${encodeURIComponent(login)}`
         }
       }));
     } else {
@@ -281,7 +281,7 @@ function handleInstallHy2(ws, data) {
       ws.send(JSON.stringify({
         type: 'install_done',
         links: {
-          hy2: `hysteria2://default:${encodeURIComponent(password)}@${domain}:${cfg.port || 443}?sni=${domain}&insecure=0#RIXXX`
+          hy2: `hysteria2://default:${encodeURIComponent(password)}@${domain}:${cfg.port || 443}?sni=${domain}&insecure=0#default`
         }
       }));
     } else {
@@ -336,8 +336,8 @@ function handleInstallBoth(ws, data) {
         ws.send(JSON.stringify({
           type: 'install_done',
           links: {
-            naive: `naive+https://${naiveLogin}:${naivePassword}@${domain}:${cfg.port || 443}`,
-            hy2:   `hysteria2://default:${encodeURIComponent(hy2Password)}@${domain}:${cfg.port || 443}?sni=${domain}&insecure=0#RIXXX`
+            naive: `naive+https://${encodeURIComponent(naiveLogin)}:${encodeURIComponent(naivePassword)}@${domain}:${cfg.port || 443}#${encodeURIComponent(naiveLogin)}`,
+            hy2:   `hysteria2://default:${encodeURIComponent(hy2Password)}@${domain}:${cfg.port || 443}?sni=${domain}&insecure=0#default`
           }
         }));
       } else {

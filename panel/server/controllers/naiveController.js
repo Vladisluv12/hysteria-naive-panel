@@ -74,7 +74,7 @@ async function createUser(req, res) {
 
   res.json({
     success: true,
-    link: cfg.domain ? `naive+https://${username}:${password}@${cfg.domain}:${cfg.port}` : null,
+    link: cfg.domain ? `naive+https://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${cfg.domain}:${cfg.port}#${encodeURIComponent(username)}` : null,
   });
 }
 

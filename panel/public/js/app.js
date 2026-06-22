@@ -298,7 +298,7 @@ async function renderQuickLinks(status) {
       const { users } = await r.json();
       users.slice(0, 3).forEach(u => {
         hasAny = true;
-        const link = `naive+https://${u.username}:${u.password}@${status.domain}:${status.port || 443}`;
+        const link = `naive+https://${encodeURIComponent(u.username)}:${encodeURIComponent(u.password)}@${status.domain}:${status.port || 443}#${encodeURIComponent(u.username)}`;
         listEl.innerHTML += `
           <div class="quick-link-item">
             <span class="ql-type naive-tag">Naive</span>
@@ -594,7 +594,7 @@ async function loadUsers() {
       const t = trafficByUser[u.username] || {};
       const link = status.installed && status.domain
         ? (currentUsersTab === 'naive'
-            ? `naive+https://${u.username}:${u.password}@${status.domain}:${status.port || 443}`
+            ? `naive+https://${encodeURIComponent(u.username)}:${encodeURIComponent(u.password)}@${status.domain}:${status.port || 443}#${encodeURIComponent(u.username)}`
             : `hysteria2://${encodeURIComponent(u.username)}:${encodeURIComponent(u.password)}@${status.domain}:${status.port || 443}?sni=${status.domain}&insecure=0#${encodeURIComponent(u.username)}`)
         : '';
       const date = u.createdAt ? new Date(u.createdAt).toLocaleDateString('ru') : '—';

@@ -93,7 +93,7 @@ async function reloadNaive(useTestApi = false, configPath = '/etc/naive/Caddyfil
 
 async function restartHysteria() {
   if (TEST_MODE) return;
-  await runCommand('systemctl', ['restart', 'hysteria-server']);
+  await runCommand('systemctl', ['restart', 'hysteria']);
 }
 
 async function getJournalctl(unit, lines = 60) {

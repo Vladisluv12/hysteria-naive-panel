@@ -129,6 +129,17 @@ else
   [[ $INSTALL_NAIVE -eq 1 ]] && NAIVE_USER=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 16) && NAIVE_PASS=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24) || { NAIVE_USER=""; NAIVE_PASS=""; }
   [[ $INSTALL_HY2   -eq 1 ]] && HY2_PASS=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24) || HY2_PASS=""
 
+  # If config.json already exists, reuse its credentials
+  _EXISTING_CFG="${PANEL_DIR}/panel/data/config.json"
+  if [[ -f "${_EXISTING_CFG}" ]]; then
+    _EU=$(python3 -c "import json; c=json.load(open('${_EXISTING_CFG}')); print(c.get('naiveUsers',[])[0].get('username',''))" 2>/dev/null || echo "")
+    _EP=$(python3 -c "import json; c=json.load(open('${_EXISTING_CFG}')); print(c.get('naiveUsers',[])[0].get('password',''))" 2>/dev/null || echo "")
+    _HP=$(python3 -c "import json; c=json.load(open('${_EXISTING_CFG}')); print(c.get('hy2Users',[])[0].get('password',''))" 2>/dev/null || echo "")
+    if [[ -n "$_EU" && -n "$_EP" && "$INSTALL_NAIVE" -eq 1 ]]; then NAIVE_USER="$_EU"; NAIVE_PASS="$_EP"; fi
+    if [[ -n "$_HP" && "$INSTALL_HY2" -eq 1 ]]; then HY2_PASS="$_HP"; fi
+    log_info "Reusing existing credentials from config.json"
+  fi
+
   echo -e "\n${GREEN}  Credentials:${RESET}"
   [[ $INSTALL_NAIVE -eq 1 ]] && log_info "NaiveProxy -> ${NAIVE_USER}:${NAIVE_PASS}"
   [[ $INSTALL_HY2   -eq 1 ]] && log_info "Hysteria2  -> pass: ${HY2_PASS}"

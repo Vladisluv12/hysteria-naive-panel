@@ -23,7 +23,7 @@ function testPath(systemPath) {
 async function getLogs(req, res) {
   const { kind } = req.params;
   const lines = Math.max(10, Math.min(parseInt(req.query.lines || '60', 10) || 60, 500));
-  const unitMap = { naive: 'caddy', caddy: 'caddy', hy2: 'hysteria-server', hysteria: 'hysteria-server', panel: 'pm2-root' };
+  const unitMap = { naive: 'caddy', caddy: 'caddy', hy2: 'hysteria', hysteria: 'hysteria', panel: 'pm2-root' };
   const unit = unitMap[kind];
   if (!unit) return res.status(400).json({ error: 'bad kind' });
 
@@ -90,11 +90,11 @@ async function fixHy2Tls(req, res) {
     tx.execute(newContent, (tmpPath) => yamlSelfValidator(fs.readFileSync(tmpPath, 'utf8')));
 
     if (!TEST_MODE) {
-      execSyncSafe('systemctl reset-failed hysteria-server 2>/dev/null');
-      const restart = execSyncSafe('systemctl restart hysteria-server');
+      execSyncSafe('systemctl reset-failed hysteria 2>/dev/null');
+      const restart = execSyncSafe('systemctl restart hysteria');
       if (!restart.success) {
         return res.status(500).json({
-          ok: false, error: 'Конфиг обновлён, но hysteria-server не перезапустился',
+          ok: false, error: 'Конфиг обновлён, но hysteria не перезапустился',
           details: restart.error, ...tlsBlock
         });
       }
@@ -102,7 +102,7 @@ async function fixHy2Tls(req, res) {
     }
     let active = TEST_MODE;
     if (!TEST_MODE) {
-      const result = execSyncSafe('systemctl is-active hysteria-server');
+      const result = execSyncSafe('systemctl is-active hysteria');
       active = result.output === 'active';
     }
 
@@ -110,7 +110,7 @@ async function fixHy2Tls(req, res) {
       ok: active,
       message: active
         ? `Hy2 TLS починен — cert от ${tlsBlock.ca}, сервис запущен`
-        : `Конфиг обновлён, но сервис не активен. journalctl -u hysteria-server -n 30`,
+        : `Конфиг обновлён, но сервис не активен. journalctl -u hysteria -n 30`,
       ...tlsBlock
     });
   } catch (e) {
