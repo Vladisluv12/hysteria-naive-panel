@@ -23,7 +23,7 @@ function testPath(systemPath) {
 async function getLogs(req, res) {
   const { kind } = req.params;
   const lines = Math.max(10, Math.min(parseInt(req.query.lines || '60', 10) || 60, 500));
-  const unitMap = { naive: 'caddy', caddy: 'caddy', hy2: 'hysteria', hysteria: 'hysteria', panel: 'pm2-root' };
+  const unitMap = { naive: 'naive', caddy: 'naive', hy2: 'hysteria', hysteria: 'hysteria', panel: 'pm2-root' };
   const unit = unitMap[kind];
   if (!unit) return res.status(400).json({ error: 'bad kind' });
 
@@ -51,6 +51,20 @@ function getHysteriaConfig(req, res) {
     let raw = fs.readFileSync(cfgPath, 'utf8');
     raw = raw.replace(/(\s+)([a-zA-Z0-9_.-]+)(:\s*)"[^"]+"/g,
       (m, sp, user, col) => `${sp}${user}${col}"***masked***"`);
+    res.json({ exists: true, output: raw });
+  } catch (e) {
+    res.json({ exists: false, output: 'Ошибка чтения: ' + e.message });
+  }
+}
+
+function getCaddyfile(req, res) {
+  const cfgPath = testPath('/etc/naive/Caddyfile');
+  if (!fs.existsSync(cfgPath)) {
+    return res.json({ exists: false, output: cfgPath + ' не найден' });
+  }
+  try {
+    let raw = fs.readFileSync(cfgPath, 'utf8');
+    raw = raw.replace(/basic_auth\s+\S+\s+\S+/g, 'basic_auth ***masked*** ***masked***');
     res.json({ exists: true, output: raw });
   } catch (e) {
     res.json({ exists: false, output: 'Ошибка чтения: ' + e.message });
@@ -135,4 +149,4 @@ function applyTuning(req, res) {
   p.on('error', (e) => res.json({ success: false, message: e.message }));
 }
 
-module.exports = { getLogs, getPorts, getHysteriaConfig, fixHy2Tls, getTuningStatus, applyTuning };
+module.exports = { getLogs, getPorts, getHysteriaConfig, getCaddyfile, fixHy2Tls, getTuningStatus, applyTuning };

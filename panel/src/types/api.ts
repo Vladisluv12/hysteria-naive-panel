@@ -132,6 +132,11 @@ export interface HysteriaConfigResponse {
   output: string;
 }
 
+export interface CaddyfileResponse {
+  exists: boolean;
+  output: string;
+}
+
 export interface ApiError {
   error: string;
   details?: string;

@@ -106,8 +106,8 @@ export function UsersPage() {
   };
 
   const makeLink = (username: string, password: string) => {
-    if (isNaive) return `naive+https://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${domain}:${port}#easy-xray`;
-    return `hysteria2://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${domain}:${port}?sni=${domain}&insecure=0#easy-xray`;
+    if (isNaive) return `naive+https://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${domain}:${port}#easy-xray-naive`;
+    return `hysteria2://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${domain}:${port}?sni=${domain}&insecure=0#easy-xray-hys`;
   };
 
   return (

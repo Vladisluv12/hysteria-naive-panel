@@ -11,6 +11,7 @@ export function DiagnosticsPage() {
   const [logs, setLogs] = useState('');
   const [ports, setPorts] = useState('');
   const [config, setConfig] = useState('');
+  const [caddyfile, setCaddyfile] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -24,8 +25,12 @@ export function DiagnosticsPage() {
           const res = await diagApi.getPorts();
           setPorts(res.output);
         } else if (tab === 'config') {
-          const res = await diagApi.getHysteriaConfig();
-          setConfig(res.output);
+          const [hyRes, caddyRes] = await Promise.all([
+            diagApi.getHysteriaConfig(),
+            diagApi.getCaddyfile(),
+          ]);
+          setConfig(hyRes.output);
+          setCaddyfile(caddyRes.output);
         }
       } catch (err) {
         addToast(err instanceof Error ? err.message : 'Ошибка загрузки', 'error');
@@ -69,12 +74,20 @@ export function DiagnosticsPage() {
             </div>
           )}
           {tab === 'config' && (
-            <div className={styles.card}>
-              <div className={styles.cardHeader}><h3 className={styles.cardTitle}>Активный конфиг Hysteria2</h3></div>
-              <div className={styles.cardBody}>
-                <pre className={styles.logBox}>{config || '—'}</pre>
+            <>
+              <div className={styles.card}>
+                <div className={styles.cardHeader}><h3 className={styles.cardTitle}>Caddyfile (NaiveProxy)</h3></div>
+                <div className={styles.cardBody}>
+                  <pre className={styles.logBox}>{caddyfile || '—'}</pre>
+                </div>
               </div>
-            </div>
+              <div className={styles.card}>
+                <div className={styles.cardHeader}><h3 className={styles.cardTitle}>Hysteria2 config</h3></div>
+                <div className={styles.cardBody}>
+                  <pre className={styles.logBox}>{config || '—'}</pre>
+                </div>
+              </div>
+            </>
           )}
         </>
       )}

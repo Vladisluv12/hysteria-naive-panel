@@ -68,7 +68,7 @@ async function createUser(req, res) {
   res.json({
     success: true,
     link: cfg.domain
-      ? `hysteria2://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${cfg.domain}:${cfg.port}?sni=${cfg.domain}&insecure=0#easy-xray`
+      ? `hysteria2://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${cfg.domain}:${cfg.port}?sni=${cfg.domain}&insecure=0#easy-xray-hys`
       : null
   });
 }
