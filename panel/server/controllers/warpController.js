@@ -90,7 +90,7 @@ function getWarpStatus(req, res) {
 
     let warpIp = '';
     try {
-      const ipResult = execSyncSafe('curl -s --interface warp0 --max-time 5 https://ipinfo.io/ip');
+      const ipResult = execSyncSafe('curl -s --interface warp --max-time 5 https://ipinfo.io/ip');
       if (ipResult.success) warpIp = ipResult.output.trim();
     } catch (_) {}
 

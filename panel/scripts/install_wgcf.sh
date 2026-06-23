@@ -18,6 +18,10 @@ fi
 log()  { echo "$1"; }
 step() { echo "STEP:$1"; }
 
+WGCF_DIR="/etc/wireguard"
+WGCF_WORKDIR="/tmp/wgcf-work"
+mkdir -p "$WGCF_DIR" "$WGCF_WORKDIR"
+
 # ══════════════════════════════════════════════════════
 step 1
 log "▶ Installing WireGuard + wgcf..."
@@ -43,40 +47,43 @@ if [[ ! -f /usr/local/bin/wgcf ]]; then
     -o /usr/local/bin/wgcf || { log "ERROR: wgcf download failed"; exit 1; }
   chmod +x /usr/local/bin/wgcf
 fi
-log "  wgcf: $(/usr/local/bin/wgcf version 2>&1 | head -1)"
+log "  wgcf: installed"
 
 # ══════════════════════════════════════════════════════
 step 2
 log "▶ Registering with Cloudflare WARP..."
 # ══════════════════════════════════════════════════════
 
-WGCF_DIR="/etc/wireguard"
-mkdir -p "$WGCF_DIR"
-
-# Register if no account exists
-if [[ ! -f /etc/wgcf-profile.json ]]; then
+# wgcf 2.2.x uses wgcf-account.toml in current directory
+if [[ ! -f "$WGCF_WORKDIR/wgcf-account.toml" ]]; then
+  cd "$WGCF_WORKDIR"
   /usr/local/bin/wgcf register --accept-tos 2>&1 | tail -3
 fi
 
-if [[ ! -f /etc/wgcf-profile.json ]]; then
-  log "ERROR: wgcf registration failed"
+if [[ ! -f "$WGCF_WORKDIR/wgcf-account.toml" ]]; then
+  log "ERROR: wgcf registration failed — no wgcf-account.toml"
   exit 1
 fi
 
-log "  Account ID: $(jq -r '.accountID' /etc/wgcf-profile.json 2>/dev/null || echo unknown)"
+log "  Account registered"
 
 # ══════════════════════════════════════════════════════
 step 3
 log "▶ Generating WireGuard config..."
 # ══════════════════════════════════════════════════════
 
+cd "$WGCF_WORKDIR"
 /usr/local/bin/wgcf generate 2>&1 | tail -3
 
-if [[ -f /etc/wireguard/wgcf-profile.conf ]]; then
-  mv /etc/wireguard/wgcf-profile.conf /etc/wireguard/warp.conf
-  log "  Config: /etc/wireguard/warp.conf"
+if [[ -f "$WGCF_WORKDIR/wgcf-profile.conf" ]]; then
+  mv "$WGCF_WORKDIR/wgcf-profile.conf" "$WGCF_DIR/warp.conf"
+  log "  Config: $WGCF_DIR/warp.conf"
+elif [[ -f "$WGCF_WORKDIR/warp.conf" ]]; then
+  mv "$WGCF_WORKDIR/warp.conf" "$WGCF_DIR/warp.conf"
+  log "  Config: $WGCF_DIR/warp.conf"
 else
   log "ERROR: wgcf config not generated"
+  log "  Files in workdir: $(ls -la $WGCF_WORKDIR)"
   exit 1
 fi
 
@@ -93,13 +100,14 @@ WARP_ADDR=$(grep 'Address' "$WARP_CONF" | head -1 | awk '{print $3}' | cut -d'/'
 PEER_PUBKEY=$(grep 'PublicKey' "$WARP_CONF" | tail -1 | awk '{print $3}')
 PEER_ENDPOINT=$(grep 'Endpoint' "$WARP_CONF" | head -1 | awk '{print $3}')
 
-# Write final config — NO AllowedIPs 0.0.0.0/0, routing handled by ip rules
+# Write final config — Table=off so wg-quick doesn't manage routes
 cat > "$WARP_CONF" << WGEOF
 [Interface]
 PrivateKey = ${PRIVATE_KEY}
 Address = ${WARP_ADDR}/32
 DNS = 1.1.1.1
 MTU = 1280
+Table = off
 
 PostUp = /etc/wireguard/warp-route-up.sh
 PostDown = /etc/wireguard/warp-route-down.sh
@@ -152,9 +160,10 @@ set -e
 
 WARP_TABLE=100
 WARP_PRIO=100
+WARP_IF="warp"
 
 ip route flush table $WARP_TABLE 2>/dev/null || true
-ip route add default dev warp0 table $WARP_TABLE
+ip route add default dev $WARP_IF table $WARP_TABLE
 
 while IFS= read -r line; do
   line=$(echo "$line" | sed 's/#.*//' | xargs)
@@ -198,11 +207,10 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=simple
+Type=oneshot
+RemainAfterExit=yes
 ExecStart=/usr/bin/wg-quick up warp
 ExecStop=/usr/bin/wg-quick down warp
-Restart=on-failure
-RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
@@ -223,7 +231,7 @@ sleep 2
 
 if systemctl is-active --quiet warp 2>/dev/null; then
   log "  WARP: active"
-  WARP_IP=$(curl -s --interface warp0 --max-time 5 https://ipinfo.io/ip 2>/dev/null || echo "")
+  WARP_IP=$(curl -s --interface warp --max-time 5 https://ipinfo.io/ip 2>/dev/null || echo "")
   if [[ -n "$WARP_IP" ]]; then
     log "  WARP IP: $WARP_IP"
   fi
