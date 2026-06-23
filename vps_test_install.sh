@@ -70,6 +70,7 @@ if [[ $AUTO_MODE -eq 1 ]]; then
   fi
   PROXY_PORT="${PROXY_PORT:-8443}"
   USE_CADDY_CERT="${USE_CADDY_CERT:-0}"
+  USE_WARP="${USE_WARP:-0}"
   SSH_ONLY=0; LISTEN_HOST="0.0.0.0"; PANEL_DOMAIN=""
   case "$PANEL_ACCESS" in
     nginx)    ACCESS_MODE=1 ;;
@@ -133,6 +134,13 @@ else
     3) read -rp "  Port number: " PROXY_PORT; PROXY_PORT="${PROXY_PORT:-8443}" ;;
     *) PROXY_PORT=8443 ;;
   esac
+
+  echo -e "\n${BOLD}Cloudflare WARP:${RESET} ${CYAN}1)${RESET} No (default)  ${CYAN}2)${RESET} Yes — hide server IP via WARP"
+  read -rp "Choice [1/2]: " _WARP; USE_WARP="${_WARP:-1}"; [[ "$USE_WARP" == "2" ]] && USE_WARP=1 || USE_WARP=0
+  if [[ "$USE_WARP" -eq 1 ]]; then
+    log_info "WARP will route IP-detection traffic (icanhazip, ipinfo, etc.) through Cloudflare"
+    log_info "Real IP stays for proxy traffic — only detection sites see WARP IP"
+  fi
 
   [[ $INSTALL_NAIVE -eq 1 ]] && NAIVE_USER=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 16) && NAIVE_PASS=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24) || { NAIVE_USER=""; NAIVE_PASS=""; }
   [[ $INSTALL_HY2   -eq 1 ]] && HY2_PASS=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24) || HY2_PASS=""
@@ -708,7 +716,22 @@ if [[ $INSTALL_HY2 -eq 1 ]]; then
 fi
 
 
-# [15] Smoke tests
+# [15] Cloudflare WARP (optional)
+
+if [[ "$USE_WARP" == "1" ]]; then
+  log_step "[15] Installing Cloudflare WARP..."
+  bash "${PANEL_DIR}/panel/scripts/install_wgcf.sh"
+  if systemctl is-active --quiet warp 2>/dev/null; then
+    log_ok "WARP active"
+  else
+    log_warn "WARP failed to start: journalctl -u warp -n 20"
+  fi
+else
+  log_info "WARP skipped"
+fi
+
+
+# [16] Smoke tests
 
 echo ""
 echo -e "${CYAN}${BOLD}> Smoke test${RESET}"
@@ -719,9 +742,10 @@ _SF=0; _SW=0
     && log_ok "Caddyfile valid" || { log_err "Caddyfile invalid"; _SF=$((_SF+1)); }
 }
 
-for svc in naive hysteria; do
+for svc in naive hysteria warp; do
   [[ $svc == "naive" && $INSTALL_NAIVE -eq 0 ]] && continue
   [[ $svc == "hysteria" && $INSTALL_HY2 -eq 0 ]] && continue
+  [[ $svc == "warp" && "$USE_WARP" != "1" ]] && continue
   systemctl is-active --quiet "$svc" 2>/dev/null \
     && log_ok "${svc}.service active" || { log_err "${svc}.service NOT active"; _SF=$((_SF+1)); }
 done

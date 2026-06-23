@@ -7,6 +7,7 @@ const navItems = [
   { to: '/install', label: 'Install' },
   { to: '/users', label: 'Users' },
   { to: '/acl', label: 'ACL' },
+  { to: '/warp', label: 'WARP' },
   { to: '/diagnostics', label: 'Diagnostics' },
   { to: '/settings', label: 'Settings' },
 ];

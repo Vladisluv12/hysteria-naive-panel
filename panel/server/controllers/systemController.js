@@ -28,9 +28,10 @@ async function getStatus(req, res) {
   if (!cfg.installed) {
     return res.json({ installed: false, stack: cfg.stack || { naive: false, hy2: false } });
   }
-  const [naiveActive, hy2Active] = await Promise.all([
+  const [naiveActive, hy2Active, warpActive] = await Promise.all([
     cfg.stack.naive ? serviceIsActive('naive') : Promise.resolve(null),
-    cfg.stack.hy2 ? serviceIsActive('hysteria') : Promise.resolve(null)
+    cfg.stack.hy2 ? serviceIsActive('hysteria') : Promise.resolve(null),
+    serviceIsActive('warp'),
   ]);
   res.json({
     installed: true,
@@ -42,6 +43,7 @@ async function getStatus(req, res) {
     port: cfg.port,
     naive: cfg.stack.naive ? { active: naiveActive, usersCount: cfg.naiveUsers.length } : null,
     hy2:   cfg.stack.hy2   ? { active: hy2Active,   usersCount: cfg.hy2Users.length }   : null,
+    warp:  { active: warpActive },
   });
 }
 
@@ -57,7 +59,7 @@ async function getTrafficHandler(req, res) {
 async function serviceActionHandler(req, res) {
   const { kind, action } = req.params;
   if (!['start', 'stop', 'restart'].includes(action)) return res.status(400).json({ error: 'bad action' });
-  const unit = kind === 'naive' ? 'naive' : kind === 'hy2' ? 'hysteria' : null;
+  const unit = kind === 'naive' ? 'naive' : kind === 'hy2' ? 'hysteria' : kind === 'warp' ? 'warp' : null;
   if (!unit) return res.status(400).json({ error: 'bad kind' });
 
   const result = await serviceAction(action, unit);

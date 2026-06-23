@@ -112,6 +112,9 @@ app.use('/api', hysteriaRoutes);
 const diagRoutes = require('./routes/diag.js');
 app.use('/api', diagRoutes);
 
+const warpRoutes = require('./routes/warp.js');
+app.use('/api', warpRoutes);
+
 const aclRoutes = require('./routes/acl.js');
 app.use('/api', aclRoutes);
 
