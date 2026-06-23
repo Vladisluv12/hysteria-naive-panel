@@ -552,6 +552,7 @@ LimitNOFILE=1048576
 LimitNPROC=512
 PrivateTmp=true
 ProtectSystem=full
+Environment=HOME=/root
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 Restart=always
 RestartSec=5s
@@ -631,7 +632,7 @@ if [[ $INSTALL_HY2 -eq 1 && "$TLS_MODE" == "letsencrypt" && "$USE_CADDY_CERT" ==
   log_info "Waiting for Caddy TLS certificate..."
   CADDY_CERT_DIR=""
   for i in $(seq 1 75); do
-    for ROOT in "/var/lib/caddy/.local/share/caddy/certificates" "/root/.local/share/caddy/certificates"; do
+    for ROOT in "/caddy/certificates" "/var/lib/caddy/.local/share/caddy/certificates" "/root/.local/share/caddy/certificates"; do
       [[ -d "$ROOT" ]] || continue
       FOUND=$(find "$ROOT" -type f -name "${DOMAIN}.crt" 2>/dev/null | head -1)
       if [[ -n "$FOUND" && -f "${FOUND%.crt}.key" ]]; then
