@@ -20,7 +20,7 @@ function buildCaddyContent(cfg, customBlocks, acl) {
     ? `  reverse_proxy ${cfg.masqueradeUrl} {\n    header_up Host {upstream_hostport}\n    transport http {\n      tls_insecure_skip_verify\n    }\n  }`
     : `  file_server {\n    root /var/www/html\n  }`;
 
-  let forwardProxyBlock = `${lines || '    # no users yet'}\n    hide_ip\n    hide_via\n    probe_resistance`;
+  let forwardProxyBlock = `${lines || '    # no users yet'}\n    hide_ip\n    hide_via\n    probe_resistance\n    traffic_file /var/lib/naive/traffic.json`;
 
   if (acl && needsGeoDatasets() && !process.env.NO_GEO_DATA) {
     forwardProxyBlock += `\n    geoip_dat ${HY2_GEOIP_PATH}`;
