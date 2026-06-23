@@ -69,6 +69,7 @@ if [[ $AUTO_MODE -eq 1 ]]; then
     HY2_PASS="${HY2_PASS:-$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24)}"
   fi
   PROXY_PORT="${PROXY_PORT:-8443}"
+  USE_CADDY_CERT="${USE_CADDY_CERT:-0}"
   SSH_ONLY=0; LISTEN_HOST="0.0.0.0"; PANEL_DOMAIN=""
   case "$PANEL_ACCESS" in
     nginx)    ACCESS_MODE=1 ;;
@@ -114,6 +115,13 @@ else
   if [[ "${_TLSMODE:-1}" == "2" ]]; then
     TLS_MODE="letsencrypt"
     read -rp "  Email for Let's Encrypt: " EMAIL
+  fi
+
+  USE_CADDY_CERT=0
+  if [[ "$INSTALL_NAIVE" -eq 1 && "$INSTALL_HY2" -eq 1 && "$TLS_MODE" == "letsencrypt" ]]; then
+    echo -e "\n${BOLD}Hy2 TLS:${RESET} ${CYAN}1)${RESET} Share Caddy cert (default, recommended)  ${CYAN}2)${RESET} Own ACME cert"
+    read -rp "Choice [1/2]: " _HY2_TLS; _HY2_TLS="${_HY2_TLS:-1}"
+    [[ "$_HY2_TLS" == "2" ]] && USE_CADDY_CERT=0 || USE_CADDY_CERT=1
   fi
 
   read -rp $'\n'"${BOLD}Domain:${RESET} (A-record -> ${SERVER_IP}): " DOMAIN
@@ -255,12 +263,13 @@ fi
 
 # ═══════ [6] Camouflage page + proxy configs ══════════════════════
 log_step "[6] Writing proxy configs..."
-mkdir -p /var/www/naive /etc/naive /etc/hysteria /var/lib/naive
+mkdir -p /var/www/html /var/www/naive /etc/naive /etc/hysteria /var/lib/naive
 cat > /var/www/naive/index.html << 'HTMLEOF'
 <!DOCTYPE html><html><head><meta charset="utf-8"><title>Loading</title>
 <style>body{background:#080808;height:100vh;margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif}.bar{width:200px;height:3px;background:#151515;overflow:hidden;border-radius:2px;margin-bottom:25px}.fill{height:100%;width:40%;background:#fff;animation:slide 1.4s infinite ease-in-out}@keyframes slide{0%{transform:translateX(-100%)}50%{transform:translateX(50%)}100%{transform:translateX(200%)}}.t{color:#555;font-size:13px;letter-spacing:3px;font-weight:600}</style>
 </head><body><div class="bar"><div class="fill"></div></div><div class="t">LOADING CONTENT</div></body></html>
 HTMLEOF
+cp /var/www/naive/index.html /var/www/html/index.html
 
 if [[ $INSTALL_NAIVE -eq 1 ]]; then
   mkdir -p /var/lib/naive /etc/naive
@@ -286,7 +295,7 @@ if [[ $INSTALL_NAIVE -eq 1 ]]; then
     if [[ "$MASQUERADE_MODE" == "mirror" && -n "$MASQUERADE_URL" ]]; then
       printf '    reverse_proxy %s {\n        header_up Host {upstream_hostport}\n    }\n' "${MASQUERADE_URL}"
     else
-      printf '    file_server {\n        root /var/www/naive\n    }\n'
+      printf '    file_server {\n        root /var/www/html\n    }\n'
     fi
     printf '}\n'
   } > /etc/naive/Caddyfile
@@ -301,8 +310,11 @@ listen: :${PROXY_PORT}
 
 HYEOF
 
-  # TLS section — self-signed or Let's Encrypt ACME
-  if [[ "$TLS_MODE" == "letsencrypt" ]]; then
+  # TLS section
+  if [[ "$TLS_MODE" == "letsencrypt" && "$USE_CADDY_CERT" == "1" ]]; then
+    # Shared Caddy cert — TLS section will be added after Caddy starts
+    log_info "Hy2 will share Caddy's TLS certificate"
+  elif [[ "$TLS_MODE" == "letsencrypt" ]]; then
     cat >> /etc/hysteria/config.yaml << HYEOF
 acme:
   domains:
@@ -332,7 +344,7 @@ HYEOF
   if [[ "$MASQUERADE_MODE" == "mirror" && -n "$MASQUERADE_URL" ]]; then
     printf 'masquerade:\n  type: proxy\n  proxy:\n    url: %s\n    rewriteHost: true\n\n' "${MASQUERADE_URL}" >> /etc/hysteria/config.yaml
   else
-    printf 'masquerade:\n  type: file\n  file:\n    dir: /var/www/naive\n\n' >> /etc/hysteria/config.yaml
+    printf 'masquerade:\n  type: file\n  file:\n    dir: /var/www/html\n\n' >> /etc/hysteria/config.yaml
   fi
   cat >> /etc/hysteria/config.yaml << 'HYBWEOF'
 ignoreClientBandwidth: true
@@ -613,6 +625,79 @@ if [[ $INSTALL_NAIVE -eq 1 ]]; then
     sleep 1; [[ $i -eq 20 ]] && log_warn "naive slow: journalctl -u naive"
   done
 fi
+
+# Shared Caddy cert: wait for cert, update Hy2 config, create watcher
+if [[ $INSTALL_HY2 -eq 1 && "$TLS_MODE" == "letsencrypt" && "$USE_CADDY_CERT" == "1" ]]; then
+  log_info "Waiting for Caddy TLS certificate..."
+  CADDY_CERT_DIR=""
+  for i in $(seq 1 75); do
+    for ROOT in "/var/lib/caddy/.local/share/caddy/certificates" "/root/.local/share/caddy/certificates"; do
+      [[ -d "$ROOT" ]] || continue
+      FOUND=$(find "$ROOT" -type f -name "${DOMAIN}.crt" 2>/dev/null | head -1)
+      if [[ -n "$FOUND" && -f "${FOUND%.crt}.key" ]]; then
+        CADDY_CERT_DIR="$(dirname "$FOUND")"
+        CA_NAME="$(basename "$(dirname "$CADDY_CERT_DIR")")"
+        log_ok "Certificate found (${i}s) — CA: ${CA_NAME}"
+        break 2
+      fi
+    done
+    sleep 2
+  done
+
+  if [[ -z "$CADDY_CERT_DIR" ]]; then
+    log_warn "Caddy cert not found in 150s, falling back to own ACME for Hy2"
+    # Append acme section to Hy2 config
+    cat >> /etc/hysteria/config.yaml << HYEOF
+acme:
+  domains:
+    - ${DOMAIN}
+  email: ${EMAIL}
+  ca: letsencrypt
+  listenHost: 0.0.0.0
+
+HYEOF
+  else
+    # Set permissions so hysteria can read cert files
+    chmod -R 755 "$(dirname "$CADDY_CERT_DIR")" 2>/dev/null || true
+    chmod 644 "${CADDY_CERT_DIR}/${DOMAIN}.crt" 2>/dev/null || true
+    chmod 640 "${CADDY_CERT_DIR}/${DOMAIN}.key" 2>/dev/null || true
+
+    # Append TLS section to Hy2 config
+    cat >> /etc/hysteria/config.yaml << HYEOF
+tls:
+  cert: ${CADDY_CERT_DIR}/${DOMAIN}.crt
+  key: ${CADDY_CERT_DIR}/${DOMAIN}.key
+
+HYEOF
+
+    # Create cert-watcher: restart Hy2 when Caddy renews cert
+    cat > /etc/systemd/system/caddy-cert-watcher.path << WATCHEOF
+[Unit]
+Description=Watch Caddy cert for changes -> restart hysteria
+
+[Path]
+PathModified=${CADDY_CERT_DIR}
+
+[Install]
+WantedBy=multi-user.target
+WATCHEOF
+
+    cat > /etc/systemd/system/caddy-cert-watcher.service << 'WATCHSVCEOF'
+[Unit]
+Description=Restart hysteria on Caddy cert change
+
+[Service]
+Type=oneshot
+ExecStart=/bin/systemctl restart hysteria.service
+WATCHSVCEOF
+
+    systemctl daemon-reload
+    systemctl enable caddy-cert-watcher.path >/dev/null 2>&1 || true
+    systemctl start  caddy-cert-watcher.path >/dev/null 2>&1 || true
+    log_ok "caddy-cert-watcher configured"
+  fi
+fi
+
 if [[ $INSTALL_HY2 -eq 1 ]]; then
   systemctl enable --now hysteria 2>&1 || log_warn "hysteria start failed"
   for i in $(seq 1 15); do

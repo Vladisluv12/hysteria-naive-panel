@@ -45,6 +45,10 @@ cp /etc/naive/Caddyfile "$BACKUP_DIR/"
 cp /etc/hysteria/config.yaml "$BACKUP_DIR/"
 cp /etc/hysteria/acl.rules "$BACKUP_DIR/" 2>/dev/null || true
 
+# Cert-watcher (если настроен shared cert mode)
+cp /etc/systemd/system/caddy-cert-watcher.path "$BACKUP_DIR/" 2>/dev/null || true
+cp /etc/systemd/system/caddy-cert-watcher.service "$BACKUP_DIR/" 2>/dev/null || true
+
 # Трафик
 cp /var/lib/naive/traffic.json "$BACKUP_DIR/" 2>/dev/null || true
 
@@ -113,12 +117,20 @@ pm2 save
 
 ### NaiveProxy (caddy-naive)
 
+caddy-naive собирается через [xcaddy](https://github.com/caddyserver/xcaddy) с кастомным плагином
+[forwardproxy](https://github.com/Vladisluv12/caddy_addon) (подсчёт трафика per-user).
+
 ```bash
-# Скачать новую версию (пример для amd64)
-wget -O /tmp/caddy-naive https://github.com/nicpottier/caddy-naive/releases/latest/download/caddy_linux_amd64
-chmod +x /tmp/caddy-naive
+# Убедиться что xcaddy установлен
+go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
+
+# Собрать caddy с forwardproxy addon
+xcaddy build --with github.com/caddyserver/forwardproxy=https://github.com/Vladisluv12/caddy_addon
+
+# Заменить бинарник
 mv /usr/local/bin/caddy-naive /usr/local/bin/caddy-naive.old
-mv /tmp/caddy-naive /usr/local/bin/caddy-naive
+mv caddy /usr/local/bin/caddy-naive
+setcap cap_net_bind_service=+ep /usr/local/bin/caddy-naive
 
 # Перезапустить
 systemctl restart naive
@@ -137,6 +149,10 @@ mv /tmp/hysteria /usr/local/bin/hysteria
 systemctl restart hysteria
 ```
 
+> Если используется shared Caddy cert — после обновления Caddy (caddy-naive) сертификат
+> может обновиться. `caddy-cert-watcher` автоматически перезапустит hysteria.
+> Если cert-watcher не настроен — перезапустите вручную: `systemctl restart hysteria`.
+
 > Конфиги `/etc/naive/Caddyfile` и `/etc/hysteria/config.yaml` **не меняются** при обновлении бинарников.
 
 ---
@@ -153,11 +169,14 @@ pm2 status panel-naive-hy2
 curl -s http://127.0.0.1:3000/api/me | head -c 100
 
 # Проверка что юзеры на месте
-curl -s -H "Authorization: Bearer $(curl -s -X POST http://127.0.0.1:3000/api/login -H 'Content-Type: application/json' -d '{"username":"admin","password":"admin"}' | python3 -c 'import sys,json; print(json.load(sys.stdin).get("token",""))')" \
-  http://127.0.0.1:3000/api/naive/users | python3 -m json.tool | head -20
+curl -s -c /tmp/cookies -X POST http://127.0.0.1:3000/api/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"admin"}' > /dev/null
+curl -s -b /tmp/cookies http://127.0.0.1:3000/api/naive/users | python3 -m json.tool | head -20
+rm -f /tmp/cookies
 
 # Проверка что лицензия не сломалась
-curl -Ik https://olmeccca.duckdns.org:8443 2>&1 | head -5
+curl -Ik https://vpn.example.com:8443 2>&1 | head -5
 ```
 
 ---
@@ -210,6 +229,13 @@ systemctl restart naive
 
 cp "$BACKUP_DIR/config.yaml" /etc/hysteria/config.yaml
 systemctl restart hysteria
+
+# Если был настроен cert-watcher
+cp "$BACKUP_DIR/caddy-cert-watcher.path" /etc/systemd/system/ 2>/dev/null || true
+cp "$BACKUP_DIR/caddy-cert-watcher.service" /etc/systemd/system/ 2>/dev/null || true
+systemctl daemon-reload
+systemctl reenable caddy-cert-watcher.path 2>/dev/null || true
+systemctl start caddy-cert-watcher.path 2>/dev/null || true
 ```
 
 ### Откат через git
@@ -250,5 +276,6 @@ ls -dt /root/panel-backup-* | tail -n +4 | xargs rm -rf 2>/dev/null || true
 | Трафик | `/var/lib/naive/traffic.json` | Вне директории панели |
 | TLS-сертификаты | `/var/lib/caddy/...` | ЛетсЭнкрипт, обновляется автоматически |
 | Конфиги сервисов | `/etc/naive/`, `/etc/hysteria/` | Не перезаписываются `git pull` |
+| Cert-watcher | `/etc/systemd/system/caddy-cert-watcher.*` | Не перезаписывается кодом |
 | ACL правила | `/etc/hysteria/acl.rules` | Не перезаписываются кодом |
 | Скрипт тюнинга | `/etc/sysctl.d/99-panel-tuning.conf` | Sysctl persistence, не трогается |
