@@ -720,7 +720,96 @@ fi
 
 if [[ "$USE_WARP" == "1" ]]; then
   log_step "[15] Installing Cloudflare WARP..."
-  bash "${PANEL_DIR}/panel/scripts/install_wgcf.sh"
+
+  apt-get update -qq 2>/dev/null || true
+  apt-get install -y -qq wireguard-tools jq curl 2>/dev/null || true
+
+  WGCF_VERSION="2.2.22"
+  WGCF_ARCH="$(uname -m)"
+  case "$WGCF_ARCH" in
+    x86_64)  WGCF_PLATFORM="linux_amd64" ;;
+    aarch64) WGCF_PLATFORM="linux_arm64" ;;
+    armv7l)  WGCF_PLATFORM="linux_armv7" ;;
+    *)       WGCF_PLATFORM="linux_amd64" ;;
+  esac
+
+  if [[ ! -f /usr/local/bin/wgcf ]]; then
+    log_info "Downloading wgcf ${WGCF_VERSION}..."
+    curl -fsSL --connect-timeout 10 --max-time 60 \
+      "https://github.com/ViRb3/wgcf/releases/download/v${WGCF_VERSION}/wgcf_${WGCF_VERSION}_${WGCF_PLATFORM}" \
+      -o /usr/local/bin/wgcf || { log_err "wgcf download failed"; exit 1; }
+    chmod +x /usr/local/bin/wgcf
+  fi
+
+  WGCF_WORKDIR="/tmp/wgcf-work"
+  mkdir -p "$WGCF_WORKDIR"
+
+  if [[ ! -f "$WGCF_WORKDIR/wgcf-account.toml" ]]; then
+    cd "$WGCF_WORKDIR"
+    /usr/local/bin/wgcf register --accept-tos 2>&1 | tail -3
+  fi
+  [[ ! -f "$WGCF_WORKDIR/wgcf-account.toml" ]] && { log_err "wgcf registration failed"; exit 1; }
+
+  cd "$WGCF_WORKDIR"
+  /usr/local/bin/wgcf generate 2>&1 | tail -3
+
+  WARP_CONF="/etc/wireguard/warp.conf"
+  mkdir -p /etc/wireguard
+  if [[ -f "$WGCF_WORKDIR/wgcf-profile.conf" ]]; then
+    mv "$WGCF_WORKDIR/wgcf-profile.conf" "$WARP_CONF"
+  elif [[ -f "$WGCF_WORKDIR/warp.conf" ]]; then
+    mv "$WGCF_WORKDIR/warp.conf" "$WARP_CONF"
+  else
+    log_err "wgcf config not generated"; exit 1
+  fi
+
+  PRIVATE_KEY=$(grep 'PrivateKey' "$WARP_CONF" | head -1 | awk '{print $3}')
+  WARP_ADDR=$(grep 'Address' "$WARP_CONF" | head -1 | awk '{print $3}' | cut -d'/' -f1)
+  PEER_PUBKEY=$(grep 'PublicKey' "$WARP_CONF" | tail -1 | awk '{print $3}')
+  PEER_ENDPOINT=$(grep 'Endpoint' "$WARP_CONF" | head -1 | awk '{print $3}')
+
+  DEFAULT_IPS=""
+  for domain in icanhazip.com ipinfo.io ip-api.com checkip.amazonaws.com google.com googleapis.com gstatic.com googleusercontent.com ggpht.com; do
+    ips=$(dig +short A "$domain" 2>/dev/null | grep -E '^[0-9]' | tr '\n' ',' | sed 's/,$//')
+    [[ -n "$ips" ]] && DEFAULT_IPS="${DEFAULT_IPS}${ips},"
+  done
+  DEFAULT_IPS="${DEFAULT_IPS}104.16.132.229/32, 104.16.133.229/32, 172.64.139.179/32, 172.64.140.34/32, 34.117.59.0/24, 108.61.164.0/24"
+  ALLOWED_IPS=$(echo "$DEFAULT_IPS" | sed 's/,\s*$//' | sed 's/,/, /g')
+
+  cat > "$WARP_CONF" << WGEOF
+[Interface]
+PrivateKey = ${PRIVATE_KEY}
+Address = ${WARP_ADDR}/32
+MTU = 1280
+
+[Peer]
+PublicKey = ${PEER_PUBKEY}
+Endpoint = ${PEER_ENDPOINT}
+AllowedIPs = ${ALLOWED_IPS}
+PersistentKeepalive = 25
+WGEOF
+
+  cat > /etc/systemd/system/warp.service << 'SVCEOF'
+[Unit]
+Description=Cloudflare WARP (wgcf)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/wg-quick up warp
+ExecStop=/usr/bin/wg-quick down warp
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+
+  systemctl daemon-reload
+  systemctl enable warp 2>/dev/null || true
+  systemctl start warp 2>&1 || log_warn "warp start failed"
+  sleep 3
+
   if systemctl is-active --quiet warp 2>/dev/null; then
     log_ok "WARP active"
   else
