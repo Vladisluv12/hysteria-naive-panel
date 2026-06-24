@@ -62,26 +62,32 @@ function getWarpStatus(req, res) {
   try {
     const active = execSyncSafe('systemctl is-active warp');
     let warpIp = '';
+    let warpOn = false;
     try {
-      const ipResult = execSyncSafe('curl -s --interface warp --max-time 5 https://cloudflare.com/cdn-cgi/trace');
-      if (ipResult.success && ipResult.output.includes('warp=on')) {
-        const ipLine = execSyncSafe('curl -s --interface warp --max-time 5 https://ipinfo.io/ip');
-        if (ipLine.success) warpIp = ipLine.output.trim();
+      const trace = execSyncSafe('curl -s --interface warp --max-time 5 https://cloudflare.com/cdn-cgi/trace');
+      if (trace.success) {
+        warpOn = trace.output.includes('warp=on');
+        const ipMatch = trace.output.match(/^ip=(.+)$/m);
+        if (ipMatch) warpIp = ipMatch[1].trim();
       }
     } catch (_) {}
     let realIp = '';
     try {
-      const ipResult = execSyncSafe('curl -s --max-time 5 https://ipinfo.io/ip');
-      if (ipResult.success) realIp = ipResult.output.trim();
+      const ipResult = execSyncSafe('curl -s --max-time 5 https://cloudflare.com/cdn-cgi/trace');
+      if (ipResult.success) {
+        const ipMatch = ipResult.output.match(/^ip=(.+)$/m);
+        if (ipMatch) realIp = ipMatch[1].trim();
+      }
     } catch (_) {}
 
     res.json({
       active: active.output === 'active',
+      warpOn,
       warpIp,
       realIp,
     });
   } catch (e) {
-    res.json({ active: false, warpIp: '', realIp: '', error: e.message });
+    res.json({ active: false, warpOn: false, warpIp: '', realIp: '', error: e.message });
   }
 }
 

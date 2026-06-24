@@ -2,10 +2,9 @@ import { get, post, put } from './client';
 
 export interface WarpStatus {
   active: boolean;
-  enabled: boolean;
+  warpOn: boolean;
   warpIp: string;
   realIp: string;
-  interface: string;
   error?: string;
 }
 

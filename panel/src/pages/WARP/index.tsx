@@ -44,6 +44,7 @@ export function WarpPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [warpActive, setWarpActive] = useState(false);
+  const [warpOn, setWarpOn] = useState(false);
   const [warpIp, setWarpIp] = useState('');
   const [realIp, setRealIp] = useState('');
   const [enabled, setEnabled] = useState(false);
@@ -60,6 +61,7 @@ export function WarpPage() {
 
       if (status) {
         setWarpActive(status.active);
+        setWarpOn(status.warpOn);
         setWarpIp(status.warpIp || '');
         setRealIp(status.realIp || '');
       }
@@ -158,9 +160,15 @@ export function WarpPage() {
           </div>
           <div style={{ display: 'flex', gap: 24, marginTop: 12 }}>
             <div className={styles.statusRow} style={{ border: 'none', padding: 0 }}>
-              <span className={styles.statusLabel}>Статус</span>
+              <span className={styles.statusLabel}>Сервис</span>
               <span className={`${styles.statusValue} ${warpActive ? styles.active : styles.inactive}`}>
                 {warpActive ? 'active' : 'inactive'}
+              </span>
+            </div>
+            <div className={styles.statusRow} style={{ border: 'none', padding: 0 }}>
+              <span className={styles.statusLabel}>WARP</span>
+              <span className={`${styles.statusValue} ${warpOn ? styles.active : styles.inactive}`}>
+                {warpOn ? 'on' : 'off'}
               </span>
             </div>
             <div className={styles.statusRow} style={{ border: 'none', padding: 0 }}>
