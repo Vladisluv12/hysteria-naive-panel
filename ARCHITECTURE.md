@@ -24,11 +24,13 @@ RIXXX Panel is a web-based management interface for NaiveProxy and Hysteria2 pro
 | `naive.service` | Caddy with NaiveProxy forward proxy plugin | `/usr/local/bin/caddy-naive` + `/etc/naive/Caddyfile` |
 | `hysteria.service` | Hysteria2 proxy server | `/usr/local/bin/hysteria` + `/etc/hysteria/config.yaml` |
 | `pm2-root.service` | PM2 process manager (runs panel backend) | PM2 managed |
+| `warp.service` | Cloudflare WARP (wg-quick) — split tunnel VPN | `/usr/bin/wg-quick` + `/etc/wireguard/warp.conf` |
 | `caddy-cert-watcher.path` | Watches Caddy cert directory for changes | Conditional (shared cert mode) |
 | `caddy-cert-watcher.service` | Restarts hysteria on cert change | oneshot, triggered by path unit |
 
 > Note: `panel-naive-hy2.service` does not exist on the server (PM2 is used instead).
 > `caddy-cert-watcher.*` units are only created when Hysteria2 shares Caddy's TLS certificate (see TLS modes below).
+> `warp.service` is only installed when `USE_WARP=1` is set during initial deployment.
 
 ### PM2 Process
 
@@ -44,6 +46,34 @@ RIXXX Panel is a web-based management interface for NaiveProxy and Hysteria2 pro
   - **Own ACME**: Hy2 runs its own Let's Encrypt client independently
 - For self-signed mode, both services use the same self-signed certificate
 - The panel itself runs on port **3000**, bound to `127.0.0.1` (SSH-only access)
+
+---
+
+## WARP — Cloudflare Split Tunnel
+
+WARP hides the server's real IP for specific services (IP detection, Google, etc.) using a split tunnel approach. Only traffic to configured IPs goes through WARP; SSH and all other traffic goes directly through the real IP.
+
+**How it works:**
+1. `warp.conf` is a WireGuard config with `AllowedIPs` listing only the target IPs (not `0.0.0.0/0`)
+2. `wg-quick up warp` creates the `warp` interface and routes only `AllowedIPs` through it
+3. SSH and all other traffic bypasses WARP entirely (no `Table=off`, no `DNS=1.1.1.1`)
+
+**Design decisions:**
+- **No DNS override:** `warp.conf` does NOT set `DNS=1.1.1.1` (would break server DNS resolution)
+- **No `Table=off`:** `wg-quick` manages routes normally, but `AllowedIPs` limits which IPs go through WARP
+- **Service type:** `Type=oneshot` + `RemainAfterExit=yes` (correct pattern for `wg-quick`)
+- **Domain resolution:** Controller resolves domains to IPs via `dig` (async, parallel, with 3s timeout). Adds `/32` suffix to each resolved IP
+- **Config storage:** Panel state at `/etc/wireguard/warp-config.json`, WireGuard config at `/etc/wireguard/warp.conf`
+
+**Files involved:**
+
+| File | Purpose |
+|------|---------|
+| `/etc/wireguard/warp.conf` | WireGuard tunnel config (AllowedIPs drives the split tunnel) |
+| `/etc/wireguard/warp-config.json` | Panel state: `{ enabled, domains[], cidrs[] }` |
+| `/etc/wireguard/warp.conf.bak` | Backup of warp.conf before rewrite |
+| `/etc/systemd/system/warp.service` | Systemd unit (`wg-quick up/down warp`) |
+| `/usr/local/bin/wgcf` | wgcf binary (Cloudflare WARP client) |
 
 ---
 
@@ -113,6 +143,20 @@ All endpoints are prefixed with `/api`. Authentication is required for most endp
 | `GET` | `/api/acl/geoip-list` | Get available geoip countries | Yes |
 | `POST` | `/api/acl/geo-update` | Update geo databases (geosite/geoip) | Yes |
 
+### WARP Routes (`/api`)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| `GET` | `/api/warp/status` | Get WARP status (active, warpOn, warpIp, realIp) | Yes |
+| `GET` | `/api/warp/config` | Get WARP config (enabled, domains, cidrs) | Yes |
+| `PUT` | `/api/warp/config` | Save config, resolve domains, rewrite warp.conf, restart | Yes |
+| `POST` | `/api/warp/start` | Start WARP service (`systemctl start warp`) | Yes |
+| `POST` | `/api/warp/stop` | Stop WARP service (`systemctl stop warp`) | Yes |
+| `POST` | `/api/warp/restart` | Restart WARP service (`systemctl restart warp`) | Yes |
+
+> **Note:** The WARP service is only available when installed with `USE_WARP=1`.
+> All WARP endpoints require authentication.
+
 ### WebSocket Endpoints
 
 | Path | Description | Auth |
@@ -138,6 +182,7 @@ All endpoints are prefixed with `/api`. Authentication is required for most endp
 | `/install` | `InstallPage` | Installation wizard for proxy services |
 | `/users` | `UsersPage` | Manage NaiveProxy and Hysteria2 users |
 | `/acl` | `AclPage` | Access control list configuration |
+| `/warp` | `WarpPage` | Cloudflare WARP split tunnel management |
 | `/diagnostics` | `DiagnosticsPage` | Service logs, port checks, diagnostics |
 | `/settings` | `SettingsPage` | Panel settings (password, etc.) |
 
@@ -162,6 +207,11 @@ All endpoints are prefixed with `/api`. Authentication is required for most endp
 │   ├── src/                       # Frontend (React)
 │   │   ├── App.tsx                # Router configuration
 │   │   ├── pages/                 # Page components
+│   │   │   ├── Dashboard/         # Main dashboard
+│   │   │   ├── Users/             # User management
+│   │   │   ├── Acl/               # ACL configuration
+│   │   │   ├── WARP/              # Cloudflare WARP management
+│   │   │   └── ...                # Other pages
 │   │   ├── components/            # Reusable components
 │   │   └── contexts/              # React contexts (Auth, Toast)
 │   ├── data/                      # Runtime data
@@ -170,9 +220,12 @@ All endpoints are prefixed with `/api`. Authentication is required for most endp
 │   │   ├── acl.json               # ACL configuration
 │   │   ├── panel.db               # SQLite database (if USE_SQLITE)
 │   │   └── .session_secret        # Session encryption key
+│   │
+│   │ Note: WARP config is stored at /etc/wireguard/warp-config.json (system-level)
 │   ├── scripts/                   # Installation scripts
 │   │   ├── install_naiveproxy.sh  # NaiveProxy installer
-│   │   └── install_hysteria.sh    # Hysteria2 installer
+│   │   ├── install_hysteria.sh    # Hysteria2 installer
+│   │   └── install_wgcf.sh        # WARP installer (deprecated, logic inlined into vps_test_install.sh)
 │   └── package.json               # Node.js dependencies
 └── .git/                          # Git repository
 ```
@@ -195,6 +248,15 @@ All endpoints are prefixed with `/api`. Authentication is required for most endp
 ```
 /usr/local/bin/hysteria            # Hysteria2 binary
 /etc/hysteria/config.yaml          # Hysteria2 configuration
+```
+
+### WARP (Cloudflare)
+
+```
+/usr/local/bin/wgcf               # wgcf binary (Cloudflare WARP client)
+/etc/wireguard/warp.conf           # WireGuard config for WARP tunnel
+/etc/wireguard/warp-config.json    # Panel state (enabled, domains, cidrs)
+/etc/systemd/system/warp.service   # Systemd unit (Type=oneshot, RemainAfterExit=yes)
 ```
 
 ### System Files
@@ -436,6 +498,7 @@ acl:
 | 8443 | UDP | Hysteria2 | QUIC proxy |
 | 9999 | TCP | Hysteria2 stats | Traffic statistics server |
 | 3000 | TCP | Panel backend | Internal only (127.0.0.1) |
+| — | UDP | WARP (WireGuard) | Outbound only, uses standard WireGuard port (51820) |
 
 ---
 
@@ -448,6 +511,7 @@ acl:
 5. **TLS Certificates:** NaiveProxy uses Caddy (Let's Encrypt auto-renewal). Hysteria2 either shares Caddy's cert (with `caddy-cert-watcher` for auto-renewal) or uses its own ACME client. Self-signed mode uses a shared self-signed cert.
 6. **Password Hashing:** Admin passwords stored with bcrypt
 7. **ACL Filtering:** Both NaiveProxy and Hysteria2 enforce ACL rules (geosite/geoip blocking)
+8. **WARP Security:** Uses `execFile` (no shell injection), validates domains (regex), validates CIDRs (blocks `0.0.0.0/0` and `::/0`), backs up `warp.conf` before rewrite. Config stored at system level (`/etc/wireguard/`), not in panel data directory.
 
 ---
 

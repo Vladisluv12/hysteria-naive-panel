@@ -18,6 +18,10 @@
 /etc/hysteria/acl.rules              ← ACL правила Hy2
 /var/lib/naive/traffic.json          ← трафик NaiveProxy
 /usr/local/bin/caddy-naive           ← бинарник NaiveProxy
+
+/etc/wireguard/warp.conf             ← конфиг WARP (WireGuard split tunnel)
+/etc/wireguard/warp-config.json      ← состояние WARP (enabled, domains, cidrs)
+/usr/local/bin/wgcf                  ← бинарник wgcf (Cloudflare WARP client)
 ```
 
 ## Процессы
@@ -27,6 +31,7 @@
 | Панель       | PM2      | `panel-naive-hy2`           |
 | NaiveProxy   | systemd  | `naive.service`             |
 | Hysteria2    | systemd  | `hysteria.service`          |
+| WARP (опц.)  | systemd  | `warp.service`              |
 
 ---
 
@@ -267,6 +272,61 @@ ls -dt /root/panel-backup-* | tail -n +4 | xargs rm -rf 2>/dev/null || true
 
 ---
 
+## 7. WARP (Cloudflare) — Управление через панель
+
+### Установка при первом деплое
+
+WARP устанавливается опционально при начальной установке сервера с помощью переменной `USE_WARP=1`:
+
+```bash
+# В vps_test_install.sh перед запуском:
+USE_WARP=1 bash vps_test_install.sh
+```
+
+### Бэкап WARP-конфигов
+
+При бэкапе панели (см. раздел 1) добавьте WARP-конфиги:
+
+```bash
+# WARP (если установлен)
+cp /etc/wireguard/warp.conf "$BACKUP_DIR/" 2>/dev/null || true
+cp /etc/wireguard/warp-config.json "$BACKUP_DIR/" 2>/dev/null || true
+```
+
+### Управление через панель
+
+После установки WARP доступен на отдельной странице **WARP** в боковом меню панели. Страница позволяет:
+
+1. **Просматривать статус:** active/inactive, warp on/off, WARP IP, Real IP
+2. **Включать/выключать WARP:** переключатель на странице
+3. **Управлять сервисом:** кнопки Старт / Рестарт / Стоп
+4. **Настраивать домены:** список доменов, трафик к которым идёт через WARP (по одному на строку)
+5. **Настраивать CIDR:** список IP-адресов/CIDR для маршрутизации через WARP
+6. **Просматривать правила:** предпросмотр `ip rule` для доменов и CIDR
+
+### Важные замечания
+
+- **Не используйте `0.0.0.0/0`** — это перенаправит весь трафик через WARP (включая SSH!)
+- **DNS не перехватывается** — `warp.conf` НЕ содержит `DNS=1.1.1.1`, т.к. это сломает DNS-резолвинг сервера
+- **Split tunnel** — только указанные IP идут через WARP; всё остальное (включая SSH) идёт напрямую через реальный IP
+- **WARP не влияет на прокси** — NaiveProxy и Hysteria2 работают как обычно; WARP скрывает реальный IP только для определённых сервисов (определение IP, Google и т.д.)
+
+### Откат WARP
+
+```bash
+# Остановить и отключить
+systemctl stop warp
+systemctl disable warp
+
+# Удалить конфиги
+rm -f /etc/wireguard/warp.conf
+rm -f /etc/wireguard/warp-config.json
+rm -f /etc/systemd/system/warp.service
+systemctl daemon-reload
+```
+
+---
+
 ## Что НЕ теряется при любом обновлении
 
 | Что | Где | Почему безопасно |
@@ -276,6 +336,7 @@ ls -dt /root/panel-backup-* | tail -n +4 | xargs rm -rf 2>/dev/null || true
 | Трафик | `/var/lib/naive/traffic.json` | Вне директории панели |
 | TLS-сертификаты | `/var/lib/caddy/...` | ЛетсЭнкрипт, обновляется автоматически |
 | Конфиги сервисов | `/etc/naive/`, `/etc/hysteria/` | Не перезаписываются `git pull` |
+| WARP конфиги | `/etc/wireguard/` | Не перезаписываются кодом |
 | Cert-watcher | `/etc/systemd/system/caddy-cert-watcher.*` | Не перезаписывается кодом |
 | ACL правила | `/etc/hysteria/acl.rules` | Не перезаписываются кодом |
 | Скрипт тюнинга | `/etc/sysctl.d/99-panel-tuning.conf` | Sysctl persistence, не трогается |
