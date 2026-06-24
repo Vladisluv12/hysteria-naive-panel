@@ -57,6 +57,11 @@ async function resolveDomainsToIPs(domains) {
   return results.flat();
 }
 
+function toCIDR(ip) {
+  if (ip.includes('/')) return ip;
+  return ip + '/32';
+}
+
 function rewriteWarpConf(allowedIPs) {
   if (!fs.existsSync(WARP_CONF_PATH)) return false;
   let conf = fs.readFileSync(WARP_CONF_PATH, 'utf8');
@@ -72,7 +77,7 @@ async function getWarpStatus(req, res) {
 
     const [trace, realTrace] = await Promise.all([
       run('curl -s --interface warp --max-time 3 https://cloudflare.com/cdn-cgi/trace', 5000),
-      run('curl -s --max-time 3 https://cloudflare.com/cdn-cgi/trace', 5000),
+      run('curl -s --max-time 3 https://ifconfig.me', 5000),
     ]);
 
     let warpOn = false;
@@ -83,11 +88,7 @@ async function getWarpStatus(req, res) {
       if (m) warpIp = m[1].trim();
     }
 
-    let realIp = '';
-    if (realTrace) {
-      const m = realTrace.match(/^ip=(.+)$/m);
-      if (m) realIp = m[1].trim();
-    }
+    const realIp = realTrace || '';
 
     res.json({ active: active === 'active', warpOn, warpIp, realIp });
   } catch (e) {
@@ -111,7 +112,7 @@ async function updateWarpConfig(req, res) {
 
     const resolvedIPs = await resolveDomainsToIPs(config.domains);
     const allIPs = [...config.cidrs, ...resolvedIPs];
-    const uniqueIPs = [...new Set(allIPs.filter(ip => ip && ip.trim()))];
+    const uniqueIPs = [...new Set(allIPs.filter(ip => ip && ip.trim()).map(toCIDR))];
 
     if (uniqueIPs.length > 0) {
       rewriteWarpConf(uniqueIPs);
