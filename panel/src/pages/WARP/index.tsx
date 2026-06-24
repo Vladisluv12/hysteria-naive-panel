@@ -195,7 +195,7 @@ export function WarpPage() {
             <button className={`${styles.btn} ${styles.btnDanger}`} onClick={() => handleServiceAction('stop')}>Стоп</button>
           </div>
           <p className={styles.tuningDesc} style={{ marginTop: 12 }}>
-            Сервис: <code>warp.service</code> · Интерфейс: <code>warp0</code>
+            Сервис: <code>warp.service</code> · Интерфейс: <code>warp</code>
           </p>
         </div>
       </div>
