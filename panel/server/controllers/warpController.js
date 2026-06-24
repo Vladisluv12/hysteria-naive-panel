@@ -1,8 +1,11 @@
 'use strict';
 
-const { execSyncSafe } = require('../services/systemAdapter.js');
+const { exec } = require('child_process');
+const { promisify } = require('util');
 const fs = require('fs');
 const path = require('path');
+
+const execAsync = promisify(exec);
 
 const WARP_CONFIG_PATH = '/etc/wireguard/warp-config.json';
 const WARP_CONF_PATH = '/etc/wireguard/warp.conf';
@@ -21,6 +24,15 @@ const DEFAULT_CONFIG = {
   ],
 };
 
+async function run(cmd, timeoutMs = 5000) {
+  try {
+    const { stdout } = await execAsync(cmd, { timeout: timeoutMs });
+    return stdout.trim();
+  } catch (_) {
+    return '';
+  }
+}
+
 function loadConfig() {
   try {
     if (fs.existsSync(WARP_CONFIG_PATH)) {
@@ -36,17 +48,13 @@ function saveConfig(config) {
   fs.writeFileSync(WARP_CONFIG_PATH, JSON.stringify(config, null, 2));
 }
 
-function resolveDomainsToIPs(domains) {
-  const ips = [];
-  for (const domain of domains) {
-    try {
-      const result = execSyncSafe(`dig +short A ${domain} 2>/dev/null | grep -E '^[0-9]' | head -3`);
-      if (result.success && result.output.trim()) {
-        result.output.trim().split('\n').forEach(ip => ips.push(ip.trim()));
-      }
-    } catch (_) {}
-  }
-  return ips;
+async function resolveDomainsToIPs(domains) {
+  const promises = domains.map(async (domain) => {
+    const out = await run(`dig +short A ${domain} 2>/dev/null | grep -E '^[0-9]' | head -3`, 3000);
+    return out ? out.split('\n').map(ip => ip.trim()).filter(Boolean) : [];
+  });
+  const results = await Promise.all(promises);
+  return results.flat();
 }
 
 function rewriteWarpConf(allowedIPs) {
@@ -58,34 +66,30 @@ function rewriteWarpConf(allowedIPs) {
   return true;
 }
 
-function getWarpStatus(req, res) {
+async function getWarpStatus(req, res) {
   try {
-    const active = execSyncSafe('systemctl is-active warp');
-    let warpIp = '';
-    let warpOn = false;
-    try {
-      const trace = execSyncSafe('curl -s --interface warp --max-time 5 https://cloudflare.com/cdn-cgi/trace');
-      if (trace.success) {
-        warpOn = trace.output.includes('warp=on');
-        const ipMatch = trace.output.match(/^ip=(.+)$/m);
-        if (ipMatch) warpIp = ipMatch[1].trim();
-      }
-    } catch (_) {}
-    let realIp = '';
-    try {
-      const ipResult = execSyncSafe('curl -s --max-time 5 https://cloudflare.com/cdn-cgi/trace');
-      if (ipResult.success) {
-        const ipMatch = ipResult.output.match(/^ip=(.+)$/m);
-        if (ipMatch) realIp = ipMatch[1].trim();
-      }
-    } catch (_) {}
+    const active = await run('systemctl is-active warp');
 
-    res.json({
-      active: active.output === 'active',
-      warpOn,
-      warpIp,
-      realIp,
-    });
+    const [trace, realTrace] = await Promise.all([
+      run('curl -s --interface warp --max-time 3 https://cloudflare.com/cdn-cgi/trace', 5000),
+      run('curl -s --max-time 3 https://cloudflare.com/cdn-cgi/trace', 5000),
+    ]);
+
+    let warpOn = false;
+    let warpIp = '';
+    if (trace) {
+      warpOn = trace.includes('warp=on');
+      const m = trace.match(/^ip=(.+)$/m);
+      if (m) warpIp = m[1].trim();
+    }
+
+    let realIp = '';
+    if (realTrace) {
+      const m = realTrace.match(/^ip=(.+)$/m);
+      if (m) realIp = m[1].trim();
+    }
+
+    res.json({ active: active === 'active', warpOn, warpIp, realIp });
   } catch (e) {
     res.json({ active: false, warpOn: false, warpIp: '', realIp: '', error: e.message });
   }
@@ -95,7 +99,7 @@ function getWarpConfig(req, res) {
   res.json(loadConfig());
 }
 
-function updateWarpConfig(req, res) {
+async function updateWarpConfig(req, res) {
   try {
     const { enabled, domains, cidrs } = req.body;
     const config = {
@@ -105,8 +109,7 @@ function updateWarpConfig(req, res) {
     };
     saveConfig(config);
 
-    // Resolve domains to IPs, combine with CIDRs for AllowedIPs
-    const resolvedIPs = resolveDomainsToIPs(config.domains);
+    const resolvedIPs = await resolveDomainsToIPs(config.domains);
     const allIPs = [...config.cidrs, ...resolvedIPs];
     const uniqueIPs = [...new Set(allIPs.filter(ip => ip && ip.trim()))];
 
@@ -115,9 +118,9 @@ function updateWarpConfig(req, res) {
     }
 
     if (config.enabled) {
-      execSyncSafe('systemctl restart warp');
+      await run('systemctl restart warp', 15000);
     } else {
-      execSyncSafe('systemctl stop warp');
+      await run('systemctl stop warp', 10000);
     }
 
     res.json(config);
@@ -126,21 +129,21 @@ function updateWarpConfig(req, res) {
   }
 }
 
-function startWarp(req, res) {
-  const result = execSyncSafe('systemctl start warp');
-  if (!result.success) return res.status(500).json({ ok: false, error: result.error });
+async function startWarp(req, res) {
+  const result = await run('systemctl start warp', 10000);
+  if (result === '') return res.status(500).json({ ok: false, error: 'start failed' });
   res.json({ ok: true });
 }
 
-function stopWarp(req, res) {
-  const result = execSyncSafe('systemctl stop warp');
-  if (!result.success) return res.status(500).json({ ok: false, error: result.error });
+async function stopWarp(req, res) {
+  const result = await run('systemctl stop warp', 10000);
+  if (result === '') return res.status(500).json({ ok: false, error: 'stop failed' });
   res.json({ ok: true });
 }
 
-function restartWarp(req, res) {
-  const result = execSyncSafe('systemctl restart warp');
-  if (!result.success) return res.status(500).json({ ok: false, error: result.error });
+async function restartWarp(req, res) {
+  const result = await run('systemctl restart warp', 15000);
+  if (result === '') return res.status(500).json({ ok: false, error: 'restart failed' });
   res.json({ ok: true });
 }
 
