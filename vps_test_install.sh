@@ -770,7 +770,7 @@ if [[ "$USE_WARP" == "1" ]]; then
 
   DEFAULT_IPS=""
   for domain in icanhazip.com ipinfo.io ip-api.com checkip.amazonaws.com google.com googleapis.com gstatic.com googleusercontent.com ggpht.com; do
-    ips=$(dig +short A "$domain" 2>/dev/null | grep -E '^[0-9]' | tr '\n' ',' | sed 's/,$//')
+    ips=$(dig +short A "$domain" 2>/dev/null | grep -E '^[0-9]' | sed 's|$|/32|' | tr '\n' ',' | sed 's/,$//')
     [[ -n "$ips" ]] && DEFAULT_IPS="${DEFAULT_IPS}${ips},"
   done
   DEFAULT_IPS="${DEFAULT_IPS}104.16.132.229/32, 104.16.133.229/32, 172.64.139.179/32, 172.64.140.34/32, 34.117.59.0/24, 108.61.164.0/24"
