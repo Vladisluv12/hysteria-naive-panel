@@ -26,23 +26,41 @@ function getVersion(req, res) {
 async function getStatus(req, res) {
   const cfg = loadConfig();
   if (!cfg.installed) {
-    return res.json({ installed: false, stack: cfg.stack || { naive: false, hy2: false } });
+    return res.json({ installed: false, stack: cfg.stack || { naive: false, hy2: false, mieru: false, vless: false } });
   }
-  const [naiveActive, hy2Active, warpActive] = await Promise.all([
+  const [naiveActive, hy2Active, mieruActive, vlessActive, warpActive] = await Promise.all([
     cfg.stack.naive ? serviceIsActive('naive') : Promise.resolve(null),
     cfg.stack.hy2 ? serviceIsActive('hysteria') : Promise.resolve(null),
+    cfg.stack.mieru ? serviceIsActive('mita') : Promise.resolve(null),
+    cfg.stack.vless ? serviceIsActive('xray') : Promise.resolve(null),
     serviceIsActive('warp'),
   ]);
+  const arch = cfg.arch || require('os').arch();
+  let serverIp = cfg.serverIp;
+  if (!serverIp) {
+    const nets = require('os').networkInterfaces();
+    for (const iface of Object.values(nets)) {
+      for (const info of iface) {
+        if (info.family === 'IPv4' && !info.internal) { serverIp = info.address; break; }
+      }
+      if (serverIp) break;
+    }
+    if (!serverIp) serverIp = require('os').hostname();
+  }
   res.json({
     installed: true,
     stack: cfg.stack,
     domain: cfg.domain,
     email: cfg.email,
-    serverIp: cfg.serverIp,
-    arch: cfg.arch,
+    serverIp,
+    arch,
     port: cfg.port,
-    naive: cfg.stack.naive ? { active: naiveActive, usersCount: cfg.naiveUsers.length } : null,
-    hy2:   cfg.stack.hy2   ? { active: hy2Active,   usersCount: cfg.hy2Users.length }   : null,
+    mieruPort: cfg.mieruPort || cfg.port,
+    vlessPort: cfg.vlessPort || cfg.port,
+    naive: cfg.stack.naive ? { active: naiveActive, usersCount: (cfg.naiveUsers || []).length } : null,
+    hy2:   cfg.stack.hy2   ? { active: hy2Active,   usersCount: (cfg.hy2Users || []).length }   : null,
+    mieru: cfg.stack.mieru ? { active: mieruActive, usersCount: (cfg.mieruUsers || []).length } : null,
+    vless: cfg.stack.vless ? { active: vlessActive, usersCount: (cfg.vlessUsers || []).length } : null,
     warp:  { active: warpActive },
   });
 }
@@ -52,14 +70,18 @@ async function getTrafficHandler(req, res) {
     const data = await getTraffic();
     res.json(data);
   } catch (e) {
-    res.json({ daily: null, connections: { naive: null, hy2: null }, hourly: [], lastReset: null, error: e.message });
+    res.json({ daily: null, connections: { naive: null, hy2: null, mieru: null, vless: null }, hourly: [], lastReset: null, error: e.message });
   }
 }
 
 async function serviceActionHandler(req, res) {
   const { kind, action } = req.params;
   if (!['start', 'stop', 'restart'].includes(action)) return res.status(400).json({ error: 'bad action' });
-  const unit = kind === 'naive' ? 'naive' : kind === 'hy2' ? 'hysteria' : kind === 'warp' ? 'warp' : null;
+  const unit = kind === 'naive' ? 'naive'
+    : kind === 'hy2' ? 'hysteria'
+    : kind === 'mieru' ? 'mita'
+    : kind === 'vless' ? 'xray'
+    : kind === 'warp' ? 'warp' : null;
   if (!unit) return res.status(400).json({ error: 'bad kind' });
 
   const result = await serviceAction(action, unit);
