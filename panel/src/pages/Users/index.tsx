@@ -132,7 +132,7 @@ export function UsersPage() {
     if (proxyType === 'mieru') return `mieru://${encodeURIComponent(u.username)}:${encodeURIComponent(u.password)}@${domain}:${mieruPort}#${encodeURIComponent(u.nickname || u.username)}`;
     if (proxyType === 'vless') {
       const vuuid = (u as any).uuid || '';
-      return `vless://${encodeURIComponent(vuuid)}@${domain}:${vlessPort}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.google.com&fp=chrome&type=xhttp&path=/xhttp&mode=packet-up&pbk=${vlessPbk}#${encodeURIComponent(u.nickname || u.username)}`;
+      return `vless://${encodeURIComponent(vuuid)}@${domain}:${vlessPort}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${domain}&fp=chrome&type=xhttp&path=/xhttp&mode=packet-up&pbk=${vlessPbk}#${encodeURIComponent(u.nickname || u.username)}`;
     }
     return '';
   };

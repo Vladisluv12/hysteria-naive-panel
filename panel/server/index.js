@@ -118,10 +118,18 @@ app.use('/api', warpRoutes);
 const aclRoutes = require('./routes/acl.js');
 app.use('/api', aclRoutes);
 
+const mieruRoutes = require('./routes/mieru.js');
+app.use('/api', mieruRoutes);
+
+const vlessRoutes = require('./routes/vless.js');
+app.use('/api', vlessRoutes);
+
 // ── Экспорт для expireChecker ──
 const { writeCaddyfile } = naiveRoutes;
 const { writeHysteriaConfig } = hysteriaRoutes;
-const { reloadNaive, restartHysteria: reloadHysteria } = require('./services/systemAdapter.js');
+const { writeMieruConfig } = mieruRoutes;
+const { writeVlessConfig } = vlessRoutes;
+const { reloadNaive, restartHysteria: reloadHysteria, restartMieru: reloadMieru, restartVless: reloadVless } = require('./services/systemAdapter.js');
 
 //  INSTALL VIA WEBSOCKET
 // ═══════════════════════════════════════════════════════════
@@ -139,6 +147,8 @@ wss.on('connection', (ws, req) => {
         const data = JSON.parse(message);
         if (data.type === 'install_naive') return handleInstallNaive(ws, data);
         if (data.type === 'install_hy2')   return handleInstallHy2(ws, data);
+        if (data.type === 'install_mieru') return handleInstallMieru(ws, data);
+        if (data.type === 'install_vless') return handleInstallVless(ws, data);
         if (data.type === 'install_both')  return handleInstallBoth(ws, data);
       } catch (e) {
         ws.send(JSON.stringify({ type: 'error', message: 'bad message' }));
@@ -350,6 +360,84 @@ function handleInstallBoth(ws, data) {
   });
 }
 
+function handleInstallMieru(ws, data) {
+  const { domain, password, username } = data;
+  if (!isValidDomain(domain)) return ws.send(JSON.stringify({ type: 'install_error', message: 'Неверный домен' }));
+  if (!isValidPassword(password)) return ws.send(JSON.stringify({ type: 'install_error', message: 'Пароль минимум 8 символов' }));
+  if (!isValidUsername(username)) return ws.send(JSON.stringify({ type: 'install_error', message: 'Неверный логин' }));
+
+  const cfg = updateConfig(c => {
+    c.domain = domain;
+    c.stack.mieru = true;
+    if (!c.mieruUsers) c.mieruUsers = [];
+    if (!c.mieruUsers.find(u => u.username === username)) {
+      c.mieruUsers.push({ username, password, createdAt: new Date().toISOString() });
+    }
+  });
+  persistServerIp();
+
+  sendLog(ws, '🔐 Запуск установки mieru...', 'init', 2, 'info');
+  runScript(ws, 'install_mieru.sh', {
+    MIERU_DOMAIN: domain, MIERU_USERNAME: username, MIERU_PASSWORD: password,
+    PORT: String(cfg.port || 443)
+  }, (code) => {
+    if (code === 0) {
+      updateConfig(c => { c.installed = true; });
+      sendLog(ws, '✅ mieru готов!', 'done', 100, 'success');
+      ws.send(JSON.stringify({
+        type: 'install_done',
+        links: {
+          mieru: `mieru://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${domain}:${cfg.port || 443}#${encodeURIComponent(username)}`
+        }
+      }));
+    } else {
+      ws.send(JSON.stringify({ type: 'install_error', message: `Exit code: ${code}` }));
+    }
+  });
+}
+
+function handleInstallVless(ws, data) {
+  const { domain, password, username } = data;
+  if (!isValidDomain(domain)) return ws.send(JSON.stringify({ type: 'install_error', message: 'Неверный домен' }));
+  if (!isValidPassword(password)) return ws.send(JSON.stringify({ type: 'install_error', message: 'Пароль минимум 8 символов' }));
+  if (!isValidUsername(username)) return ws.send(JSON.stringify({ type: 'install_error', message: 'Неверный логин' }));
+
+  const crypto = require('crypto');
+  const uuid = crypto.randomUUID();
+
+  const cfg = updateConfig(c => {
+    c.domain = domain;
+    c.stack.vless = true;
+    if (!c.vlessUsers) c.vlessUsers = [];
+    if (!c.vlessUsers.find(u => u.username === username)) {
+      c.vlessUsers.push({ username, password, uuid, createdAt: new Date().toISOString() });
+    }
+  });
+  persistServerIp();
+
+  sendLog(ws, '🔐 Запуск установки VLESS (Xray)...', 'init', 2, 'info');
+  runScript(ws, 'install_vless.sh', {
+    VLESS_DOMAIN: domain, VLESS_USERNAME: username, VLESS_PASSWORD: password,
+    VLESS_UUID: uuid,
+    PORT: String(cfg.port || 443)
+  }, (code) => {
+    if (code === 0) {
+      updateConfig(c => { c.installed = true; });
+      sendLog(ws, '✅ VLESS готов!', 'done', 100, 'success');
+      ws.send(JSON.stringify({
+        type: 'install_done',
+        links: {
+          vless: cfg.vlessRealityPublicKey
+            ? `vless://${uuid}@${domain}:${cfg.vlessPort || cfg.port || 443}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${domain}&fp=chrome&type=xhttp&path=/xhttp&mode=packet-up&pbk=${cfg.vlessRealityPublicKey}#${encodeURIComponent(username)}`
+            : `vless://${uuid}@${domain}:${cfg.port || 443}?type=tcp&security=tls&sni=${domain}#${encodeURIComponent(username)}`
+        }
+      }));
+    } else {
+      ws.send(JSON.stringify({ type: 'install_error', message: `Exit code: ${code}` }));
+    }
+  });
+}
+
 // ═══════════════════════════════════════════════════════════
 //  EXPIRE CHECKER — каждые 5 минут фильтрует истёкших и релоадит сервисы
 // ═══════════════════════════════════════════════════════════
@@ -362,16 +450,20 @@ async function expireChecker() {
     // Сигнатура «кто истёк» — чтобы не релоадить без причины
     const sig = JSON.stringify([
       (cfg.naiveUsers || []).filter(isExpired).map(u => u.username).sort(),
-      (cfg.hy2Users   || []).filter(isExpired).map(u => u.username).sort()
+      (cfg.hy2Users   || []).filter(isExpired).map(u => u.username).sort(),
+      (cfg.mieruUsers || []).filter(isExpired).map(u => u.username).sort(),
+      (cfg.vlessUsers || []).filter(isExpired).map(u => u.username).sort(),
     ]);
     if (sig === _lastExpireSig) return;
     _lastExpireSig = sig;
 
     const naiveExpired = (cfg.naiveUsers || []).filter(isExpired).length;
     const hy2Expired   = (cfg.hy2Users   || []).filter(isExpired).length;
-    if (naiveExpired === 0 && hy2Expired === 0) return;
+    const mieruExpired = (cfg.mieruUsers || []).filter(isExpired).length;
+    const vlessExpired = (cfg.vlessUsers || []).filter(isExpired).length;
+    if (naiveExpired === 0 && hy2Expired === 0 && mieruExpired === 0 && vlessExpired === 0) return;
 
-    console.log(`[expire-check] naive=${naiveExpired} hy2=${hy2Expired} — обновляю конфиги`);
+    console.log(`[expire-check] naive=${naiveExpired} hy2=${hy2Expired} mieru=${mieruExpired} vless=${vlessExpired} — обновляю конфиги`);
     if (cfg.stack.naive && naiveExpired > 0) {
       writeCaddyfile(cfg);
       await reloadNaive();
@@ -379,6 +471,14 @@ async function expireChecker() {
     if (cfg.stack.hy2 && hy2Expired > 0) {
       writeHysteriaConfig(cfg);
       await reloadHysteria();
+    }
+    if (cfg.stack.mieru && mieruExpired > 0) {
+      writeMieruConfig(cfg);
+      await reloadMieru();
+    }
+    if (cfg.stack.vless && vlessExpired > 0) {
+      writeVlessConfig(cfg);
+      await reloadVless();
     }
   } catch (e) {
     console.error('[expire-check] error:', e.message);
