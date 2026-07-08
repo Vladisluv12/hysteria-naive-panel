@@ -1,7 +1,7 @@
 'use strict';
 
 const yaml = require('js-yaml');
-const { generateNaiveAcl, needsGeoDatasets, HY2_GEOIP_PATH, HY2_GEOSITE_PATH } = require('./aclBuilder.js');
+const { generateNaiveAcl, generateMieruAclJson, generateVlessRoutingRules, needsGeoDatasets, HY2_GEOIP_PATH, HY2_GEOSITE_PATH, loadAcl } = require('./aclBuilder.js');
 
 function buildCaddyContent(cfg, customBlocks, acl) {
   if (!cfg.stack || !cfg.stack.naive || !cfg.domain) return '';
@@ -107,8 +107,137 @@ function isExpired(u) {
   return Date.now() > new Date(u.expiresAt).getTime();
 }
 
+function buildMieruConfigObject(cfg) {
+  if (!cfg || !cfg.stack || !cfg.stack.mieru || !cfg.domain) return null;
+
+  const users = [];
+  (cfg.mieruUsers || []).forEach(u => {
+    if (u.username && u.password && !isExpired(u)) {
+      users.push({ name: u.username, password: u.password });
+    }
+  });
+  if (users.length === 0) {
+    console.error('[configBuilder] No active mieru users — config not written');
+    return null;
+  }
+
+  const port = cfg.mieruPort || cfg.port;
+
+  const config = {
+    portBindings: [{
+      port: port,
+      protocol: 'TCP',
+    }],
+    users,
+    loggingLevel: 'INFO',
+    mtu: 1400,
+  };
+
+  const acl = loadAcl();
+  if (acl.enabled && (acl.blockDomains || []).length > 0) {
+    const egress = {
+      rules: (acl.blockDomains || []).filter(Boolean).map(d => {
+        const domain = String(d).trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '');
+        return { domainNames: [domain], action: 'REJECT' };
+      }).filter(r => r.domainNames[0].length > 0)
+    };
+    egress.rules.push({ domainNames: ['*'], action: 'DIRECT' });
+    config.egress = egress;
+  }
+
+  return config;
+}
+
+function buildVlessConfigObject(cfg) {
+  if (!cfg || !cfg.stack || !cfg.stack.vless || !cfg.domain) return null;
+
+  const clients = [];
+  (cfg.vlessUsers || []).forEach(u => {
+    if (u.username && u.uuid && !isExpired(u)) {
+      clients.push({ id: u.uuid, email: u.username, level: 0, flow: 'xtls-rprx-vision' });
+    }
+  });
+  if (clients.length === 0) {
+    console.error('[configBuilder] No active VLESS users — config not written');
+    return null;
+  }
+
+  const vport = cfg.vlessPort || cfg.port;
+  const realityTarget = cfg.vlessRealityTarget || 'www.google.com:443';
+  const realityServerNames = cfg.vlessRealityServerNames || ['www.google.com'];
+  const realityPrivateKey = cfg.vlessRealityPrivateKey || '';
+
+  if (!realityPrivateKey) {
+    console.error('[configBuilder] VLESS: no REALITY private key — config not written');
+    return null;
+  }
+
+  const config = {
+    log: { loglevel: 'warning' },
+    stats: {},
+    policy: {
+      levels: { '0': { statsUserUplink: true, statsUserDownlink: true } },
+      system: { statsInboundUplink: true, statsInboundDownlink: true },
+    },
+    api: { tag: 'api', services: ['StatsService'] },
+    inbounds: [{
+      listen: '0.0.0.0',
+      port: vport,
+      protocol: 'vless',
+      tag: 'vless-in',
+      settings: {
+        clients,
+        decryption: 'none',
+      },
+      streamSettings: {
+        network: 'xhttp',
+        security: 'reality',
+        realitySettings: {
+          target: realityTarget,
+          serverNames: realityServerNames,
+          privateKey: realityPrivateKey,
+          shortIds: [''],
+        },
+        xhttpSettings: {
+          mode: 'packet-up',
+          path: '/xhttp',
+        },
+      },
+    }, {
+      listen: '127.0.0.1',
+      port: 10085,
+      protocol: 'dokodemo-door',
+      settings: { address: '127.0.0.1' },
+      tag: 'api',
+    }],
+    outbounds: [
+      { protocol: 'freedom', tag: 'direct' },
+      { protocol: 'freedom', tag: 'api' },
+    ],
+    routing: {
+      rules: [{ type: 'field', inboundTag: ['api'], outboundTag: 'api' }],
+    },
+  };
+
+  const acl = loadAcl();
+  if (acl.enabled) {
+    const routingRules = generateVlessRoutingRules(acl);
+    if (routingRules && routingRules.length > 0) {
+      config.outbounds.push({ protocol: 'blackhole', tag: 'blocked' });
+      config.routing = {
+        domainStrategy: 'IPIfNonMatch',
+        rules: routingRules
+      };
+    }
+  }
+
+  return config;
+}
+
 module.exports = {
   buildCaddyContent,
   buildHysteriaConfigObject,
   buildHysteriaConfigYaml,
+  buildMieruConfigObject,
+  buildVlessConfigObject,
 };
