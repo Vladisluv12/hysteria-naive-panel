@@ -73,7 +73,7 @@ async function createUser(req, res) {
   res.json({
     success: true,
     link: cfg.domain && pbk
-      ? `vless://${uuid}@${cfg.domain}:${linkPort}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${cfg.domain}&fp=chrome&type=xhttp&path=/xhttp&mode=packet-up&pbk=${pbk}#${linkUsername}`
+      ? `vless://${uuid}@${cfg.domain}:${linkPort}?encryption=none&security=reality&sni=${cfg.domain}&fp=chrome&type=xhttp&path=/xhttp&mode=stream-one&pbk=${pbk}#${linkUsername}`
       : null
   });
 }

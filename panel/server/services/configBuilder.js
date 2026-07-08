@@ -154,7 +154,7 @@ function buildVlessConfigObject(cfg) {
   const clients = [];
   (cfg.vlessUsers || []).forEach(u => {
     if (u.username && u.uuid && !isExpired(u)) {
-      clients.push({ id: u.uuid, email: u.username, level: 0, flow: 'xtls-rprx-vision' });
+      clients.push({ id: u.uuid, email: u.username, level: 0, flow: '' });
     }
   });
   if (clients.length === 0) {

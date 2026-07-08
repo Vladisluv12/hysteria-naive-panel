@@ -428,7 +428,7 @@ function handleInstallVless(ws, data) {
         type: 'install_done',
         links: {
           vless: cfg.vlessRealityPublicKey
-            ? `vless://${uuid}@${domain}:${cfg.vlessPort || cfg.port || 443}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${domain}&fp=chrome&type=xhttp&path=/xhttp&mode=packet-up&pbk=${cfg.vlessRealityPublicKey}#${encodeURIComponent(username)}`
+            ? `vless://${uuid}@${domain}:${cfg.vlessPort || cfg.port || 443}?encryption=none&security=reality&sni=${domain}&fp=chrome&type=xhttp&path=/xhttp&mode=stream-one&pbk=${cfg.vlessRealityPublicKey}#${encodeURIComponent(username)}`
             : `vless://${uuid}@${domain}:${cfg.port || 443}?type=tcp&security=tls&sni=${domain}#${encodeURIComponent(username)}`
         }
       }));
