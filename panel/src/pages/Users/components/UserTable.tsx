@@ -1,5 +1,5 @@
 import { CopyButton } from '../../../components/CopyButton';
-import type { UserTraffic } from '../../../types/api';
+import type { UserTraffic, NaiveUser, HysteriaUser } from '../../../types/api';
 import styles from '../styles.module.css';
 
 interface User {
@@ -9,6 +9,8 @@ interface User {
   createdAt: string;
   expiresAt: string | null;
   expired: boolean;
+  remainingSec: number;
+  uuid?: string;
 }
 
 interface UserTableProps {
@@ -16,7 +18,7 @@ interface UserTableProps {
   trafficByUser: Record<string, UserTraffic>;
   onExtend: (username: string, currentExpiry: string | null) => void;
   onDelete: (username: string) => void;
-  onCopyLink: (user: User) => string;
+  onCopyLink: (user: NaiveUser | HysteriaUser) => string;
 }
 
 function getDaysLeft(expiresAt: string | null): number | null {

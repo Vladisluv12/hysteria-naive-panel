@@ -45,8 +45,8 @@ describe('UsersPage', () => {
 function renderUserTable(overrides: Partial<Parameters<typeof UserTable>[0]> = {}) {
   const props = {
     users: [
-      { username: 'alice', password: 'pass1', nickname: 'Alice', expiresAt: '2026-12-31', expired: false, createdAt: '2026-01-01' },
-      { username: 'bob', password: 'pass2', nickname: 'Bob', expiresAt: null, expired: false, createdAt: '2026-02-01' },
+      { username: 'alice', password: 'pass1', nickname: 'Alice', expiresAt: '2026-12-31', expired: false, createdAt: '2026-01-01', remainingSec: 0 },
+      { username: 'bob', password: 'pass2', nickname: 'Bob', expiresAt: null, expired: false, createdAt: '2026-02-01', remainingSec: 0 },
     ],
     trafficByUser: {} as Record<string, { rx: number; tx: number; conns: number; rxFormatted: string; txFormatted: string; totalFormatted: string }>,
     onExtend: vi.fn(),

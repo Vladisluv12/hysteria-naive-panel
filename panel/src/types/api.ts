@@ -6,6 +6,7 @@ export interface NaiveUser {
   expiresAt: string | null;
   remainingSec: number;
   expired: boolean;
+  uuid?: string;
 }
 
 export interface HysteriaUser {
