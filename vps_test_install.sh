@@ -484,8 +484,28 @@ VLESS_JSON="[{\"username\":\"${VLESS_USER}\",\"password\":\"${VLESS_PASS}\",\"uu
 
 CFG_FILE="${PANEL_DIR}/panel/data/config.json"
 if [[ -f "${CFG_FILE}" ]]; then
-  log_warn "config.json already exists — preserving existing credentials"
+  log_warn "config.json already exists — updating REALITY keys + mieru/VLESS ports (preserving users)"
   cp -a "${CFG_FILE}" "${CFG_FILE}.bak" 2>/dev/null || true
+  python3 -c "
+import json
+with open('${CFG_FILE}') as f: c = json.load(f)
+c['domain'] = '${DOMAIN}'
+c['port'] = ${PROXY_PORT}
+c['mieruPort'] = ${MIERU_PORT}
+c['vlessPort'] = ${VLESS_PORT}
+c['stack']['mieru'] = True
+c['stack']['vless'] = True
+c.setdefault('mieruUsers', [])
+c.setdefault('vlessUsers', [])
+# Update REALITY keys from install script output
+c['vlessRealityPrivateKey'] = '${VLESS_REALITY_PRIVATE}'
+c['vlessRealityPublicKey']  = '${VLESS_REALITY_PUBLIC}'
+  c['vlessRealityTarget']     = '1.1.1.1:443'
+  c['vlessRealityServerNames'] = ['cloudflare-dns.com']
+c['vlessDecryption'] = '${VLESS_DECRYPTION:-none}'
+c['vlessEncryption'] = '${VLESS_ENCRYPTION_STR:-none}'
+with open('${CFG_FILE}', 'w') as f: json.dump(c, f, indent=2, ensure_ascii=False)
+" && log_ok "config.json updated" || log_err "config.json update failed"
 else
   cat > "${CFG_FILE}" << CONFIGEOF
 {
@@ -506,8 +526,8 @@ else
   "port": ${PROXY_PORT},
   "mieruPort": ${MIERU_PORT},
   "vlessPort": ${VLESS_PORT},
-  "vlessRealityTarget": "www.google.com:443",
-  "vlessRealityServerNames": ["${DOMAIN}"],
+  "vlessRealityTarget": "1.1.1.1:443",
+  "vlessRealityServerNames": ["cloudflare-dns.com"],
   "vlessRealityPrivateKey": "${VLESS_REALITY_PRIVATE:-}",
   "vlessRealityPublicKey": "${VLESS_REALITY_PUBLIC:-}",
   "vlessDecryption": "${VLESS_DECRYPTION:-none}",

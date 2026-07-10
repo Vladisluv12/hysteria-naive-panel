@@ -219,8 +219,11 @@ function buildVlessConfigObject(cfg) {
   }
 
   const vport = cfg.vlessPort || cfg.port;
-  const realityTarget = cfg.vlessRealityTarget || 'www.google.com:443';
-  const realityServerNames = cfg.vlessRealityServerNames || ['www.google.com'];
+  const realityTarget = cfg.vlessRealityTarget || '1.1.1.1:443';
+  const realityServerNames = cfg.vlessRealityServerNames || ['cloudflare-dns.com'];
+  if (cfg.domain && !realityServerNames.includes(cfg.domain)) {
+    realityServerNames.unshift(cfg.domain);
+  }
   const realityPrivateKey = cfg.vlessRealityPrivateKey || '';
 
   if (!realityPrivateKey) {
