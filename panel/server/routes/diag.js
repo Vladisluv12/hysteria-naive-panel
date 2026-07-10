@@ -10,6 +10,8 @@ router.get('/logs/:kind', requireAuth, diagController.getLogs);
 router.get('/diag/ports', requireAuth, diagController.getPorts);
 router.get('/diag/hysteria-config', requireAuth, diagController.getHysteriaConfig);
 router.get('/diag/caddyfile', requireAuth, diagController.getCaddyfile);
+router.get('/diag/mieru-config', requireAuth, diagController.getMieruConfig);
+router.get('/diag/vless-config', requireAuth, diagController.getVlessConfig);
 router.post('/diag/fix-hy2-tls', requireAuth, diagController.fixHy2Tls);
 router.get('/tuning/status', requireAuth, diagController.getTuningStatus);
 router.post('/tuning/apply', requireAuth, diagController.applyTuning);

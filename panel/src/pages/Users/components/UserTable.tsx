@@ -16,7 +16,7 @@ interface UserTableProps {
   trafficByUser: Record<string, UserTraffic>;
   onExtend: (username: string, currentExpiry: string | null) => void;
   onDelete: (username: string) => void;
-  onCopyLink: (username: string, password: string) => string;
+  onCopyLink: (user: any) => string;
 }
 
 function getDaysLeft(expiresAt: string | null): number | null {
@@ -60,8 +60,8 @@ export function UserTable({ users, trafficByUser, onExtend, onDelete, onCopyLink
                 <td className={`${styles.td} ${styles.tdUsername}`}>{u.nickname || u.username}</td>
                 <td className={`${styles.td} ${styles.tdLink}`}>
                   <div className={styles.linkRow}>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{onCopyLink(u.username, u.password).slice(0, 40)}...</span>
-                    <CopyButton text={onCopyLink(u.username, u.password)} />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{onCopyLink(u).slice(0, 40)}...</span>
+                    <CopyButton text={onCopyLink(u)} />
                   </div>
                 </td>
                 <td className={styles.td}>{u.createdAt?.slice(0, 10)}</td>

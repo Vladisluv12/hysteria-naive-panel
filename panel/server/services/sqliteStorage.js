@@ -9,6 +9,14 @@ const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const storage = require('./storage.js');
 
+const TEST_CONFIG_DIR = process.env.TEST_CONFIG_DIR || '';
+function testPath(systemPath) {
+  if (TEST_CONFIG_DIR) {
+    return path.join(TEST_CONFIG_DIR, path.basename(systemPath));
+  }
+  return systemPath;
+}
+
 let db;
 try {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -32,14 +40,16 @@ try {
 function defaultConfig() {
   return {
     installed: false,
-    stack: { naive: false, hy2: false },
+    stack: { naive: false, hy2: false, mieru: false, vless: false },
     domain: '',
     email: '',
     serverIp: '',
     arch: '',
     port: 443,
     naiveUsers: [],
-    hy2Users: []
+    hy2Users: [],
+    mieruUsers: [],
+    vlessUsers: []
   };
 }
 
@@ -51,6 +61,31 @@ function loadConfig() {
     if (!cfg.stack) cfg.stack = { naive: !!cfg.installed, hy2: false };
     if (!Array.isArray(cfg.naiveUsers)) cfg.naiveUsers = [];
     if (!Array.isArray(cfg.hy2Users)) cfg.hy2Users = [];
+    if (!Array.isArray(cfg.mieruUsers)) cfg.mieruUsers = [];
+    if (!Array.isArray(cfg.vlessUsers)) cfg.vlessUsers = [];
+
+    // Migrate mieruUsers + mieruPort from /etc/mita/server.json if panel config is empty
+    if (cfg.mieruUsers.length === 0) {
+      try {
+        const mitaPath = testPath('/etc/mita/server.json');
+        if (fs.existsSync(mitaPath)) {
+          const mitaCfg = JSON.parse(fs.readFileSync(mitaPath, 'utf8'));
+          if (mitaCfg.users && Array.isArray(mitaCfg.users) && mitaCfg.users.length > 0) {
+            cfg.mieruUsers = mitaCfg.users.map(u => ({
+              username: u.name,
+              password: u.password,
+              createdAt: new Date().toISOString()
+            }));
+            if (mitaCfg.portBindings && mitaCfg.portBindings[0] && mitaCfg.portBindings[0].port) {
+              cfg.mieruPort = mitaCfg.portBindings[0].port;
+            }
+            db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (\'config\', ?)').run(JSON.stringify(cfg));
+            console.log('[migrate] mieruUsers imported from /etc/mita/server.json:', cfg.mieruUsers.length, 'users');
+          }
+        }
+      } catch (e) { console.error('[migrate] mieruUsers migration skipped:', e.message); }
+    }
+
     if (typeof cfg.port !== 'number' || cfg.port < 1 || cfg.port > 65535) {
       cfg.port = 443;
       db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (\'config\', ?)').run(JSON.stringify(cfg));

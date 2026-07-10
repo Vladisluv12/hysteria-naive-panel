@@ -45,14 +45,18 @@ export interface DeleteUserResponse {
 
 export interface SystemStatus {
   installed: boolean;
-  stack: { naive: boolean; hy2: boolean };
+  stack: { naive: boolean; hy2: boolean; mieru?: boolean; vless?: boolean };
   domain?: string;
   email?: string;
   serverIp?: string;
   arch?: string;
   port: number;
+  mieruPort?: number;
+  vlessPort?: number;
   naive: { active: boolean; usersCount: number } | null;
   hy2: { active: boolean; usersCount: number } | null;
+  mieru?: { active: boolean; usersCount: number } | null;
+  vless?: { active: boolean; usersCount: number } | null;
 }
 
 export interface Config {
@@ -60,10 +64,12 @@ export interface Config {
   email?: string;
   serverIp?: string;
   installed: boolean;
-  stack: { naive: boolean; hy2: boolean };
+  stack: { naive: boolean; hy2: boolean; mieru?: boolean; vless?: boolean };
   panelDomain?: string;
   sshOnly?: boolean;
   port: number;
+  mieruPort?: number;
+  vlessPort?: number;
   [key: string]: unknown;
 }
 
@@ -74,7 +80,7 @@ export interface VersionInfo {
 
 export interface TrafficData {
   daily?: unknown;
-  connections?: { naive: unknown; hy2: unknown };
+  connections?: { naive: unknown; hy2: unknown; mieru?: unknown; vless?: unknown };
   hourly?: unknown[];
   lastReset?: unknown;
   error?: string;
@@ -106,13 +112,17 @@ export interface TrafficResponse {
   perProto?: {
     naive?: ProtoTraffic;
     hy2?: ProtoTraffic;
+    mieru?: ProtoTraffic;
+    vless?: ProtoTraffic;
   };
   perUser?: {
     naive?: PerUserTraffic;
     hy2?: PerUserTraffic;
+    mieru?: PerUserTraffic;
+    vless?: PerUserTraffic;
   };
   daily?: unknown;
-  connections?: { naive: number | null; hy2: number | null };
+  connections?: { naive: number | null; hy2: number | null; mieru?: number | null; vless?: number | null };
   hourly?: unknown[];
   lastReset?: unknown;
   error?: string;

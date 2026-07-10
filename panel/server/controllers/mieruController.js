@@ -1,12 +1,11 @@
 'use strict';
 
 const fs = require('fs');
-const crypto = require('crypto');
 const { loadConfig } = require('../services/storageFactory.js');
 const { updateConfig } = require('../services/atomicUpdate.js');
-const { buildVlessConfigObject } = require('../services/configBuilder.js');
+const { buildMieruConfigObject } = require('../services/configBuilder.js');
 const { isValidUsername, isValidPassword, isValidExpireDays, computeExpiresAt, isExpired, remainingSeconds } = require('../utils/validators.js');
-const { restartVless } = require('../services/systemAdapter.js');
+const { restartMieru } = require('../services/systemAdapter.js');
 const { AtomicFileTransaction } = require('../services/atomicConfig.js');
 
 function testPath(systemPath) {
@@ -16,20 +15,16 @@ function testPath(systemPath) {
   return systemPath;
 }
 
-const VLESS_CONFIG_PATH = testPath('/etc/xray/config.json');
+const MIERU_CONFIG_PATH = testPath('/etc/mita/server.json');
 
-function generateUuid() {
-  return crypto.randomUUID();
-}
+function writeMieruConfig(cfg) {
+  if (!cfg || !cfg.stack || !cfg.stack.mieru || !cfg.domain) return false;
 
-function writeVlessConfig(cfg) {
-  if (!cfg || !cfg.stack || !cfg.stack.vless || !cfg.domain) return false;
-
-  const configObj = buildVlessConfigObject(cfg);
+  const configObj = buildMieruConfigObject(cfg);
   if (!configObj) return false;
 
   const newContent = JSON.stringify(configObj, null, 2);
-  const tx = new AtomicFileTransaction(VLESS_CONFIG_PATH);
+  const tx = new AtomicFileTransaction(MIERU_CONFIG_PATH);
   return tx.execute(newContent, () => true);
 }
 
@@ -45,7 +40,7 @@ function enrichUser(u) {
 
 function listUsers(req, res) {
   const cfg = loadConfig();
-  res.json({ users: (cfg.vlessUsers || []).map(enrichUser) });
+  res.json({ users: (cfg.mieruUsers || []).map(enrichUser) });
 }
 
 async function createUser(req, res) {
@@ -54,41 +49,37 @@ async function createUser(req, res) {
   if (!isValidPassword(password)) return res.json({ success: false, message: 'Пароль 8-128 символов' });
   if (!isValidExpireDays(expireDays)) return res.json({ success: false, message: 'Срок: 1..3650 дней или 0 (бессрочно)' });
 
-  if (loadConfig().vlessUsers.find(u => u.username === username)) {
+  if (loadConfig().mieruUsers.find(u => u.username === username)) {
     return res.json({ success: false, message: 'Пользователь уже существует' });
   }
   const expiresAt = computeExpiresAt(expireDays);
-  const uuid = generateUuid();
   const cfg = updateConfig(c => {
-    c.vlessUsers.push({ username, password, uuid, nickname: nickname || '', createdAt: new Date().toISOString(), expiresAt });
+    c.mieruUsers.push({ username, password, nickname: nickname || '', createdAt: new Date().toISOString(), expiresAt });
   });
 
-  if (cfg.installed && cfg.stack.vless) {
-    const wrote = writeVlessConfig(cfg);
-    if (wrote) await restartVless();
+  if (cfg.installed && cfg.stack.mieru) {
+    const wrote = writeMieruConfig(cfg);
+    if (wrote) await restartMieru();
   }
-  const linkPort = cfg.vlessPort || cfg.port;
-  const linkUsername = encodeURIComponent(nickname || username);
-  const pbk = cfg.vlessRealityPublicKey || '';
-  const encryption = encodeURIComponent(cfg.vlessEncryption || 'none');
+  const linkPort = cfg.mieruPort || cfg.port;
   res.json({
     success: true,
-    link: cfg.domain && pbk
-      ? `vless://${uuid}@${cfg.domain}:${linkPort}?encryption=${encryption}&security=reality&sni=${cfg.domain}&fp=chrome&type=xhttp&path=/xhttp&mode=packet-up&noGRPCHeader=true&xmux.maxConcurrency=32-64&pbk=${pbk}#${linkUsername}`
+    link: cfg.domain
+      ? `mieru://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${cfg.domain}:${linkPort}#${encodeURIComponent(nickname || username)}`
       : null
   });
 }
 
 async function deleteUser(req, res) {
   const { username } = req.params;
-  const before = loadConfig().vlessUsers.length;
+  const before = loadConfig().mieruUsers.length;
   const cfg = updateConfig(c => {
-    c.vlessUsers = c.vlessUsers.filter(u => u.username !== username);
+    c.mieruUsers = c.mieruUsers.filter(u => u.username !== username);
   });
-  if (cfg.vlessUsers.length === before) return res.json({ success: false, message: 'Не найден' });
-  if (cfg.installed && cfg.stack.vless) {
-    const wrote = writeVlessConfig(cfg);
-    if (wrote) await restartVless();
+  if (cfg.mieruUsers.length === before) return res.json({ success: false, message: 'Не найден' });
+  if (cfg.installed && cfg.stack.mieru) {
+    const wrote = writeMieruConfig(cfg);
+    if (wrote) await restartMieru();
   }
   res.json({ success: true });
 }
@@ -98,23 +89,23 @@ async function updateUser(req, res) {
   const { expireDays, nickname } = req.body || {};
   if (!isValidExpireDays(expireDays)) return res.json({ success: false, message: 'Срок: 1..3650 дней или 0' });
 
-  const user = loadConfig().vlessUsers.find(u => u.username === username);
+  const user = loadConfig().mieruUsers.find(u => u.username === username);
   if (!user) return res.json({ success: false, message: 'Не найден' });
 
   const expiresAt = computeExpiresAt(expireDays);
   const cfg = updateConfig(c => {
-    const u = c.vlessUsers.find(u => u.username === username);
+    const u = c.mieruUsers.find(u => u.username === username);
     if (u) {
       u.expiresAt = expiresAt;
       if (nickname !== undefined) u.nickname = nickname;
     }
   });
 
-  if (cfg.installed && cfg.stack.vless) {
-    const wrote = writeVlessConfig(cfg);
-    if (wrote) await restartVless();
+  if (cfg.installed && cfg.stack.mieru) {
+    const wrote = writeMieruConfig(cfg);
+    if (wrote) await restartMieru();
   }
   res.json({ success: true, expiresAt });
 }
 
-module.exports = { listUsers, createUser, deleteUser, updateUser, writeVlessConfig };
+module.exports = { listUsers, createUser, deleteUser, updateUser, writeMieruConfig };

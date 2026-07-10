@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
+const { execSync } = require('child_process');
 
 const DATA_DIR = (process.env.TEST_CONFIG_DIR)
   ? process.env.TEST_CONFIG_DIR
@@ -221,42 +222,108 @@ function downloadFile(url, destPath, maxRedirects = 5) {
   });
 }
 
-function parseGeositeCategories(datPath) {
+function readVarint(buf, pos) {
+  let result = 0, shift = 0;
+  while (pos < buf.length) {
+    const b = buf[pos++];
+    result |= (b & 0x7f) << shift;
+    if ((b & 0x80) === 0) return [result, pos];
+    shift += 7;
+  }
+  return [0, pos];
+}
+
+function readField(buf, pos) {
+  if (pos >= buf.length) return null;
+  const [tag, newPos] = readVarint(buf, pos);
+  const fieldNumber = tag >> 3;
+  const wireType = tag & 0x07;
+  if (wireType === 2) {
+    const [len, endPos] = readVarint(buf, newPos);
+    return { fieldNumber, wireType, value: buf.slice(endPos, endPos + len), endPos: endPos + len };
+  } else if (wireType === 0) {
+    const [val, endPos] = readVarint(buf, newPos);
+    return { fieldNumber, wireType, value: val, endPos };
+  } else if (wireType === 5) {
+    return { fieldNumber, wireType, endPos: newPos + 4 };
+  } else if (wireType === 1) {
+    return { fieldNumber, wireType, endPos: newPos + 8 };
+  }
+  return null;
+}
+
+function parseGeoSiteCodes(datPath) {
+  const categories = [];
   try {
-    if (!fs.existsSync(datPath)) return [];
+    if (!fs.existsSync(datPath)) return categories;
     const buf = fs.readFileSync(datPath);
-    const categories = new Set();
-    let i = 0;
-    while (i < buf.length) {
-      const tag = buf[i++];
-      const wireType = tag & 0x07;
-      if (wireType === 2) {
-        let len = 0, shift = 0;
-        while (i < buf.length) {
-          const b = buf[i++];
-          len |= (b & 0x7f) << shift;
-          if ((b & 0x80) === 0) break;
-          shift += 7;
-        }
-        if (i + len > buf.length) break;
-        const str = buf.toString('utf8', i, i + len);
-        i += len;
-        if (str.length > 0 && str.length <= 64 && /^[a-z][a-z0-9-]*$/.test(str)) {
-          categories.add(str);
-        }
-      } else if (wireType === 0) {
-        while (i < buf.length && (buf[i++] & 0x80) !== 0) {}
-      } else if (wireType === 5) {
-        i += 4;
-      } else if (wireType === 1) {
-        i += 8;
-      } else {
-        break;
+    let pos = 0;
+    while (pos < buf.length) {
+      const field = readField(buf, pos);
+      if (!field || field.endPos <= pos || field.endPos > buf.length) break;
+      if (field.wireType === 2 && field.fieldNumber === 1) {
+        const code = parseGeoSiteEntryCode(field.value);
+        if (code) categories.push(code.toLowerCase());
       }
+      pos = field.endPos;
     }
-    return [...categories].sort();
+  } catch {}
+  return [...new Set(categories)].sort();
+}
+
+function parseGeoSiteEntryCode(entryBuf) {
+  let pos = 0;
+  while (pos < entryBuf.length) {
+    const field = readField(entryBuf, pos);
+    if (!field || field.endPos <= pos || field.endPos > entryBuf.length) break;
+    if (field.wireType === 2 && field.fieldNumber === 1) {
+      return field.value.toString('utf8');
+    }
+    pos = field.endPos;
+  }
+  return null;
+}
+
+function parseGeoipEntryCode(entryBuf) {
+  let pos = 0;
+  while (pos < entryBuf.length) {
+    const field = readField(entryBuf, pos);
+    if (!field || field.endPos <= pos || field.endPos > entryBuf.length) break;
+    if (field.wireType === 2 && field.fieldNumber === 1) {
+      return field.value.toString('utf8');
+    }
+    pos = field.endPos;
+  }
+  return null;
+}
+
+function parseGeoipCodes(datPath) {
+  const codes = [];
+  try {
+    if (!fs.existsSync(datPath)) return codes;
+    const buf = fs.readFileSync(datPath);
+    let pos = 0;
+    while (pos < buf.length) {
+      const field = readField(buf, pos);
+      if (!field || field.endPos <= pos || field.endPos > buf.length) break;
+      if (field.wireType === 2 && field.fieldNumber === 1) {
+        const code = parseGeoipEntryCode(field.value);
+        if (code && /^[A-Za-z]{2}$/.test(code)) codes.push(code.toLowerCase());
+      }
+      pos = field.endPos;
+    }
+  } catch {}
+  return [...new Set(codes)].sort();
+}
+
+function copyToXrayDir(srcPath) {
+  const dest = path.join('/usr/local/share/xray', path.basename(srcPath));
+  try {
+    execSync(`sudo cp "${srcPath}" "${dest}"`, { timeout: 10000, stdio: 'ignore' });
   } catch {
-    return [];
+    try {
+      fs.copyFileSync(srcPath, dest);
+    } catch {}
   }
 }
 
@@ -275,6 +342,7 @@ async function downloadGeoDatasets() {
   try {
     await downloadFile(geoipUrl, HY2_GEOIP_PATH);
     try { fs.copyFileSync(HY2_GEOIP_PATH, VLESS_GEOIP_PATH); } catch {}
+    copyToXrayDir(VLESS_GEOIP_PATH);
     results.geoip = true;
   } catch (e) {
     results.error = `geoip.dat: ${e.message}`;
@@ -289,11 +357,12 @@ async function downloadGeoDatasets() {
 
   try {
     await downloadFile(xrayGeositeUrl, VLESS_GEOSITE_PATH);
+    copyToXrayDir(VLESS_GEOSITE_PATH);
   } catch (e) {
     results.error = (results.error ? results.error + '; ' : '') + `geosite.dat (xray): ${e.message}`;
   }
 
-  const categories = parseGeositeCategories(VLESS_GEOSITE_PATH);
+  const categories = parseGeoSiteCodes(VLESS_GEOSITE_PATH);
   if (categories.length > 0) {
     try {
       const dataDir = path.join(__dirname, '../data');
@@ -302,7 +371,7 @@ async function downloadGeoDatasets() {
     } catch {}
   }
 
-  const geoCountries = parseGeositeCategories(VLESS_GEOIP_PATH);
+  const geoCountries = parseGeoipCodes(VLESS_GEOIP_PATH);
   if (geoCountries.length > 0) {
     try {
       const dataDir = path.join(__dirname, '../data');

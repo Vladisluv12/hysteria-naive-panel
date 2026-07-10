@@ -14,6 +14,7 @@ USERNAME="${VLESS_USERNAME:-}"
 PASSWORD="${VLESS_PASSWORD:-}"
 UUID="${VLESS_UUID:-}"
 PORT="${VLESS_PORT:-10443}"
+ENCRYPTION_ENABLED="${VLESS_ENCRYPTION:-0}"
 
 if [[ -z "$DOMAIN" || -z "$PASSWORD" || -z "$USERNAME" || -z "$UUID" ]]; then
   echo "ERROR: missing env VLESS_DOMAIN / VLESS_USERNAME / VLESS_PASSWORD / VLESS_UUID"
@@ -128,13 +129,13 @@ log "▶ Генерация REALITY ключей..."
 
 REALITY_OUTPUT=$(/usr/local/bin/xray x25519 2>/dev/null)
 REALITY_PRIVATE=$(echo "$REALITY_OUTPUT" | grep '^PrivateKey:' | awk '{print $2}')
-REALITY_PUBLIC=$(echo "$REALITY_OUTPUT" | grep '^Password' | awk '{print $NF}')
+REALITY_PUBLIC=$(echo "$REALITY_OUTPUT" | grep 'PublicKey' | awk '{print $NF}')
 
 if [[ -z "$REALITY_PRIVATE" || -z "$REALITY_PUBLIC" ]]; then
   log "⚠ Ошибка генерации x25519, пробуем ещё раз..."
   REALITY_OUTPUT=$(/usr/local/bin/xray x25519 2>/dev/null)
   REALITY_PRIVATE=$(echo "$REALITY_OUTPUT" | grep '^PrivateKey:' | awk '{print $2}')
-  REALITY_PUBLIC=$(echo "$REALITY_OUTPUT" | grep '^Password' | awk '{print $NF}')
+  REALITY_PUBLIC=$(echo "$REALITY_OUTPUT" | grep 'PublicKey' | awk '{print $NF}')
 fi
 
 REALITY_TARGET="${VLESS_REALITY_TARGET:-www.google.com:443}"
@@ -144,12 +145,41 @@ log "  PrivateKey: ${REALITY_PRIVATE:0:8}..."
 log "  PublicKey:  ${REALITY_PUBLIC:0:8}..."
 log "  Target:     ${REALITY_TARGET}"
 
+# Output keys for panel to parse from stdout
+echo "REALITY_PRIVATE_KEY=${REALITY_PRIVATE}"
+echo "REALITY_PUBLIC_KEY=${REALITY_PUBLIC}"
+
+# ══════════════════════════════════════════════════════
+step 5a
+log "▶ VLESS Encryption (PR 5067, опционально)..."
+# ══════════════════════════════════════════════════════
+
+VLESS_DECRYPTION="none"
+VLESS_ENCRYPTION_STR=""
+if [[ "$ENCRYPTION_ENABLED" == "1" ]]; then
+  VLESSENC_OUTPUT=$(/usr/local/bin/xray vlessenc 2>/dev/null)
+  VLESS_DECRYPTION=$(echo "$VLESSENC_OUTPUT" | grep -i '^Decryption:' | awk '{print $2}')
+  VLESS_ENCRYPTION_STR=$(echo "$VLESSENC_OUTPUT" | grep -i '^Encryption:' | awk '{print $2}')
+  if [[ -z "$VLESS_DECRYPTION" || -z "$VLESS_ENCRYPTION_STR" ]]; then
+    log "⚠ Не удалось сгенерировать VLESS encryption, откат на decryption=none"
+    VLESS_DECRYPTION="none"
+    VLESS_ENCRYPTION_STR=""
+  else
+    log "  Decryption: ${VLESS_DECRYPTION:0:24}..."
+    log "  Encryption: ${VLESS_ENCRYPTION_STR:0:24}..."
+    echo "VLESS_DECRYPTION=${VLESS_DECRYPTION}"
+    echo "VLESS_ENCRYPTION_STR=${VLESS_ENCRYPTION_STR}"
+  fi
+else
+  log "  Отключено (VLESS_ENCRYPTION=1 для включения)"
+fi
+
 # ══════════════════════════════════════════════════════
 step 5b
 log "▶ Создание конфига Xray (REALITY)..."
 # ══════════════════════════════════════════════════════
 
-cat > /usr/local/etc/xray/config.json << XRAYEOF
+cat > /etc/xray/config.json << XRAYEOF
 {
   "log": {
     "loglevel": "warning"
@@ -171,10 +201,10 @@ cat > /usr/local/etc/xray/config.json << XRAYEOF
           {
             "id": "${UUID}",
             "email": "${USERNAME}",
-            "flow": "xtls-rprx-vision"
+            "flow": ""
           }
         ],
-        "decryption": "none"
+        "decryption": "${VLESS_DECRYPTION}"
       },
       "streamSettings": {
         "network": "xhttp",
@@ -209,7 +239,7 @@ cat > /usr/local/etc/xray/config.json << XRAYEOF
 }
 XRAYEOF
 
-log "✅ Конфиг /usr/local/etc/xray/config.json создан (REALITY)"
+log "✅ Конфиг /etc/xray/config.json создан (REALITY)"
 
 # ══════════════════════════════════════════════════════
 step 6
@@ -229,7 +259,7 @@ StartLimitBurst=3
 Type=simple
 User=root
 Group=root
-ExecStart=/usr/local/bin/xray run -config /usr/local/etc/xray/config.json
+ExecStart=/usr/local/bin/xray run -config /etc/xray/config.json
 WorkingDirectory=/etc/xray
 LimitNOFILE=1048576
 LimitNPROC=512
@@ -242,6 +272,9 @@ StandardError=journal
 [Install]
 WantedBy=multi-user.target
 XRAYSVCEOF
+
+# Remove any drop-in overrides that redirect to wrong config path
+rm -rf /etc/systemd/system/xray.service.d 2>/dev/null || true
 
 systemctl daemon-reload
 systemctl enable xray >/dev/null 2>&1 || true
@@ -273,6 +306,9 @@ for i in $(seq 1 20); do
   fi
 done
 
+LINK_ENCRYPTION="none"
+[[ -n "$VLESS_ENCRYPTION_STR" ]] && LINK_ENCRYPTION="${VLESS_ENCRYPTION_STR}"
+
 step DONE
 log ""
 log "╔════════════════════════════════════════════════════╗"
@@ -281,7 +317,8 @@ log "║   Домен: ${DOMAIN}"
 log "║   PrivateKey: ${REALITY_PRIVATE}"
 log "║   PublicKey:  ${REALITY_PUBLIC}"
 log "║   Target:     ${REALITY_TARGET}"
-log "║   vless://${UUID}@${DOMAIN}:${PORT}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${REALITY_SNI}&fp=chrome&type=xhttp&path=/xhttp&mode=packet-up&pbk=${REALITY_PUBLIC}#${USERNAME}"
+[[ "$ENCRYPTION_ENABLED" == "1" ]] && log "║   VLESS Encryption: ${LINK_ENCRYPTION}"
+log "║   vless://${UUID}@${DOMAIN}:${PORT}?encryption=${LINK_ENCRYPTION}&security=reality&sni=${REALITY_SNI}&fp=chrome&type=xhttp&path=/xhttp&mode=packet-up&pbk=${REALITY_PUBLIC}#${USERNAME}"
 log "╚════════════════════════════════════════════════════╝"
 log ""
 

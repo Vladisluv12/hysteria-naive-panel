@@ -9,6 +9,10 @@ const COMMENT_TAGS = {
   NAIVE_OUT: 'RIXXX_NAIVE_OUT',
   HY2_IN: 'RIXXX_HY2_IN',
   HY2_OUT: 'RIXXX_HY2_OUT',
+  MIERU_IN: 'RIXXX_MIERU_IN',
+  MIERU_OUT: 'RIXXX_MIERU_OUT',
+  VLESS_IN: 'RIXXX_VLESS_IN',
+  VLESS_OUT: 'RIXXX_VLESS_OUT',
 };
 
 function isRoot() {
@@ -60,8 +64,12 @@ async function ensureRules(port) {
   const rules = [
     { chain: 'INPUT',  proto: 'tcp', port: 'dport', tag: COMMENT_TAGS.NAIVE_IN },
     { chain: 'INPUT',  proto: 'udp', port: 'dport', tag: COMMENT_TAGS.HY2_IN },
+    { chain: 'INPUT',  proto: 'tcp', port: 'dport', tag: COMMENT_TAGS.MIERU_IN },
+    { chain: 'INPUT',  proto: 'tcp', port: 'dport', tag: COMMENT_TAGS.VLESS_IN },
     { chain: 'OUTPUT', proto: 'tcp', port: 'sport', tag: COMMENT_TAGS.NAIVE_OUT },
     { chain: 'OUTPUT', proto: 'udp', port: 'sport', tag: COMMENT_TAGS.HY2_OUT },
+    { chain: 'OUTPUT', proto: 'tcp', port: 'sport', tag: COMMENT_TAGS.MIERU_OUT },
+    { chain: 'OUTPUT', proto: 'tcp', port: 'sport', tag: COMMENT_TAGS.VLESS_OUT },
   ];
 
   let existing = '';
@@ -124,6 +132,8 @@ async function readCounters() {
   const result = {
     naive: { rx: 0, tx: 0 },
     hy2: { rx: 0, tx: 0 },
+    mieru: { rx: 0, tx: 0 },
+    vless: { rx: 0, tx: 0 },
   };
 
   const chains = ['INPUT', 'OUTPUT'];
@@ -143,11 +153,19 @@ async function readCounters() {
   const naiveOut = lines.map(l => parseIptablesLine(l, COMMENT_TAGS.NAIVE_OUT)).find(Boolean);
   const hy2In = lines.map(l => parseIptablesLine(l, COMMENT_TAGS.HY2_IN)).find(Boolean);
   const hy2Out = lines.map(l => parseIptablesLine(l, COMMENT_TAGS.HY2_OUT)).find(Boolean);
+  const mieruIn = lines.map(l => parseIptablesLine(l, COMMENT_TAGS.MIERU_IN)).find(Boolean);
+  const mieruOut = lines.map(l => parseIptablesLine(l, COMMENT_TAGS.MIERU_OUT)).find(Boolean);
+  const vlessIn = lines.map(l => parseIptablesLine(l, COMMENT_TAGS.VLESS_IN)).find(Boolean);
+  const vlessOut = lines.map(l => parseIptablesLine(l, COMMENT_TAGS.VLESS_OUT)).find(Boolean);
 
   if (naiveIn) result.naive.rx = naiveIn.bytes;
   if (naiveOut) result.naive.tx = naiveOut.bytes;
   if (hy2In) result.hy2.rx = hy2In.bytes;
   if (hy2Out) result.hy2.tx = hy2Out.bytes;
+  if (mieruIn) result.mieru.rx = mieruIn.bytes;
+  if (mieruOut) result.mieru.tx = mieruOut.bytes;
+  if (vlessIn) result.vless.rx = vlessIn.bytes;
+  if (vlessOut) result.vless.tx = vlessOut.bytes;
 
   return result;
 }

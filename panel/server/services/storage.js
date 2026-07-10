@@ -18,14 +18,16 @@ function testPath(systemPath) {
 function defaultConfig() {
   return {
     installed: false,
-    stack: { naive: false, hy2: false },
+    stack: { naive: false, hy2: false, mieru: false, vless: false },
     domain: '',
     email: '',
     serverIp: '',
     arch: '',
     port: 443,
     naiveUsers: [],
-    hy2Users: []
+    hy2Users: [],
+    mieruUsers: [],
+    vlessUsers: []
   };
 }
 
@@ -49,6 +51,31 @@ function loadConfig() {
     }
     if (!Array.isArray(raw.naiveUsers)) raw.naiveUsers = [];
     if (!Array.isArray(raw.hy2Users)) raw.hy2Users = [];
+    if (!Array.isArray(raw.mieruUsers)) raw.mieruUsers = [];
+    if (!Array.isArray(raw.vlessUsers)) raw.vlessUsers = [];
+
+    // Migrate mieruUsers + mieruPort from /etc/mita/server.json if panel config is empty
+    if (raw.mieruUsers.length === 0) {
+      try {
+        const mitaPath = testPath('/etc/mita/server.json');
+        if (fs.existsSync(mitaPath)) {
+          const mitaCfg = JSON.parse(fs.readFileSync(mitaPath, 'utf8'));
+          if (mitaCfg.users && Array.isArray(mitaCfg.users) && mitaCfg.users.length > 0) {
+            raw.mieruUsers = mitaCfg.users.map(u => ({
+              username: u.name,
+              password: u.password,
+              createdAt: new Date().toISOString()
+            }));
+            if (mitaCfg.portBindings && mitaCfg.portBindings[0] && mitaCfg.portBindings[0].port) {
+              raw.mieruPort = mitaCfg.portBindings[0].port;
+            }
+            fs.writeFileSync(cfgPath, JSON.stringify(raw, null, 2));
+            console.log('[migrate] mieruUsers imported from /etc/mita/server.json:', raw.mieruUsers.length, 'users');
+          }
+        }
+      } catch (e) { console.error('[migrate] mieruUsers migration skipped:', e.message); }
+    }
+
     if (typeof raw.port !== 'number' || raw.port < 1 || raw.port > 65535) {
       raw.port = 443;
       fs.writeFileSync(cfgPath, JSON.stringify(raw, null, 2));

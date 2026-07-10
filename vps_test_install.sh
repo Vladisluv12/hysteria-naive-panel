@@ -1,5 +1,5 @@
 #!/bin/bash
-# vps_test_install.sh — Deploy NaiveProxy + Hysteria2 (self-signed)
+# vps_test_install.sh — Deploy NaiveProxy + Hysteria2 + mieru(:9443) + VLESS(:10443) + zapret2 (self-signed)
 # Auto mode:   sudo DOMAIN="vps.example.com" NAIVE_USER="u1" NAIVE_PASS="p1" HY2_PASS="p2" bash vps_test_install.sh
 # Interactive: sudo bash vps_test_install.sh
 set -euo pipefail
@@ -50,7 +50,7 @@ EMAIL="${EMAIL:-}"
 # INTERACTIVE QUESTIONS (skipped if AUTO_MODE)
 
 if [[ $AUTO_MODE -eq 1 ]]; then
-  INSTALL_NAIVE=1; INSTALL_HY2=1
+  INSTALL_NAIVE=1; INSTALL_HY2=1; INSTALL_MIERU=1; INSTALL_VLESS=1
   USE_SQLITE="${USE_SQLITE:-false}"
   USE_NEW_FRONTEND="${USE_NEW_FRONTEND:-true}"
   PANEL_ACCESS="${PANEL_ACCESS:-nginx}"
@@ -62,12 +62,24 @@ if [[ $AUTO_MODE -eq 1 ]]; then
     NAIVE_USER="${NAIVE_USER:-$(python3 -c "import json; c=json.load(open('${EXISTING_CFG}')); print(c['naiveUsers'][0]['username'])" 2>/dev/null || openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 16)}"
     NAIVE_PASS="${NAIVE_PASS:-$(python3 -c "import json; c=json.load(open('${EXISTING_CFG}')); print(c['naiveUsers'][0]['password'])" 2>/dev/null || openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24)}"
     HY2_PASS="${HY2_PASS:-$(python3 -c "import json; c=json.load(open('${EXISTING_CFG}')); print(c['hy2Users'][0]['password'])" 2>/dev/null || openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24)}"
+    MIERU_USER="${MIERU_USER:-$(python3 -c "import json; c=json.load(open('${EXISTING_CFG}')); print(c.get('mieruUsers',[{}])[0].get('username',''))" 2>/dev/null || echo "")}"
+    MIERU_PASS="${MIERU_PASS:-$(python3 -c "import json; c=json.load(open('${EXISTING_CFG}')); print(c.get('mieruUsers',[{}])[0].get('password',''))" 2>/dev/null || echo "")}"
+    VLESS_USER="${VLESS_USER:-$(python3 -c "import json; c=json.load(open('${EXISTING_CFG}')); print(c.get('vlessUsers',[{}])[0].get('username',''))" 2>/dev/null || echo "")}"
+    VLESS_PASS="${VLESS_PASS:-$(python3 -c "import json; c=json.load(open('${EXISTING_CFG}')); print(c.get('vlessUsers',[{}])[0].get('password',''))" 2>/dev/null || echo "")}"
+    VLESS_UUID="${VLESS_UUID:-$(python3 -c "import json; c=json.load(open('${EXISTING_CFG}')); print(c.get('vlessUsers',[{}])[0].get('uuid',''))" 2>/dev/null || echo "")}"
     log_info "Reusing existing credentials from config.json"
   else
     NAIVE_USER="${NAIVE_USER:-$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 16)}"
     NAIVE_PASS="${NAIVE_PASS:-$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24)}"
     HY2_PASS="${HY2_PASS:-$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24)}"
   fi
+  MIERU_USER="${MIERU_USER:-mieru}"
+  MIERU_PASS="${MIERU_PASS:-$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24)}"
+  VLESS_USER="${VLESS_USER:-vless}"
+  VLESS_PASS="${VLESS_PASS:-$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24)}"
+  VLESS_UUID="${VLESS_UUID:-$(cat /proc/sys/kernel/random/uuid 2>/dev/null || openssl rand -hex 16)}"
+  MIERU_PORT="${MIERU_PORT:-9443}"
+  VLESS_PORT="${VLESS_PORT:-10443}"
   PROXY_PORT="${PROXY_PORT:-8443}"
   USE_CADDY_CERT="${USE_CADDY_CERT:-0}"
   USE_WARP="${USE_WARP:-0}"
@@ -82,12 +94,11 @@ if [[ $AUTO_MODE -eq 1 ]]; then
     { log_warn "MASQUERADE_URL invalid, using default"; MASQUERADE_URL="https://www.iana.org"; }
   TLS_MODE="${TLS_MODE:-selfsigned}"
   EMAIL="${EMAIL:-}"
-  log_info "Auto mode: ${DOMAIN} | TLS=${TLS_MODE} | Port=${PROXY_PORT} | SQLite=${USE_SQLITE} | React=${USE_NEW_FRONTEND} | Access=${PANEL_ACCESS}"
+  log_info "Auto mode: ${DOMAIN} | TLS=${TLS_MODE} | Port=${PROXY_PORT} | mieru=${MIERU_PORT} | VLESS=${VLESS_PORT} | SQLite=${USE_SQLITE} | React=${USE_NEW_FRONTEND} | Access=${PANEL_ACCESS}"
 else
   # ── Interactive mode ─────────────────────────────────────────────────
-  echo -e "\n${BOLD}Protocols:${RESET} ${CYAN}1)${RESET} Naive  ${CYAN}2)${RESET} Hysteria2  ${CYAN}3)${RESET} Both (rec)"
-  read -rp "Choice [1/2/3]: " STACK_MODE; STACK_MODE="${STACK_MODE:-3}"
-  case "$STACK_MODE" in 1) INSTALL_NAIVE=1; INSTALL_HY2=0;; 2) INSTALL_NAIVE=0; INSTALL_HY2=1;; *) INSTALL_NAIVE=1; INSTALL_HY2=1;; esac
+  INSTALL_NAIVE=1; INSTALL_HY2=1; INSTALL_MIERU=1; INSTALL_VLESS=1
+  log_info "Protocols: NaiveProxy + Hysteria2 + mieru + VLESS"
 
   echo -e "\n${BOLD}Storage:${RESET} ${CYAN}1)${RESET} JSON (default)  ${CYAN}2)${RESET} SQLite"
   read -rp "Choice [1/2]: " STORAGE_MODE; STORAGE_MODE="${STORAGE_MODE:-1}"
@@ -135,6 +146,9 @@ else
     *) PROXY_PORT=8443 ;;
   esac
 
+  read -rp $'\n'"${BOLD}mieru port${RESET} [9443]: " MIERU_PORT; MIERU_PORT="${MIERU_PORT:-9443}"
+  read -rp "${BOLD}VLESS port${RESET} [10443]: " VLESS_PORT; VLESS_PORT="${VLESS_PORT:-10443}"
+
   echo -e "\n${BOLD}Cloudflare WARP:${RESET} ${CYAN}1)${RESET} No (default)  ${CYAN}2)${RESET} Yes — hide server IP via WARP"
   read -rp "Choice [1/2]: " _WARP; USE_WARP="${_WARP:-1}"; [[ "$USE_WARP" == "2" ]] && USE_WARP=1 || USE_WARP=0
   if [[ "$USE_WARP" -eq 1 ]]; then
@@ -144,6 +158,9 @@ else
 
   [[ $INSTALL_NAIVE -eq 1 ]] && NAIVE_USER=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 16) && NAIVE_PASS=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24) || { NAIVE_USER=""; NAIVE_PASS=""; }
   [[ $INSTALL_HY2   -eq 1 ]] && HY2_PASS=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24) || HY2_PASS=""
+  MIERU_USER="mieru"; MIERU_PASS=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24)
+  VLESS_USER="vless"; VLESS_PASS=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24)
+  VLESS_UUID=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || openssl rand -hex 16)
 
   # If config.json already exists, reuse its credentials
   _EXISTING_CFG="${PANEL_DIR}/panel/data/config.json"
@@ -151,14 +168,23 @@ else
     _EU=$(python3 -c "import json; c=json.load(open('${_EXISTING_CFG}')); print(c.get('naiveUsers',[])[0].get('username',''))" 2>/dev/null || echo "")
     _EP=$(python3 -c "import json; c=json.load(open('${_EXISTING_CFG}')); print(c.get('naiveUsers',[])[0].get('password',''))" 2>/dev/null || echo "")
     _HP=$(python3 -c "import json; c=json.load(open('${_EXISTING_CFG}')); print(c.get('hy2Users',[])[0].get('password',''))" 2>/dev/null || echo "")
+    _MU=$(python3 -c "import json; c=json.load(open('${_EXISTING_CFG}')); print(c.get('mieruUsers',[{}])[0].get('username',''))" 2>/dev/null || echo "")
+    _MP=$(python3 -c "import json; c=json.load(open('${_EXISTING_CFG}')); print(c.get('mieruUsers',[{}])[0].get('password',''))" 2>/dev/null || echo "")
+    _VU=$(python3 -c "import json; c=json.load(open('${_EXISTING_CFG}')); print(c.get('vlessUsers',[{}])[0].get('username',''))" 2>/dev/null || echo "")
+    _VP=$(python3 -c "import json; c=json.load(open('${_EXISTING_CFG}')); print(c.get('vlessUsers',[{}])[0].get('password',''))" 2>/dev/null || echo "")
+    _VID=$(python3 -c "import json; c=json.load(open('${_EXISTING_CFG}')); print(c.get('vlessUsers',[{}])[0].get('uuid',''))" 2>/dev/null || echo "")
     if [[ -n "$_EU" && -n "$_EP" && "$INSTALL_NAIVE" -eq 1 ]]; then NAIVE_USER="$_EU"; NAIVE_PASS="$_EP"; fi
     if [[ -n "$_HP" && "$INSTALL_HY2" -eq 1 ]]; then HY2_PASS="$_HP"; fi
+    [[ -n "$_MU" && -n "$_MP" ]] && { MIERU_USER="$_MU"; MIERU_PASS="$_MP"; }
+    [[ -n "$_VU" && -n "$_VP" && -n "$_VID" ]] && { VLESS_USER="$_VU"; VLESS_PASS="$_VP"; VLESS_UUID="$_VID"; }
     log_info "Reusing existing credentials from config.json"
   fi
 
   echo -e "\n${GREEN}  Credentials:${RESET}"
   [[ $INSTALL_NAIVE -eq 1 ]] && log_info "NaiveProxy -> ${NAIVE_USER}:${NAIVE_PASS}"
   [[ $INSTALL_HY2   -eq 1 ]] && log_info "Hysteria2  -> pass: ${HY2_PASS}"
+  log_info "mieru      -> ${MIERU_USER}:${MIERU_PASS} (port ${MIERU_PORT})"
+  log_info "VLESS      -> ${VLESS_USER} (port ${VLESS_PORT})"
   read -rp "Start? [Enter / Ctrl+C]: " _
   echo ""
 fi
@@ -417,6 +443,28 @@ fi
 log_ok "Panel installed"
 
 
+# [8b] Install mieru (:9443) + VLESS/Xray (:10443) via panel/scripts installers
+
+log_step "[8b] Installing mieru (:${MIERU_PORT}) + VLESS/Xray (:${VLESS_PORT})..."
+
+MIERU_OUT="$(mktemp)"
+MIERU_DOMAIN="${DOMAIN}" MIERU_USERNAME="${MIERU_USER}" MIERU_PASSWORD="${MIERU_PASS}" MIERU_PORT="${MIERU_PORT}" \
+  bash "${PANEL_DIR}/panel/scripts/install_mieru.sh" 2>&1 | tee "${MIERU_OUT}" | while IFS= read -r l; do [[ -n "$l" ]] && echo "    $l"; done
+grep -q "STEP:DONE" "${MIERU_OUT}" && log_ok "mieru installed" || log_warn "mieru install may have failed — see log above"
+
+VLESS_OUT="$(mktemp)"
+VLESS_DOMAIN="${DOMAIN}" VLESS_USERNAME="${VLESS_USER}" VLESS_PASSWORD="${VLESS_PASS}" VLESS_UUID="${VLESS_UUID}" VLESS_PORT="${VLESS_PORT}" \
+  VLESS_ENCRYPTION="${VLESS_ENCRYPTION:-0}" \
+  bash "${PANEL_DIR}/panel/scripts/install_vless.sh" 2>&1 | tee "${VLESS_OUT}" | while IFS= read -r l; do [[ -n "$l" ]] && echo "    $l"; done
+grep -q "STEP:DONE" "${VLESS_OUT}" && log_ok "VLESS/Xray installed" || log_warn "VLESS install may have failed — see log above"
+
+VLESS_REALITY_PRIVATE=$(grep -o 'REALITY_PRIVATE_KEY=\S*' "${VLESS_OUT}" | tail -1 | cut -d= -f2)
+VLESS_REALITY_PUBLIC=$(grep -o 'REALITY_PUBLIC_KEY=\S*' "${VLESS_OUT}" | tail -1 | cut -d= -f2)
+VLESS_DECRYPTION=$(grep -o 'VLESS_DECRYPTION=\S*' "${VLESS_OUT}" | tail -1 | cut -d= -f2)
+VLESS_ENCRYPTION_STR=$(grep -o 'VLESS_ENCRYPTION_STR=\S*' "${VLESS_OUT}" | tail -1 | cut -d= -f2)
+rm -f "${MIERU_OUT}" "${VLESS_OUT}"
+
+
 # [9] Write panel config.json
 
 log_step "[9] Writing panel config.json..."
@@ -424,6 +472,8 @@ CREATED="$(date -u +%FT%TZ)"
 NAIVE_JSON="[]"; HY2_JSON="[]"
 [[ $INSTALL_NAIVE -eq 1 ]] && NAIVE_JSON="[{\"username\":\"${NAIVE_USER}\",\"password\":\"${NAIVE_PASS}\",\"createdAt\":\"${CREATED}\"}]"
 [[ $INSTALL_HY2   -eq 1 ]] && HY2_JSON="[{\"username\":\"default\",\"password\":\"${HY2_PASS}\",\"createdAt\":\"${CREATED}\"}]"
+MIERU_JSON="[{\"username\":\"${MIERU_USER}\",\"password\":\"${MIERU_PASS}\",\"createdAt\":\"${CREATED}\"}]"
+VLESS_JSON="[{\"username\":\"${VLESS_USER}\",\"password\":\"${VLESS_PASS}\",\"uuid\":\"${VLESS_UUID}\",\"createdAt\":\"${CREATED}\"}]"
 [[ $INSTALL_NAIVE -eq 1 ]] && STACK_NAIVE="true" || STACK_NAIVE="false"
 [[ $INSTALL_HY2   -eq 1 ]] && STACK_HY2="true"   || STACK_HY2="false"
 
@@ -435,7 +485,7 @@ else
   cat > "${CFG_FILE}" << CONFIGEOF
 {
   "installed": true,
-  "stack": { "naive": ${STACK_NAIVE}, "hy2": ${STACK_HY2} },
+  "stack": { "naive": ${STACK_NAIVE}, "hy2": ${STACK_HY2}, "mieru": true, "vless": true },
   "domain": "${DOMAIN}",
   "email": "${EMAIL:-}",
   "tlsMode": "${TLS_MODE:-selfsigned}",
@@ -449,9 +499,19 @@ else
   "serverIp": "${SERVER_IP}",
   "arch": "${MACHINE_ARCH}",
   "port": ${PROXY_PORT},
+  "mieruPort": ${MIERU_PORT},
+  "vlessPort": ${VLESS_PORT},
+  "vlessRealityTarget": "www.google.com:443",
+  "vlessRealityServerNames": ["${DOMAIN}"],
+  "vlessRealityPrivateKey": "${VLESS_REALITY_PRIVATE:-}",
+  "vlessRealityPublicKey": "${VLESS_REALITY_PUBLIC:-}",
+  "vlessDecryption": "${VLESS_DECRYPTION:-none}",
+  "vlessEncryption": "${VLESS_ENCRYPTION_STR:-none}",
   "adminPassword": "",
   "naiveUsers": ${NAIVE_JSON},
-  "hy2Users":   ${HY2_JSON}
+  "hy2Users":   ${HY2_JSON},
+  "mieruUsers": ${MIERU_JSON},
+  "vlessUsers": ${VLESS_JSON}
 }
 CONFIGEOF
   log_ok "config.json written"
@@ -820,6 +880,20 @@ else
 fi
 
 
+# [15b] zapret2 (DPI bypass, server mode) — always installed
+
+log_step "[15b] Installing zapret2 (DPI bypass)..."
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+ZAPRET2_SCRIPT="${SCRIPT_DIR}/setup-zapret2.sh"
+if [[ -f "${ZAPRET2_SCRIPT}" ]]; then
+  NAIVE_HY2_PORT="${PROXY_PORT}" MIERU_PORT="${MIERU_PORT}" VLESS_PORT="${VLESS_PORT}" \
+    bash "${ZAPRET2_SCRIPT}" 2>&1 | while IFS= read -r l; do [[ -n "$l" ]] && echo "    $l"; done
+  systemctl is-active --quiet zapret2 2>/dev/null && log_ok "zapret2 active" || log_warn "zapret2 not active — check: journalctl -u zapret2"
+else
+  log_warn "setup-zapret2.sh not found next to vps_test_install.sh, skipping"
+fi
+
+
 # [16] Smoke tests
 
 echo ""
@@ -831,7 +905,7 @@ _SF=0; _SW=0
     && log_ok "Caddyfile valid" || { log_err "Caddyfile invalid"; _SF=$((_SF+1)); }
 }
 
-for svc in naive hysteria warp; do
+for svc in naive hysteria mita xray warp; do
   [[ $svc == "naive" && $INSTALL_NAIVE -eq 0 ]] && continue
   [[ $svc == "hysteria" && $INSTALL_HY2 -eq 0 ]] && continue
   [[ $svc == "warp" && "$USE_WARP" != "1" ]] && continue
@@ -849,6 +923,10 @@ curl -fsS --max-time 5 "http://127.0.0.1:${INTERNAL_PORT}/" >/dev/null 2>&1 \
     && log_ok "HTTPS :${PROXY_PORT} responds (${TLS_MODE:-selfsigned})" \
     || { log_warn "HTTPS :${PROXY_PORT} not responding"; _SW=$((_SW+1)); }
 }
+
+systemctl is-active --quiet zapret2 2>/dev/null \
+  && log_ok "zapret2.service active" \
+  || { log_warn "zapret2.service NOT active"; _SW=$((_SW+1)); }
 
 if [[ $_SF -eq 0 && $_SW -eq 0 ]]; then log_ok "Smoke test: all passed"
 elif [[ $_SF -eq 0 ]]; then log_warn "Smoke test: ${_SW} warning(s)"
@@ -888,6 +966,13 @@ fi
 if [[ $INSTALL_HY2 -eq 1 ]]; then
   echo -e "${CYAN}   Hysteria2:   hysteria2://default:${HY2_PASS}@${DOMAIN}:${PROXY_PORT}?sni=${DOMAIN}&insecure=${_INSECURE}#VPS-Test${RESET}"
   echo -e "${PURPLE}${BOLD}║   Pass: ${HY2_PASS}${RESET}"
+fi
+echo -e "${CYAN}   mieru:       mieru://${MIERU_USER}:${MIERU_PASS}@${DOMAIN}:${MIERU_PORT}#VPS-Test${RESET}"
+_VLESS_ENC_PARAM="none"; [[ -n "${VLESS_ENCRYPTION_STR:-}" ]] && _VLESS_ENC_PARAM="${VLESS_ENCRYPTION_STR}"
+if [[ -n "${VLESS_REALITY_PUBLIC:-}" ]]; then
+  echo -e "${CYAN}   VLESS:       vless://${VLESS_UUID}@${DOMAIN}:${VLESS_PORT}?encryption=${_VLESS_ENC_PARAM}&security=reality&sni=${DOMAIN}&fp=chrome&type=xhttp&path=/xhttp&mode=packet-up&pbk=${VLESS_REALITY_PUBLIC}#VPS-Test${RESET}"
+else
+  echo -e "${YELLOW}   VLESS:       REALITY public key not captured — see /etc/xray/config.json${RESET}"
 fi
 echo -e "${PURPLE}${BOLD}╠══════════════════════════════════════════════════════════════╣${RESET}"
 [[ $INSTALL_NAIVE -eq 1 ]] && echo -e "   Sing-box naive: {\"type\":\"naive\",\"server\":\"${DOMAIN}\",\"server_port\":${PROXY_PORT},\"username\":\"${NAIVE_USER}\",\"password\":\"${NAIVE_PASS}\",\"tls\":{\"enabled\":true,\"insecure\":${_INSECURE_JSON},\"server_name\":\"${DOMAIN}\"}}"

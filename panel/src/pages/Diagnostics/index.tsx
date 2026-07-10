@@ -3,7 +3,7 @@ import * as diagApi from '../../api/diagnostics';
 import { useToast } from '../../contexts/ToastContext';
 import styles from './styles.module.css';
 
-type Tab = 'caddy' | 'hysteria' | 'ports' | 'config';
+type Tab = 'caddy' | 'hysteria' | 'mieru' | 'vless' | 'ports' | 'config';
 
 export function DiagnosticsPage() {
   const { addToast } = useToast();
@@ -12,25 +12,32 @@ export function DiagnosticsPage() {
   const [ports, setPorts] = useState('');
   const [config, setConfig] = useState('');
   const [caddyfile, setCaddyfile] = useState('');
+  const [mieruConfig, setMieruConfig] = useState('');
+  const [vlessConfig, setVlessConfig] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setLoading(true);
     const load = async () => {
       try {
-        if (tab === 'caddy' || tab === 'hysteria') {
-          const res = await diagApi.getLogs(tab);
+        if (tab === 'caddy' || tab === 'hysteria' || tab === 'mieru' || tab === 'vless') {
+          const kind = tab === 'caddy' ? 'caddy' : tab === 'hysteria' ? 'hysteria' : tab;
+          const res = await diagApi.getLogs(kind);
           setLogs(res.output);
         } else if (tab === 'ports') {
           const res = await diagApi.getPorts();
           setPorts(res.output);
         } else if (tab === 'config') {
-          const [hyRes, caddyRes] = await Promise.all([
+          const [hyRes, caddyRes, mieruRes, vlessRes] = await Promise.all([
             diagApi.getHysteriaConfig(),
             diagApi.getCaddyfile(),
+            diagApi.getMieruConfig().catch(() => ({ exists: false, output: '—' })),
+            diagApi.getVlessConfig().catch(() => ({ exists: false, output: '—' })),
           ]);
           setConfig(hyRes.output);
           setCaddyfile(caddyRes.output);
+          setMieruConfig(mieruRes.output);
+          setVlessConfig(vlessRes.output);
         }
       } catch (err) {
         addToast(err instanceof Error ? err.message : 'Ошибка загрузки', 'error');
@@ -42,6 +49,8 @@ export function DiagnosticsPage() {
   const tabs: { key: Tab; label: string }[] = [
     { key: 'caddy', label: 'Caddy' },
     { key: 'hysteria', label: 'Hysteria' },
+    { key: 'mieru', label: 'mieru' },
+    { key: 'vless', label: 'VLESS' },
     { key: 'ports', label: 'Порты' },
     { key: 'config', label: 'Конфиг' },
   ];
@@ -58,7 +67,7 @@ export function DiagnosticsPage() {
 
       {loading ? <div className={styles.loading}>Загрузка...</div> : (
         <>
-          {(tab === 'caddy' || tab === 'hysteria') && (
+          {(tab === 'caddy' || tab === 'hysteria' || tab === 'mieru' || tab === 'vless') && (
             <div className={styles.card}>
               <div className={styles.cardBody}>
                 <pre className={styles.logBox}>{logs || 'Нет логов'}</pre>
@@ -85,6 +94,18 @@ export function DiagnosticsPage() {
                 <div className={styles.cardHeader}><h3 className={styles.cardTitle}>Hysteria2 config</h3></div>
                 <div className={styles.cardBody}>
                   <pre className={styles.logBox}>{config || '—'}</pre>
+                </div>
+              </div>
+              <div className={styles.card}>
+                <div className={styles.cardHeader}><h3 className={styles.cardTitle}>mieru config</h3></div>
+                <div className={styles.cardBody}>
+                  <pre className={styles.logBox}>{mieruConfig || '—'}</pre>
+                </div>
+              </div>
+              <div className={styles.card}>
+                <div className={styles.cardHeader}><h3 className={styles.cardTitle}>VLESS (Xray) config</h3></div>
+                <div className={styles.cardBody}>
+                  <pre className={styles.logBox}>{vlessConfig || '—'}</pre>
                 </div>
               </div>
             </>

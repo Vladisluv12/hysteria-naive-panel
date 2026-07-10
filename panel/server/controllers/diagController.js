@@ -23,7 +23,7 @@ function testPath(systemPath) {
 async function getLogs(req, res) {
   const { kind } = req.params;
   const lines = Math.max(10, Math.min(parseInt(req.query.lines || '60', 10) || 60, 500));
-  const unitMap = { naive: 'naive', caddy: 'naive', hy2: 'hysteria', hysteria: 'hysteria', panel: 'pm2-root' };
+  const unitMap = { naive: 'naive', caddy: 'naive', hy2: 'hysteria', hysteria: 'hysteria', mieru: 'mita', vless: 'xray', xray: 'xray', panel: 'pm2-root' };
   const unit = unitMap[kind];
   if (!unit) return res.status(400).json({ error: 'bad kind' });
 
@@ -38,8 +38,12 @@ async function getLogs(req, res) {
 
 async function getPorts(req, res) {
   const cfg = loadConfig();
-  const output = await checkPorts(cfg.port);
-  res.json({ output });
+  const ports = [cfg.port, cfg.mieruPort, cfg.vlessPort].filter(Boolean);
+  const uniquePorts = [...new Set(ports)];
+  const portChecks = await Promise.all(
+    uniquePorts.map(p => checkPorts(p))
+  );
+  res.json({ output: portChecks.join('\n') });
 }
 
 function getHysteriaConfig(req, res) {
@@ -54,6 +58,43 @@ function getHysteriaConfig(req, res) {
     res.json({ exists: true, output: raw });
   } catch (e) {
     res.json({ exists: false, output: 'Ошибка чтения: ' + e.message });
+  }
+}
+
+function getMieruConfig(req, res) {
+  const cfgPath = testPath('/etc/mita/server.json');
+  if (!fs.existsSync(cfgPath)) {
+    return res.json({ exists: false, output: cfgPath + ' не найден' });
+  }
+  try {
+    let raw = fs.readFileSync(cfgPath, 'utf8');
+    const cfg = JSON.parse(raw);
+    if (cfg.users) cfg.users = cfg.users.map(u => ({ ...u, password: '***masked***' }));
+    raw = JSON.stringify(cfg, null, 2);
+    res.json({ exists: true, output: raw });
+  } catch (e) {
+    res.json({ exists: false, output: 'Ошибка чтения: ' + e.message });
+  }
+}
+
+function getVlessConfig(req, res) {
+  const cfgPaths = [testPath('/usr/local/etc/xray/config.json'), testPath('/etc/xray/config.json')];
+  let found = false;
+  for (const cfgPath of cfgPaths) {
+    if (fs.existsSync(cfgPath)) {
+      try {
+        let raw = fs.readFileSync(cfgPath, 'utf8');
+        raw = raw.replace(/"id":\s*"[^"]+"/g, '"id": "***masked***"');
+        raw = raw.replace(/"certificateFile":\s*"[^"]+"/g, '"certificateFile": "***"');
+        raw = raw.replace(/"keyFile":\s*"[^"]+"/g, '"keyFile": "***"');
+        res.json({ exists: true, output: raw });
+        found = true;
+        break;
+      } catch (e) { /* try next */ }
+    }
+  }
+  if (!found) {
+    res.json({ exists: false, output: 'Xray config не найден' });
   }
 }
 
@@ -149,4 +190,4 @@ function applyTuning(req, res) {
   p.on('error', (e) => res.json({ success: false, message: e.message }));
 }
 
-module.exports = { getLogs, getPorts, getHysteriaConfig, getCaddyfile, fixHy2Tls, getTuningStatus, applyTuning };
+module.exports = { getLogs, getPorts, getHysteriaConfig, getCaddyfile, getMieruConfig, getVlessConfig, fixHy2Tls, getTuningStatus, applyTuning };

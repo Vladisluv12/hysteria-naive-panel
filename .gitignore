@@ -17,3 +17,9 @@ __pycache__/
 .venv/
 tests/integration/.venv/
 .serena/
+knowledge-base/
+.mimocode/
+.opencode/
+opencode.jsonc
+PROMPT_MIERU_VLESS.md
+SESSION-zapret2-setup.md

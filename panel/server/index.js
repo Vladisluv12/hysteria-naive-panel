@@ -423,7 +423,8 @@ function handleInstallVless(ws, data) {
   runScript(ws, 'install_vless.sh', {
     VLESS_DOMAIN: domain, VLESS_USERNAME: username, VLESS_PASSWORD: password,
     VLESS_UUID: uuid,
-    PORT: String(cfg.vlessPort || cfg.port || 443)
+    PORT: String(cfg.vlessPort || cfg.port || 443),
+    VLESS_ENCRYPTION: process.env.VLESS_ENCRYPTION === '1' ? '1' : '0'
   }, (code) => {
     const outputText = installOutput.join('');
     if (code === 0) {
@@ -444,6 +445,10 @@ function handleInstallVless(ws, data) {
         } catch {}
       }
 
+      // Parse optional VLESS encryption (PR 5067) keys from install script output
+      const decryptionMatch = outputText.match(/VLESS_DECRYPTION=(\S+)/);
+      const encryptionMatch = outputText.match(/VLESS_ENCRYPTION_STR=(\S+)/);
+
       const finalCfg = updateConfig(c => {
         c.installed = true;
         if (privKey) c.vlessRealityPrivateKey = privKey;
@@ -451,13 +456,16 @@ function handleInstallVless(ws, data) {
         // Save REALITY target and serverNames for self-steal mode
         if (!c.vlessRealityTarget) c.vlessRealityTarget = 'www.google.com:443';
         if (!c.vlessRealityServerNames) c.vlessRealityServerNames = [domain];
+        if (decryptionMatch) c.vlessDecryption = decryptionMatch[1];
+        if (encryptionMatch) c.vlessEncryption = encryptionMatch[1];
       });
       sendLog(ws, '✅ VLESS готов!', 'done', 100, 'success');
+      const encryption = encodeURIComponent(finalCfg.vlessEncryption || 'none');
       ws.send(JSON.stringify({
         type: 'install_done',
         links: {
           vless: pubKey
-            ? `vless://${uuid}@${domain}:${finalCfg.vlessPort || finalCfg.port || 443}?encryption=none&security=reality&sni=${domain}&fp=chrome&type=xhttp&path=/xhttp&mode=packet-up&noGRPCHeader=true&xmux.maxConcurrency=32-64&pbk=${pubKey}#${encodeURIComponent(username)}`
+            ? `vless://${uuid}@${domain}:${finalCfg.vlessPort || finalCfg.port || 443}?encryption=${encryption}&security=reality&sni=${domain}&fp=chrome&type=xhttp&path=/xhttp&mode=packet-up&noGRPCHeader=true&xmux.maxConcurrency=32-64&pbk=${pubKey}#${encodeURIComponent(username)}`
             : `vless://${uuid}@${domain}:${finalCfg.port || 443}?type=tcp&security=tls&sni=${domain}#${encodeURIComponent(username)}`
         }
       }));

@@ -16,3 +16,11 @@ export function getHysteriaConfig(): Promise<HysteriaConfigResponse> {
 export function getCaddyfile(): Promise<CaddyfileResponse> {
   return get('/api/diag/caddyfile');
 }
+
+export function getMieruConfig(): Promise<HysteriaConfigResponse> {
+  return get('/api/diag/mieru-config');
+}
+
+export function getVlessConfig(): Promise<HysteriaConfigResponse> {
+  return get('/api/diag/vless-config');
+}

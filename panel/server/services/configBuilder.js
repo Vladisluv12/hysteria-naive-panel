@@ -243,7 +243,7 @@ function buildVlessConfigObject(cfg) {
       tag: 'vless-in',
       settings: {
         clients,
-        decryption: 'none',
+        decryption: cfg.vlessDecryption || 'none',
       },
       streamSettings: {
         network: 'xhttp',

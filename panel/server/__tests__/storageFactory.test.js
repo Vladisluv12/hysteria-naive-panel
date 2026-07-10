@@ -52,7 +52,7 @@ describe('storageFactory (USE_SQLITE=false)', () => {
     const mod = await import('../services/storageFactory.js');
     const cfg = mod.defaultConfig();
     expect(cfg.installed).toBe(false);
-    expect(cfg.stack).toEqual({ naive: false, hy2: false });
+    expect(cfg.stack).toEqual({ naive: false, hy2: false, mieru: false, vless: false });
     expect(cfg.naiveUsers).toEqual([]);
     expect(cfg.hy2Users).toEqual([]);
   });

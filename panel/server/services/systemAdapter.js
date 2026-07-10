@@ -96,6 +96,20 @@ async function restartHysteria() {
   await runCommand('systemctl', ['restart', 'hysteria']);
 }
 
+async function restartMieru() {
+  if (TEST_MODE) return;
+  await runCommand('systemctl', ['restart', 'mita']).then(async () => {
+    await new Promise(r => setTimeout(r, 2000));
+    await runCommand('mita', ['apply', 'config', '/etc/mita/server.json']);
+    await runCommand('mita', ['start']);
+  });
+}
+
+async function restartVless() {
+  if (TEST_MODE) return;
+  await runCommand('systemctl', ['restart', 'xray']);
+}
+
 async function getJournalctl(unit, lines = 60) {
   const { stdout, stderr } = await runCommand('journalctl', ['-u', unit, '-n', String(lines), '--no-pager', '--output=cat']);
   return stdout || stderr || '(no logs)';
@@ -172,6 +186,8 @@ module.exports = {
   reloadCaddy,
   reloadNaive,
   restartHysteria,
+  restartMieru,
+  restartVless,
   getJournalctl,
   runPm2Logs,
   execSyncSafe,

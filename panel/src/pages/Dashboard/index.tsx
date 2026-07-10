@@ -60,6 +60,8 @@ export function DashboardPage() {
 
   const caddyActive = status.naive?.active ?? false;
   const hy2Active = status.hy2?.active ?? false;
+  const mieruActive = status.mieru?.active ?? false;
+  const vlessActive = status.vless?.active ?? false;
 
   return (
     <div className={styles.page}>
@@ -142,6 +144,72 @@ export function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {status.stack?.mieru && (
+        <div className={styles.card}>
+          <div className={styles.cardHeader}>
+            <div className={styles.cardTitleWrap}>
+              <div className={`${styles.serviceIcon} ${styles.mieru || ''}`}>M</div>
+              <div>
+                <h3 className={styles.cardTitle}>mieru</h3>
+                <div className={styles.cardSubtitle}>TCP/{status.mieruPort || status.port} · Go proxy</div>
+              </div>
+            </div>
+            <div className={styles.status}>
+              <span className={`${styles.dot} ${mieruActive ? styles.dotGreen : styles.dotGray}`} />
+              {mieruActive ? 'active' : (status.mieru ? 'inactive' : '—')}
+            </div>
+          </div>
+          <div className={styles.cardBody}>
+            <div className={styles.installed}>
+              <div className={styles.stats}>
+                <div>
+                  <div className={styles.statLabel}>Пользователей</div>
+                  <div className={styles.statValue}>{status.mieru?.usersCount ?? '—'}</div>
+                </div>
+              </div>
+              <div className={styles.buttons}>
+                <button className={`${styles.btn} ${styles.btnSuccess}`} onClick={() => handleServiceAction('mieru', 'start')}>Старт</button>
+                <button className={`${styles.btn} ${styles.btnWarning}`} onClick={() => handleServiceAction('mieru', 'restart')}>Рестарт</button>
+                <button className={`${styles.btn} ${styles.btnDanger}`} onClick={() => handleServiceAction('mieru', 'stop')}>Стоп</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        )}
+
+        {status.stack?.vless && (
+        <div className={styles.card}>
+          <div className={styles.cardHeader}>
+            <div className={styles.cardTitleWrap}>
+              <div className={`${styles.serviceIcon} ${styles.vless || ''}`}>V</div>
+              <div>
+                <h3 className={styles.cardTitle}>VLESS</h3>
+                <div className={styles.cardSubtitle}>TCP/{status.vlessPort || status.port} · Xray</div>
+              </div>
+            </div>
+            <div className={styles.status}>
+              <span className={`${styles.dot} ${vlessActive ? styles.dotGreen : styles.dotGray}`} />
+              {vlessActive ? 'active' : (status.vless ? 'inactive' : '—')}
+            </div>
+          </div>
+          <div className={styles.cardBody}>
+            <div className={styles.installed}>
+              <div className={styles.stats}>
+                <div>
+                  <div className={styles.statLabel}>Пользователей</div>
+                  <div className={styles.statValue}>{status.vless?.usersCount ?? '—'}</div>
+                </div>
+              </div>
+              <div className={styles.buttons}>
+                <button className={`${styles.btn} ${styles.btnSuccess}`} onClick={() => handleServiceAction('vless', 'start')}>Старт</button>
+                <button className={`${styles.btn} ${styles.btnWarning}`} onClick={() => handleServiceAction('vless', 'restart')}>Рестарт</button>
+                <button className={`${styles.btn} ${styles.btnDanger}`} onClick={() => handleServiceAction('vless', 'stop')}>Стоп</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        )}
       </div>
 
       <div className={`${styles.card} ${styles.trafficCard}`}>
@@ -176,6 +244,14 @@ export function DashboardPage() {
               <div className={styles.trafficRow}>
                 <span className={styles.trafficLabel}>Hysteria2</span>
                 <span className={styles.trafficValue}>{status.stack?.hy2 ? '✓' : '✗'}</span>
+              </div>
+              <div className={styles.trafficRow}>
+                <span className={styles.trafficLabel}>mieru</span>
+                <span className={styles.trafficValue}>{status.stack?.mieru ? '✓' : '✗'}</span>
+              </div>
+              <div className={styles.trafficRow}>
+                <span className={styles.trafficLabel}>VLESS</span>
+                <span className={styles.trafficValue}>{status.stack?.vless ? '✓' : '✗'}</span>
               </div>
             </div>
           </div>
@@ -231,6 +307,52 @@ export function DashboardPage() {
                   </div>
                 ))}
               </div>
+              {traffic.perProto?.mieru && (
+              <div className={styles.trafficGroup}>
+                <div className={styles.trafficTitle}>mieru (TCP)</div>
+                <div className={styles.trafficRow}>
+                  <span className={styles.trafficLabel}>RX (загрузка)</span>
+                  <span className={styles.trafficValue}>{traffic.perProto?.mieru?.rxFormatted || '0 B'}</span>
+                </div>
+                <div className={styles.trafficRow}>
+                  <span className={styles.trafficLabel}>TX (отдача)</span>
+                  <span className={styles.trafficValue}>{traffic.perProto?.mieru?.txFormatted || '0 B'}</span>
+                </div>
+                <div className={styles.trafficRow}>
+                  <span className={styles.trafficLabel}>Активных</span>
+                  <span className={styles.trafficValue}>{traffic.connections?.mieru ?? '—'}</span>
+                </div>
+                {traffic.perUser?.mieru?.users && Object.entries(traffic.perUser.mieru.users).map(([user, u]) => (
+                  <div key={user} className={styles.trafficRow}>
+                    <span className={styles.trafficLabel}>{user}</span>
+                    <span className={styles.trafficValue}>{u.totalFormatted}</span>
+                  </div>
+                ))}
+              </div>
+              )}
+              {traffic.perProto?.vless && (
+              <div className={styles.trafficGroup}>
+                <div className={styles.trafficTitle}>VLESS (TCP)</div>
+                <div className={styles.trafficRow}>
+                  <span className={styles.trafficLabel}>RX (загрузка)</span>
+                  <span className={styles.trafficValue}>{traffic.perProto?.vless?.rxFormatted || '0 B'}</span>
+                </div>
+                <div className={styles.trafficRow}>
+                  <span className={styles.trafficLabel}>TX (отдача)</span>
+                  <span className={styles.trafficValue}>{traffic.perProto?.vless?.txFormatted || '0 B'}</span>
+                </div>
+                <div className={styles.trafficRow}>
+                  <span className={styles.trafficLabel}>Активных</span>
+                  <span className={styles.trafficValue}>{traffic.connections?.vless ?? '—'}</span>
+                </div>
+                {traffic.perUser?.vless?.users && Object.entries(traffic.perUser.vless.users).map(([user, u]) => (
+                  <div key={user} className={styles.trafficRow}>
+                    <span className={styles.trafficLabel}>{user}</span>
+                    <span className={styles.trafficValue}>{u.totalFormatted}</span>
+                  </div>
+                ))}
+              </div>
+              )}
             </div>
           </div>
         </div>

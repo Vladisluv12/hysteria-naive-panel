@@ -173,8 +173,90 @@ async function collectHy2Users() {
   }
 }
 
+async function collectMieruUsers() {
+  try {
+    const configPath = testPath('/etc/mita/server.json');
+    if (!fs.existsSync(configPath)) return { users: {}, updated_at: null };
+
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const users = {};
+    const port = config.portBindings && config.portBindings[0] ? config.portBindings[0].port : 443;
+    const base = `http://127.0.0.1:${port}`;
+
+    try {
+      const trafficRaw = await httpGet(`${base}/traffic`);
+      const trafficData = JSON.parse(trafficRaw);
+      for (const [username, stats] of Object.entries(trafficData)) {
+        const rx = Number(stats.rx) || 0;
+        const tx = Number(stats.tx) || 0;
+        users[username] = {
+          rx,
+          tx,
+          conns: 0,
+          rxFormatted: formatBytes(rx),
+          txFormatted: formatBytes(tx),
+          totalFormatted: formatBytes(rx + tx),
+        };
+      }
+    } catch { /* stats endpoint may not be available */ }
+
+    return { users, updated_at: Date.now() };
+  } catch {
+    return { users: {}, updated_at: null };
+  }
+}
+
+async function collectVlessUsers() {
+  try {
+    const configPaths = [
+      testPath('/usr/local/etc/xray/config.json'),
+      testPath('/etc/xray/config.json'),
+    ];
+    let configPath = null;
+    for (const p of configPaths) {
+      if (fs.existsSync(p)) { configPath = p; break; }
+    }
+    if (!configPath) return { users: {}, updated_at: null };
+
+    const users = {};
+    try {
+      const statsRaw = await execSimple('xray api statsquery --server=127.0.0.1:10085 2>/dev/null || echo ""');
+      if (statsRaw) {
+        try {
+          const statsJson = JSON.parse(statsRaw);
+          const stats = statsJson && statsJson.stat;
+          if (Array.isArray(stats)) {
+            for (const entry of stats) {
+              const name = entry.name || '';
+              const match = name.match(/^user>>>([^>]+)>>>traffic>>>(downlink|uplink)$/);
+              if (match) {
+                const [, username, direction] = match;
+                const val = Number(entry.value) || 0;
+                if (!users[username]) users[username] = { rx: 0, tx: 0 };
+                if (direction === 'downlink') users[username].rx += val;
+                else users[username].tx += val;
+              }
+            }
+          }
+        } catch { /* JSON parse error */ }
+      }
+    } catch { /* xray stats command not available */ }
+
+    for (const [username, stats] of Object.entries(users)) {
+      stats.conns = 0;
+      stats.rxFormatted = formatBytes(stats.rx);
+      stats.txFormatted = formatBytes(stats.tx);
+      stats.totalFormatted = formatBytes(stats.rx + stats.tx);
+    }
+
+    return { users, updated_at: Date.now() };
+  } catch {
+    return { users: {}, updated_at: null };
+  }
+}
+
 async function collectActiveConnections() {
-  const result = { naive: 0, hy2: 0 };
+  const result = { naive: 0, hy2: 0, mieru: 0, vless: 0 };
 
   if (!TEST_MODE) {
     // NaiveProxy: sum conns from per-user traffic (Caddy tracks this)
@@ -208,9 +290,11 @@ async function collectActiveConnections() {
 async function getTraffic() {
   const traffic = collectTraffic();
   const connections = await collectActiveConnections();
-  const [naiveUsers, hy2Users] = await Promise.all([
+  const [naiveUsers, hy2Users, mieruUsers, vlessUsers] = await Promise.all([
     collectNaiveUsers(),
     collectHy2Users(),
+    collectMieruUsers(),
+    collectVlessUsers(),
   ]);
 
   const perProtoRaw = await trafficMonitor.readCounters();
@@ -237,10 +321,14 @@ async function getTraffic() {
     perProto: {
       naive: protoInfo(perProtoRaw.naive),
       hy2: protoInfo(perProtoRaw.hy2),
+      mieru: protoInfo(perProtoRaw.mieru),
+      vless: protoInfo(perProtoRaw.vless),
     },
     perUser: {
       naive: naiveUsers,
       hy2: hy2Users,
+      mieru: mieruUsers,
+      vless: vlessUsers,
     },
     connections,
     hourly: traffic ? traffic.hourly : [],
@@ -248,4 +336,4 @@ async function getTraffic() {
   };
 }
 
-module.exports = { getTraffic, collectTraffic, collectNaiveUsers, collectHy2Users, formatBytes, parseNetDev };
+module.exports = { getTraffic, collectTraffic, collectNaiveUsers, collectHy2Users, collectMieruUsers, collectVlessUsers, formatBytes, parseNetDev };

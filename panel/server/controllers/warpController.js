@@ -4,6 +4,10 @@ const { execFile } = require('child_process');
 const { promisify } = require('util');
 const fs = require('fs');
 const path = require('path');
+const { loadConfig: loadPanelConfig } = require('../services/storageFactory.js');
+const { buildVlessConfigObject } = require('../services/configBuilder.js');
+const { AtomicFileTransaction } = require('../services/atomicConfig.js');
+const { restartVless } = require('../services/systemAdapter.js');
 
 const execFileAsync = promisify(execFile);
 
@@ -90,6 +94,23 @@ function rewriteWarpConf(allowedIPs) {
   return true;
 }
 
+const VLESS_CONFIG_PATH = '/etc/xray/config.json';
+
+async function rebuildXrayConfig() {
+  try {
+    const cfg = loadPanelConfig();
+    if (!cfg.installed || !cfg.stack || !cfg.stack.vless) return;
+    const configObj = buildVlessConfigObject(cfg);
+    if (!configObj) return;
+    const newContent = JSON.stringify(configObj, null, 2);
+    const tx = new AtomicFileTransaction(VLESS_CONFIG_PATH);
+    const ok = tx.execute(newContent, () => true);
+    if (ok) await restartVless();
+  } catch (e) {
+    console.error('[warpController] rebuildXrayConfig error:', e.message);
+  }
+}
+
 async function getWarpStatus(req, res) {
   try {
     const active = await new Promise(resolve => {
@@ -99,8 +120,8 @@ async function getWarpStatus(req, res) {
     });
 
     const results = await Promise.all([
-      execFileAsync('curl', ['-s', '--interface', 'warp', '--max-time', '3', 'https://cloudflare.com/cdn-cgi/trace'], { timeout: 5000 }).then(r => r.stdout).catch(() => ''),
-      execFileAsync('curl', ['-s', '--max-time', '3', 'https://ifconfig.me'], { timeout: 5000 }).then(r => r.stdout).catch(() => ''),
+      execFileAsync('curl', ['-s', '-4', '--interface', 'warp', '--max-time', '3', 'https://cloudflare.com/cdn-cgi/trace'], { timeout: 5000 }).then(r => r.stdout).catch(() => ''),
+      execFileAsync('curl', ['-s', '-4', '--max-time', '3', 'https://ifconfig.me'], { timeout: 5000 }).then(r => r.stdout).catch(() => ''),
     ]);
     const [trace, realTrace] = results;
 
@@ -156,6 +177,9 @@ async function updateWarpConfig(req, res) {
           .catch(e => resolve(e));
       });
     }
+
+    // Rebuild xray config with WARP outbound + routing
+    await rebuildXrayConfig();
 
     res.json(config);
   } catch (e) {

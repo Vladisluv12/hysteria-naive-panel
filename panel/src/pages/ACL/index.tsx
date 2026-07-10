@@ -84,6 +84,44 @@ function generateNaiveAclPreview(params: {
   return 'acl {\n' + lines.join('\n') + '\n}';
 }
 
+function generateMieruAclPreview(params: {
+  enabled: boolean;
+  blockDomains: string[];
+  blockGeosite: string[];
+}): string {
+  if (!params.enabled) return '(ACL выключен)';
+  const rules: string[] = [];
+  params.blockDomains.forEach(d => {
+    const domain = d.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    if (domain && domain.length <= 253) rules.push(`  REJECT domain: ${domain}`);
+  });
+  params.blockGeosite.forEach(c => rules.push(`  REJECT geosite: ${c}`));
+  if (rules.length === 0) return '(нет правил)';
+  return 'egress.rules:\n' + rules.join('\n') + '\n  DIRECT *';
+}
+
+function generateVlessAclPreview(params: {
+  blockPrivateIPs: boolean;
+  enabled: boolean;
+  blockDomains: string[];
+  blockGeosite: string[];
+  blockGeoip: string[];
+}): string {
+  if (!params.enabled) return '(ACL выключен)';
+  const rules: string[] = [];
+  if (params.blockPrivateIPs) {
+    rules.push('  PRIVATE_IPs → blocked (blackhole)');
+  }
+  params.blockDomains.forEach(d => {
+    const domain = d.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    if (domain && domain.length <= 253) rules.push(`  domain[${domain}] → blocked`);
+  });
+  params.blockGeosite.forEach(c => rules.push(`  domain[geosite:${c}] → blocked`));
+  params.blockGeoip.forEach(c => rules.push(`  ip[geoip:${c}] → blocked`));
+  if (rules.length === 0) return '(нет правил)';
+  return 'routing.rules:\n' + rules.join('\n');
+}
+
 export function AclPage() {
   const { addToast } = useToast();
   const [acl, setAcl] = useState<AclConfig | null>(null);
@@ -101,7 +139,7 @@ export function AclPage() {
   const [geoipList, setGeoipList] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [geoUpdating, setGeoUpdating] = useState(false);
-  const [previewTab, setPreviewTab] = useState<'hy2' | 'naive'>('hy2');
+  const [previewTab, setPreviewTab] = useState<'hy2' | 'naive' | 'mieru' | 'vless'>('hy2');
 
   const loadData = useCallback(async () => {
     try {
@@ -186,6 +224,20 @@ export function AclPage() {
     directCidrs: directCidrs.split('\n').map(c => c.trim()).filter(Boolean),
     directAll,
   }), [blockPrivateIPs, enabled, blockDomains, blockGeosite, blockGeoip, directCidrs, directAll]);
+
+  const mieruAclPreview = useMemo(() => generateMieruAclPreview({
+    enabled,
+    blockDomains: blockDomains.split('\n').map(d => d.trim()).filter(Boolean),
+    blockGeosite: blockGeosite.split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
+  }), [enabled, blockDomains, blockGeosite]);
+
+  const vlessAclPreview = useMemo(() => generateVlessAclPreview({
+    blockPrivateIPs,
+    enabled,
+    blockDomains: blockDomains.split('\n').map(d => d.trim()).filter(Boolean),
+    blockGeosite: blockGeosite.split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
+    blockGeoip: blockGeoip.split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
+  }), [blockPrivateIPs, enabled, blockDomains, blockGeosite, blockGeoip]);
 
   if (loading) return <div className={styles.loading}>Загрузка...</div>;
 
@@ -412,11 +464,27 @@ export function AclPage() {
             >
               NaiveProxy (Caddy)
             </button>
+            <button
+              className={`${styles.tab} ${previewTab === 'mieru' ? styles.tabActive : ''}`}
+              onClick={() => setPreviewTab('mieru')}
+            >
+              mieru
+            </button>
+            <button
+              className={`${styles.tab} ${previewTab === 'vless' ? styles.tabActive : ''}`}
+              onClick={() => setPreviewTab('vless')}
+            >
+              VLESS (Xray)
+            </button>
           </div>
           <pre className={styles.aclPreview}>
             {previewTab === 'hy2'
               ? (aclPreview || '(пусто)')
-              : (naiveAclPreview || '(пусто)')}
+              : previewTab === 'naive'
+              ? (naiveAclPreview || '(пусто)')
+              : previewTab === 'mieru'
+              ? mieruAclPreview
+              : vlessAclPreview}
           </pre>
         </div>
       </div>
