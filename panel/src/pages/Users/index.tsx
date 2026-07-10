@@ -57,9 +57,9 @@ export function UsersPage() {
       setUsers(u.users);
       setDomain(config.domain || '');
       setPort(config.port);
-      setMieruPort((config as any).mieruPort || config.port);
-      setVlessPort((config as any).vlessPort || config.port);
-      setVlessPbk((config as any).vlessRealityPublicKey || '');
+      setMieruPort(config.mieruPort || config.port);
+      setVlessPort(config.vlessPort || config.port);
+      setVlessPbk(config.vlessRealityPublicKey || '');
 
       try {
         const traffic = await systemApi.getTraffic();
@@ -131,7 +131,7 @@ export function UsersPage() {
     if (proxyType === 'hysteria') return `hysteria2://${encodeURIComponent(u.username)}:${encodeURIComponent(u.password)}@${domain}:${port}?sni=${domain}&insecure=0#easy-xray-hys`;
     if (proxyType === 'mieru') return `mieru://${encodeURIComponent(u.username)}:${encodeURIComponent(u.password)}@${domain}:${mieruPort}#${encodeURIComponent(u.nickname || u.username)}`;
     if (proxyType === 'vless') {
-      const vuuid = (u as any).uuid || '';
+      const vuuid = u.uuid || '';
       return `vless://${encodeURIComponent(vuuid)}@${domain}:${vlessPort}?encryption=none&security=reality&sni=${domain}&fp=chrome&type=xhttp&path=/xhttp&mode=packet-up&noGRPCHeader=true&xmux.maxConcurrency=32-64&pbk=${vlessPbk}#${encodeURIComponent(u.nickname || u.username)}`;
     }
     return '';

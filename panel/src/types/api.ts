@@ -16,6 +16,7 @@ export interface HysteriaUser {
   expiresAt: string | null;
   remainingSec: number;
   expired: boolean;
+  uuid?: string;
 }
 
 export interface NaiveUserListResponse {
@@ -70,6 +71,7 @@ export interface Config {
   port: number;
   mieruPort?: number;
   vlessPort?: number;
+  vlessRealityPublicKey?: string;
   [key: string]: unknown;
 }
 

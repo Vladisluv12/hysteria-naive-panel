@@ -16,7 +16,7 @@ interface UserTableProps {
   trafficByUser: Record<string, UserTraffic>;
   onExtend: (username: string, currentExpiry: string | null) => void;
   onDelete: (username: string) => void;
-  onCopyLink: (user: any) => string;
+  onCopyLink: (user: User) => string;
 }
 
 function getDaysLeft(expiresAt: string | null): number | null {
