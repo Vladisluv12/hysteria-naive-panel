@@ -51,6 +51,10 @@ const HY2_ACL_PATH = testPath('/etc/hysteria/acl.rules');
 const HY2_GEOIP_PATH = testPath('/etc/hysteria/geoip.dat');
 const HY2_GEOSITE_PATH = testPath('/etc/hysteria/geosite.dat');
 
+const MIERU_ACL_PATH = testPath('/etc/mita/acl.json');
+const VLESS_GEOIP_PATH = testPath('/etc/xray/geoip.dat');
+const VLESS_GEOSITE_PATH = testPath('/etc/xray/geosite.dat');
+
 const DEFAULT_ACL = {
   enabled: false,
   blockDomains: [],
@@ -217,31 +221,100 @@ function downloadFile(url, destPath, maxRedirects = 5) {
   });
 }
 
+function parseGeositeCategories(datPath) {
+  try {
+    if (!fs.existsSync(datPath)) return [];
+    const buf = fs.readFileSync(datPath);
+    const categories = new Set();
+    let i = 0;
+    while (i < buf.length) {
+      const tag = buf[i++];
+      const wireType = tag & 0x07;
+      if (wireType === 2) {
+        let len = 0, shift = 0;
+        while (i < buf.length) {
+          const b = buf[i++];
+          len |= (b & 0x7f) << shift;
+          if ((b & 0x80) === 0) break;
+          shift += 7;
+        }
+        if (i + len > buf.length) break;
+        const str = buf.toString('utf8', i, i + len);
+        i += len;
+        if (str.length > 0 && str.length <= 64 && /^[a-z][a-z0-9-]*$/.test(str)) {
+          categories.add(str);
+        }
+      } else if (wireType === 0) {
+        while (i < buf.length && (buf[i++] & 0x80) !== 0) {}
+      } else if (wireType === 5) {
+        i += 4;
+      } else if (wireType === 1) {
+        i += 8;
+      } else {
+        break;
+      }
+    }
+    return [...categories].sort();
+  } catch {
+    return [];
+  }
+}
+
 async function downloadGeoDatasets() {
-  const baseDir = path.dirname(HY2_GEOIP_PATH);
-  fs.mkdirSync(baseDir, { recursive: true });
+  const hy2Dir = path.dirname(HY2_GEOIP_PATH);
+  fs.mkdirSync(hy2Dir, { recursive: true });
+  const xrayDir = path.dirname(VLESS_GEOIP_PATH);
+  fs.mkdirSync(xrayDir, { recursive: true });
 
   const geoipUrl = 'https://github.com/v2fly/geoip/releases/latest/download/geoip.dat';
-  const geositeUrl = 'https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat';
+  const dlcUrl = 'https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat';
+  const xrayGeositeUrl = 'https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat';
 
   const results = { geoip: false, geosite: false, error: null };
+
   try {
     await downloadFile(geoipUrl, HY2_GEOIP_PATH);
+    try { fs.copyFileSync(HY2_GEOIP_PATH, VLESS_GEOIP_PATH); } catch {}
     results.geoip = true;
   } catch (e) {
     results.error = `geoip.dat: ${e.message}`;
   }
+
   try {
-    await downloadFile(geositeUrl, HY2_GEOSITE_PATH);
+    await downloadFile(dlcUrl, HY2_GEOSITE_PATH);
     results.geosite = true;
   } catch (e) {
-    results.error = (results.error ? results.error + '; ' : '') + `geosite.dat: ${e.message}`;
+    results.error = (results.error ? results.error + '; ' : '') + `dlc.dat (hy2): ${e.message}`;
   }
+
+  try {
+    await downloadFile(xrayGeositeUrl, VLESS_GEOSITE_PATH);
+  } catch (e) {
+    results.error = (results.error ? results.error + '; ' : '') + `geosite.dat (xray): ${e.message}`;
+  }
+
+  const categories = parseGeositeCategories(VLESS_GEOSITE_PATH);
+  if (categories.length > 0) {
+    try {
+      const dataDir = path.join(__dirname, '../data');
+      fs.mkdirSync(dataDir, { recursive: true });
+      fs.writeFileSync(path.join(dataDir, 'geosite_categories.json'), JSON.stringify(categories));
+    } catch {}
+  }
+
+  const geoCountries = parseGeositeCategories(VLESS_GEOIP_PATH);
+  if (geoCountries.length > 0) {
+    try {
+      const dataDir = path.join(__dirname, '../data');
+      fs.writeFileSync(path.join(dataDir, 'geoip_countries.json'), JSON.stringify(geoCountries));
+    } catch {}
+  }
+
   return results;
 }
 
 function geoDatasetsExist() {
-  return fs.existsSync(HY2_GEOIP_PATH) && fs.existsSync(HY2_GEOSITE_PATH);
+  return fs.existsSync(HY2_GEOIP_PATH) && fs.existsSync(HY2_GEOSITE_PATH) && fs.existsSync(VLESS_GEOSITE_PATH);
 }
 
 function generateNaiveAcl(acl) {
@@ -288,10 +361,81 @@ function generateNaiveAcl(acl) {
   return '    acl {\n' + lines.join('\n') + '\n    }';
 }
 
+function generateVlessRoutingRules(acl) {
+  if (!acl.enabled) return null;
+
+  const rules = [];
+
+  if (acl.blockPrivateIPs !== false) {
+    PRIVATE_CIDRS.forEach(cidr => {
+      rules.push({ type: 'field', ip: [cidr], outboundTag: 'blocked' });
+    });
+  }
+
+  (acl.blockDomains || []).forEach(d => {
+    const domain = normalizeDomain(d);
+    if (domain && domain.length <= 253) {
+      rules.push({ type: 'field', domain: [domain], outboundTag: 'blocked' });
+    }
+  });
+
+  (acl.blockGeosite || []).forEach(c => {
+    if (c && GEOSITE_CATEGORIES.includes(c)) {
+      rules.push({ type: 'field', domain: [`geosite:${c}`], outboundTag: 'blocked' });
+    }
+  });
+
+  (acl.blockGeoip || []).forEach(c => {
+    if (c && GEOIP_COUNTRIES.includes(c)) {
+      rules.push({ type: 'field', ip: [`geoip:${c}`], outboundTag: 'blocked' });
+    }
+  });
+
+  return rules;
+}
+
+function generateMieruAclJson(acl) {
+  if (!acl.enabled) return null;
+
+  const rules = [];
+  (acl.blockDomains || []).forEach(d => {
+    const domain = normalizeDomain(d);
+    if (domain && domain.length <= 253) {
+      rules.push({ action: 'REJECT', criteria: { domainSuffix: domain } });
+    }
+  });
+
+  (acl.blockGeosite || []).forEach(c => {
+    if (c && GEOSITE_CATEGORIES.includes(c)) {
+      rules.push({ action: 'REJECT', criteria: { domainSuffix: c } });
+    }
+  });
+
+  return rules.length > 0 ? { rules } : null;
+}
+
+function writeMieruAclFile() {
+  const acl = loadAcl();
+  try {
+    const dir = path.dirname(MIERU_ACL_PATH);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const aclJson = generateMieruAclJson(acl);
+    if (aclJson) {
+      fs.writeFileSync(MIERU_ACL_PATH, JSON.stringify(aclJson, null, 2), 'utf8');
+    }
+    return true;
+  } catch (e) {
+    console.error('[acl] mieru write failed:', e.message);
+    return false;
+  }
+}
+
 module.exports = {
   loadAcl, saveAcl, generateAclContent, generateNaiveAcl, writeAclFile,
+  generateVlessRoutingRules, generateMieruAclJson, writeMieruAclFile,
   hasBlockRules, needsGeoDatasets, downloadGeoDatasets, geoDatasetsExist,
   isValidCidr, dedupCidrs, testPath,
   GEOSITE_CATEGORIES, GEOIP_COUNTRIES, PRIVATE_CIDRS,
   HY2_ACL_PATH, HY2_GEOIP_PATH, HY2_GEOSITE_PATH,
+  MIERU_ACL_PATH, VLESS_GEOIP_PATH, VLESS_GEOSITE_PATH,
 };
