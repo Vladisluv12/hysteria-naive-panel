@@ -1,7 +1,38 @@
 'use strict';
 
+const fs = require('fs');
 const yaml = require('js-yaml');
-const { generateNaiveAcl, generateMieruAclJson, generateVlessRoutingRules, needsGeoDatasets, HY2_GEOIP_PATH, HY2_GEOSITE_PATH, loadAcl } = require('./aclBuilder.js');
+const { generateNaiveAcl, generateMieruAclJson, generateVlessRoutingRules, needsGeoDatasets, HY2_GEOIP_PATH, HY2_GEOSITE_PATH, loadAcl, PRIVATE_CIDRS, GEOSITE_CATEGORIES, GEOIP_COUNTRIES } = require('./aclBuilder.js');
+
+function normalizeDomain(d) {
+  return String(d).trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '');
+}
+
+const WARP_CONFIG_PATH = '/etc/wireguard/warp-config.json';
+const WARP_CONF_PATH = '/etc/wireguard/warp.conf';
+
+function loadWarpConfig() {
+  try {
+    if (fs.existsSync(WARP_CONFIG_PATH)) {
+      return JSON.parse(fs.readFileSync(WARP_CONFIG_PATH, 'utf8'));
+    }
+  } catch (_) {}
+  return { enabled: false, domains: [], cidrs: [] };
+}
+
+function loadWarpWireguardConf() {
+  try {
+    if (!fs.existsSync(WARP_CONF_PATH)) return null;
+    const text = fs.readFileSync(WARP_CONF_PATH, 'utf8');
+    const privKey = text.match(/PrivateKey\s*=\s*(\S+)/)?.[1] || '';
+    const pubKey = text.match(/PublicKey\s*=\s*(\S+)/g)?.pop()?.match(/=\s*(\S+)/)?.[1] || '';
+    const endpoint = text.match(/Endpoint\s*=\s*(\S+)/)?.[1] || '';
+    const addr = text.match(/Address\s*=\s*(\S+)/)?.[1] || '';
+    if (!privKey || !pubKey || !endpoint) return null;
+    return { privateKey: privKey, publicKey: pubKey, endpoint, address: addr.split('/')[0] || '172.16.0.2' };
+  } catch (_) {}
+  return null;
+}
 
 function buildCaddyContent(cfg, customBlocks, acl) {
   if (!cfg.stack || !cfg.stack.naive || !cfg.domain) return '';
@@ -114,6 +145,8 @@ function buildMieruConfigObject(cfg) {
   (cfg.mieruUsers || []).forEach(u => {
     if (u.username && u.password && !isExpired(u)) {
       users.push({ name: u.username, password: u.password });
+    } else if (u.username && !u.password) {
+      console.error('[configBuilder] mieru user without password skipped:', u.username);
     }
   });
   if (users.length === 0) {
@@ -134,15 +167,36 @@ function buildMieruConfigObject(cfg) {
   };
 
   const acl = loadAcl();
-  if (acl.enabled && (acl.blockDomains || []).length > 0) {
-    const egress = {
-      rules: (acl.blockDomains || []).filter(Boolean).map(d => {
-        const domain = String(d).trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '');
-        return { domainNames: [domain], action: 'REJECT' };
-      }).filter(r => r.domainNames[0].length > 0)
-    };
-    egress.rules.push({ domainNames: ['*'], action: 'DIRECT' });
-    config.egress = egress;
+  const hasBlockDomains = (acl.blockDomains || []).length > 0;
+  const hasBlockGeosite = (acl.blockGeosite || []).length > 0;
+  const hasBlockGeoip = (acl.blockGeoip || []).length > 0;
+
+  if (acl.enabled && (hasBlockDomains || hasBlockGeosite || hasBlockGeoip)) {
+    const rules = [];
+
+    (acl.blockDomains || []).filter(Boolean).forEach(d => {
+      const domain = String(d).trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '');
+      if (domain.length > 0 && domain.length <= 253) {
+        rules.push({ domainNames: [domain], action: 'REJECT' });
+      }
+    });
+
+    (acl.blockGeosite || []).forEach(c => {
+      if (c && GEOSITE_CATEGORIES.includes(c)) {
+        rules.push({ domainNames: [`geosite:${c}`], action: 'REJECT' });
+      }
+    });
+
+    (acl.blockGeoip || []).forEach(c => {
+      if (c && GEOIP_COUNTRIES.includes(c)) {
+        rules.push({ domainNames: [`geoip:${c}`], action: 'REJECT' });
+      }
+    });
+
+    if (rules.length > 0) {
+      rules.push({ domainNames: ['*'], action: 'DIRECT' });
+      config.egress = { rules };
+    }
   }
 
   return config;
@@ -155,6 +209,8 @@ function buildVlessConfigObject(cfg) {
   (cfg.vlessUsers || []).forEach(u => {
     if (u.username && u.uuid && !isExpired(u)) {
       clients.push({ id: u.uuid, email: u.username, level: 0, flow: '' });
+    } else if (u.username && !u.uuid) {
+      console.error('[configBuilder] vless user without uuid skipped:', u.username);
     }
   });
   if (clients.length === 0) {
@@ -219,14 +275,76 @@ function buildVlessConfigObject(cfg) {
     },
   };
 
+  // ACL: always block private IPs, block other rules when acl.enabled
   const acl = loadAcl();
+  const aclRules = [];
+
+  // Private IPs always blocked
+  if (acl.blockPrivateIPs !== false) {
+    PRIVATE_CIDRS.forEach(cidr => {
+      aclRules.push({ type: 'field', ip: [cidr], outboundTag: 'blocked' });
+    });
+  }
+
+  // Domain/geo rules only when ACL enabled
   if (acl.enabled) {
-    const routingRules = generateVlessRoutingRules(acl);
-    if (routingRules && routingRules.length > 0) {
-      config.outbounds.push({ protocol: 'blackhole', tag: 'blocked' });
+    (acl.blockDomains || []).forEach(d => {
+      const domain = normalizeDomain(d);
+      if (domain && domain.length <= 253) {
+        aclRules.push({ type: 'field', domain: [domain], outboundTag: 'blocked' });
+      }
+    });
+    (acl.blockGeosite || []).forEach(c => {
+      if (c && GEOSITE_CATEGORIES.includes(c)) {
+        aclRules.push({ type: 'field', domain: [`geosite:${c}`], outboundTag: 'blocked' });
+      }
+    });
+    (acl.blockGeoip || []).forEach(c => {
+      if (c && GEOIP_COUNTRIES.includes(c)) {
+        aclRules.push({ type: 'field', ip: [`geoip:${c}`], outboundTag: 'blocked' });
+      }
+    });
+  }
+
+  if (aclRules.length > 0) {
+    config.outbounds.push({ protocol: 'blackhole', tag: 'blocked' });
+    config.routing = {
+      domainStrategy: 'IPIfNonMatch',
+      rules: [...aclRules, ...config.routing.rules],
+    };
+  }
+
+  // WARP integration: add WireGuard outbound + routing for selected domains
+  const warpConfig = loadWarpConfig();
+  if (warpConfig.enabled && warpConfig.domains && warpConfig.domains.length > 0) {
+    const wg = loadWarpWireguardConf();
+    if (wg) {
+      config.outbounds.push({
+        protocol: 'wireguard',
+        tag: 'warp',
+        settings: {
+          secretKey: wg.privateKey,
+          address: [wg.address + '/32'],
+          peers: [{
+            endpoint: wg.endpoint,
+            publicKey: wg.publicKey,
+          }],
+          mtu: 1280,
+          reserved: [0, 0, 0],
+        },
+      });
+
+      const warpRule = {
+        type: 'field',
+        domain: warpConfig.domains,
+        outboundTag: 'warp',
+      };
+
+      // Merge with existing routing rules
+      const existingRules = config.routing.rules || [];
       config.routing = {
         domainStrategy: 'IPIfNonMatch',
-        rules: routingRules
+        rules: [warpRule, ...existingRules],
       };
     }
   }
