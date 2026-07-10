@@ -183,7 +183,7 @@ function parseLogLine(line) {
   return { text: line, level: 'info' };
 }
 
-function runScript(ws, scriptName, env, onExit) {
+function runScript(ws, scriptName, env, onExit, outputCollector) {
   const scriptPath = path.join(__dirname, '../scripts', scriptName);
   if (!fs.existsSync(scriptPath)) {
     sendLog(ws, `❌ Скрипт ${scriptName} не найден!`, null, null, 'error');
@@ -193,7 +193,9 @@ function runScript(ws, scriptName, env, onExit) {
   const child = spawn('bash', [scriptPath], { env: { ...process.env, ...env, DEBIAN_FRONTEND: 'noninteractive' } });
 
   child.stdout.on('data', (data) => {
-    data.toString().split('\n').filter(l => l.trim()).forEach(line => {
+    const text = data.toString();
+    if (outputCollector) outputCollector.push(text);
+    text.split('\n').filter(l => l.trim()).forEach(line => {
       const parsed = parseLogLine(line);
       sendLog(ws, parsed.text, parsed.step, parsed.progress, parsed.level);
     });
@@ -373,13 +375,14 @@ function handleInstallMieru(ws, data) {
     if (!c.mieruUsers.find(u => u.username === username)) {
       c.mieruUsers.push({ username, password, createdAt: new Date().toISOString() });
     }
+    if (!c.mieruPort) c.mieruPort = 9443;
   });
   persistServerIp();
 
   sendLog(ws, '🔐 Запуск установки mieru...', 'init', 2, 'info');
   runScript(ws, 'install_mieru.sh', {
     MIERU_DOMAIN: domain, MIERU_USERNAME: username, MIERU_PASSWORD: password,
-    PORT: String(cfg.port || 443)
+    PORT: String(cfg.mieruPort || 9443)
   }, (code) => {
     if (code === 0) {
       updateConfig(c => { c.installed = true; });
@@ -416,26 +419,52 @@ function handleInstallVless(ws, data) {
   persistServerIp();
 
   sendLog(ws, '🔐 Запуск установки VLESS (Xray)...', 'init', 2, 'info');
+  const installOutput = [];
   runScript(ws, 'install_vless.sh', {
     VLESS_DOMAIN: domain, VLESS_USERNAME: username, VLESS_PASSWORD: password,
     VLESS_UUID: uuid,
-    PORT: String(cfg.port || 443)
+    PORT: String(cfg.vlessPort || cfg.port || 443)
   }, (code) => {
+    const outputText = installOutput.join('');
     if (code === 0) {
-      updateConfig(c => { c.installed = true; });
+      // Parse REALITY keys from install script output
+      let privKey = cfg.vlessRealityPrivateKey || '';
+      let pubKey = cfg.vlessRealityPublicKey || '';
+      const privMatch = outputText.match(/REALITY_PRIVATE_KEY=(\S+)/);
+      const pubMatch = outputText.match(/REALITY_PUBLIC_KEY=(\S+)/);
+      if (privMatch) privKey = privMatch[1];
+      if (pubMatch) pubKey = pubMatch[1];
+
+      // Fallback: read private key from generated config file
+      if (!privKey) {
+        try {
+          const xrayCfg = JSON.parse(fs.readFileSync(testPath('/etc/xray/config.json'), 'utf8'));
+          const rs = xrayCfg.inbounds?.[0]?.streamSettings?.realitySettings;
+          if (rs) privKey = rs.privateKey || '';
+        } catch {}
+      }
+
+      const finalCfg = updateConfig(c => {
+        c.installed = true;
+        if (privKey) c.vlessRealityPrivateKey = privKey;
+        if (pubKey) c.vlessRealityPublicKey = pubKey;
+        // Save REALITY target and serverNames for self-steal mode
+        if (!c.vlessRealityTarget) c.vlessRealityTarget = 'www.google.com:443';
+        if (!c.vlessRealityServerNames) c.vlessRealityServerNames = [domain];
+      });
       sendLog(ws, '✅ VLESS готов!', 'done', 100, 'success');
       ws.send(JSON.stringify({
         type: 'install_done',
         links: {
-          vless: cfg.vlessRealityPublicKey
-            ? `vless://${uuid}@${domain}:${cfg.vlessPort || cfg.port || 443}?encryption=none&security=reality&sni=${domain}&fp=chrome&type=xhttp&path=/xhttp&mode=packet-up&pbk=${cfg.vlessRealityPublicKey}#${encodeURIComponent(username)}`
-            : `vless://${uuid}@${domain}:${cfg.port || 443}?type=tcp&security=tls&sni=${domain}#${encodeURIComponent(username)}`
+          vless: pubKey
+            ? `vless://${uuid}@${domain}:${finalCfg.vlessPort || finalCfg.port || 443}?encryption=none&security=reality&sni=${domain}&fp=chrome&type=xhttp&path=/xhttp&mode=packet-up&noGRPCHeader=true&xmux.maxConcurrency=32-64&pbk=${pubKey}#${encodeURIComponent(username)}`
+            : `vless://${uuid}@${domain}:${finalCfg.port || 443}?type=tcp&security=tls&sni=${domain}#${encodeURIComponent(username)}`
         }
       }));
     } else {
       ws.send(JSON.stringify({ type: 'install_error', message: `Exit code: ${code}` }));
     }
-  });
+  }, installOutput);
 }
 
 // ═══════════════════════════════════════════════════════════
