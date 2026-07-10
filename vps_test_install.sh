@@ -83,6 +83,7 @@ if [[ $AUTO_MODE -eq 1 ]]; then
   PROXY_PORT="${PROXY_PORT:-8443}"
   USE_CADDY_CERT="${USE_CADDY_CERT:-0}"
   USE_WARP="${USE_WARP:-0}"
+  USE_ZAPRET2="${USE_ZAPRET2:-1}"
   SSH_ONLY=0; LISTEN_HOST="0.0.0.0"; PANEL_DOMAIN=""
   case "$PANEL_ACCESS" in
     nginx)    ACCESS_MODE=1 ;;
@@ -94,7 +95,7 @@ if [[ $AUTO_MODE -eq 1 ]]; then
     { log_warn "MASQUERADE_URL invalid, using default"; MASQUERADE_URL="https://www.iana.org"; }
   TLS_MODE="${TLS_MODE:-selfsigned}"
   EMAIL="${EMAIL:-}"
-  log_info "Auto mode: ${DOMAIN} | TLS=${TLS_MODE} | Port=${PROXY_PORT} | mieru=${MIERU_PORT} | VLESS=${VLESS_PORT} | SQLite=${USE_SQLITE} | React=${USE_NEW_FRONTEND} | Access=${PANEL_ACCESS}"
+  log_info "Auto mode: ${DOMAIN} | TLS=${TLS_MODE} | Port=${PROXY_PORT} | mieru=${MIERU_PORT} | VLESS=${VLESS_PORT} | zapret2=${USE_ZAPRET2} | SQLite=${USE_SQLITE} | React=${USE_NEW_FRONTEND} | Access=${PANEL_ACCESS}"
 else
   # ── Interactive mode ─────────────────────────────────────────────────
   INSTALL_NAIVE=1; INSTALL_HY2=1; INSTALL_MIERU=1; INSTALL_VLESS=1
@@ -149,6 +150,9 @@ else
   read -rp $'\n'"${BOLD}mieru port${RESET} [9443]: " MIERU_PORT; MIERU_PORT="${MIERU_PORT:-9443}"
   read -rp "${BOLD}VLESS port${RESET} [10443]: " VLESS_PORT; VLESS_PORT="${VLESS_PORT:-10443}"
 
+  echo -e "\n${BOLD}zapret2 (DPI bypass):${RESET} ${CYAN}1)${RESET} Yes (default)  ${CYAN}2)${RESET} No"
+  read -rp "Choice [1/2]: " _ZAPRET2; _ZAPRET2="${_ZAPRET2:-1}"; [[ "$_ZAPRET2" == "2" ]] && USE_ZAPRET2=0 || USE_ZAPRET2=1
+
   echo -e "\n${BOLD}Cloudflare WARP:${RESET} ${CYAN}1)${RESET} No (default)  ${CYAN}2)${RESET} Yes — hide server IP via WARP"
   read -rp "Choice [1/2]: " _WARP; USE_WARP="${_WARP:-1}"; [[ "$USE_WARP" == "2" ]] && USE_WARP=1 || USE_WARP=0
   if [[ "$USE_WARP" -eq 1 ]]; then
@@ -185,6 +189,7 @@ else
   [[ $INSTALL_HY2   -eq 1 ]] && log_info "Hysteria2  -> pass: ${HY2_PASS}"
   log_info "mieru      -> ${MIERU_USER}:${MIERU_PASS} (port ${MIERU_PORT})"
   log_info "VLESS      -> ${VLESS_USER} (port ${VLESS_PORT})"
+  log_info "zapret2    -> $([[ $USE_ZAPRET2 -eq 1 ]] && echo yes || echo no)"
   read -rp "Start? [Enter / Ctrl+C]: " _
   echo ""
 fi
@@ -880,17 +885,21 @@ else
 fi
 
 
-# [15b] zapret2 (DPI bypass, server mode) — always installed
+# [15b] zapret2 (DPI bypass, server mode) — optional (USE_ZAPRET2)
 
-log_step "[15b] Installing zapret2 (DPI bypass)..."
-SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
-ZAPRET2_SCRIPT="${SCRIPT_DIR}/setup-zapret2.sh"
-if [[ -f "${ZAPRET2_SCRIPT}" ]]; then
-  NAIVE_HY2_PORT="${PROXY_PORT}" MIERU_PORT="${MIERU_PORT}" VLESS_PORT="${VLESS_PORT}" \
-    bash "${ZAPRET2_SCRIPT}" 2>&1 | while IFS= read -r l; do [[ -n "$l" ]] && echo "    $l"; done
-  systemctl is-active --quiet zapret2 2>/dev/null && log_ok "zapret2 active" || log_warn "zapret2 not active — check: journalctl -u zapret2"
+if [[ "${USE_ZAPRET2:-1}" == "1" ]]; then
+  log_step "[15b] Installing zapret2 (DPI bypass)..."
+  SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+  ZAPRET2_SCRIPT="${SCRIPT_DIR}/setup-zapret2.sh"
+  if [[ -f "${ZAPRET2_SCRIPT}" ]]; then
+    NAIVE_HY2_PORT="${PROXY_PORT}" MIERU_PORT="${MIERU_PORT}" VLESS_PORT="${VLESS_PORT}" \
+      bash "${ZAPRET2_SCRIPT}" 2>&1 | while IFS= read -r l; do [[ -n "$l" ]] && echo "    $l"; done
+    systemctl is-active --quiet zapret2 2>/dev/null && log_ok "zapret2 active" || log_warn "zapret2 not active — check: journalctl -u zapret2"
+  else
+    log_warn "setup-zapret2.sh not found next to vps_test_install.sh, skipping"
+  fi
 else
-  log_warn "setup-zapret2.sh not found next to vps_test_install.sh, skipping"
+  log_step "[15b] zapret2 skipped (USE_ZAPRET2=0)"
 fi
 
 
@@ -924,9 +933,11 @@ curl -fsS --max-time 5 "http://127.0.0.1:${INTERNAL_PORT}/" >/dev/null 2>&1 \
     || { log_warn "HTTPS :${PROXY_PORT} not responding"; _SW=$((_SW+1)); }
 }
 
-systemctl is-active --quiet zapret2 2>/dev/null \
-  && log_ok "zapret2.service active" \
-  || { log_warn "zapret2.service NOT active"; _SW=$((_SW+1)); }
+if [[ "${USE_ZAPRET2:-1}" == "1" ]]; then
+  systemctl is-active --quiet zapret2 2>/dev/null \
+    && log_ok "zapret2.service active" \
+    || { log_warn "zapret2.service NOT active"; _SW=$((_SW+1)); }
+fi
 
 if [[ $_SF -eq 0 && $_SW -eq 0 ]]; then log_ok "Smoke test: all passed"
 elif [[ $_SF -eq 0 ]]; then log_warn "Smoke test: ${_SW} warning(s)"
