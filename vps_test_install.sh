@@ -500,8 +500,8 @@ c.setdefault('vlessUsers', [])
 # Update REALITY keys from install script output
 c['vlessRealityPrivateKey'] = '${VLESS_REALITY_PRIVATE}'
 c['vlessRealityPublicKey']  = '${VLESS_REALITY_PUBLIC}'
-  c['vlessRealityTarget']     = '1.1.1.1:443'
-  c['vlessRealityServerNames'] = ['cloudflare-dns.com']
+  c['vlessRealityTarget']     = '${DOMAIN}:443'
+  c['vlessRealityServerNames'] = ['${DOMAIN}']
 c['vlessDecryption'] = '${VLESS_DECRYPTION:-none}'
 c['vlessEncryption'] = '${VLESS_ENCRYPTION_STR:-none}'
 with open('${CFG_FILE}', 'w') as f: json.dump(c, f, indent=2, ensure_ascii=False)
@@ -526,8 +526,8 @@ else
   "port": ${PROXY_PORT},
   "mieruPort": ${MIERU_PORT},
   "vlessPort": ${VLESS_PORT},
-  "vlessRealityTarget": "1.1.1.1:443",
-  "vlessRealityServerNames": ["cloudflare-dns.com"],
+  "vlessRealityTarget": "${DOMAIN}:443",
+  "vlessRealityServerNames": ["${DOMAIN}"],
   "vlessRealityPrivateKey": "${VLESS_REALITY_PRIVATE:-}",
   "vlessRealityPublicKey": "${VLESS_REALITY_PUBLIC:-}",
   "vlessDecryption": "${VLESS_DECRYPTION:-none}",

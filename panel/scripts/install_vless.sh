@@ -138,8 +138,8 @@ if [[ -z "$REALITY_PRIVATE" || -z "$REALITY_PUBLIC" ]]; then
   REALITY_PUBLIC=$(echo "$REALITY_OUTPUT" | grep 'PublicKey' | awk '{print $NF}')
 fi
 
-REALITY_TARGET="${VLESS_REALITY_TARGET:-1.1.1.1:443}"
-REALITY_SNI=$(echo "$REALITY_TARGET" | cut -d: -f1)
+REALITY_TARGET="${VLESS_REALITY_TARGET:-${DOMAIN}:443}"
+REALITY_SNI="${DOMAIN}"
 
 log "  PrivateKey: ${REALITY_PRIVATE:0:8}..."
 log "  PublicKey:  ${REALITY_PUBLIC:0:8}..."
