@@ -90,7 +90,9 @@ function formatBytes(bytes) {
 
 function execSimple(cmd) {
   return new Promise((resolve) => {
-    const p = spawn('sh', ['-c', cmd]);
+    const p = spawn('sh', ['-c', cmd], {
+      env: { ...process.env, PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' }
+    });
     let out = '';
     p.stdout.on('data', d => out += d.toString());
     p.on('close', () => resolve(out.trim()));

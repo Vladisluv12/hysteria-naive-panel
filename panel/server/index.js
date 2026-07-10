@@ -64,7 +64,15 @@ app.set('trust proxy', 1);
 
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      'default-src': ["'self'"],
+      'script-src': ["'self'", "'unsafe-inline'"],
+      'style-src': ["'self'", "'unsafe-inline'"],
+      'img-src': ["'self'", 'data:'],
+      'connect-src': ["'self'", 'ws:', 'wss:'],
+    },
+  },
 }));
 
 app.use(cors({ origin: true, credentials: true }));
@@ -77,7 +85,7 @@ const sessionMiddleware = session({
   resave: false,
   saveUninitialized: true,
   cookie: {
-    secure: false,
+    secure: 'auto',
     httpOnly: true,
     sameSite: 'lax',
     maxAge: 24 * 60 * 60 * 1000
@@ -85,16 +93,11 @@ const sessionMiddleware = session({
 });
 app.use(sessionMiddleware);
 
-app.use((req, res, next) => {
-  if (req.session && req.get('X-Forwarded-Proto') === 'https') {
-    req.session.cookie.secure = true
-  }
-  next()
-})
 const frontendDir = process.env.USE_NEW_FRONTEND === 'true'
   ? path.join(__dirname, '..', 'dist')
   : path.join(__dirname, '..', 'public');
 
+// Static middleware before API routes, not requiring session
 app.use(express.static(frontendDir));
 
 const authRoutes = require('./routes/auth.js');
@@ -214,7 +217,9 @@ function runScript(ws, scriptName, env, onExit, outputCollector) {
 
 // Helper: вытянуть server_ip в конфиг
 function persistServerIp(cfg) {
-  const p = spawn('bash', ['-c', "curl -4 -s --connect-timeout 5 ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}'"]);
+  const p = spawn('bash', ['-c', "curl -4 -s --connect-timeout 5 ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}'"], {
+    env: { ...process.env, PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' }
+  });
   let ip = '';
   p.stdout.on('data', d => ip += d.toString().trim());
   p.on('close', () => {
