@@ -101,6 +101,10 @@ function buildHysteriaConfigObject(cfg, existingYaml, tlsBlock) {
       existingYaml.masquerade = { type: 'file', file: { dir: '/var/www/html' } };
     }
 
+    if (tlsBlock && !existingYaml.tls && !existingYaml.acme) {
+      existingYaml.tls = { cert: tlsBlock.cert, key: tlsBlock.key };
+    }
+
     return existingYaml;
   }
 

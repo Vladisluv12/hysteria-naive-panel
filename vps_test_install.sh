@@ -613,7 +613,7 @@ log_step "[11] Starting panel (PM2)..."
 cd "${PANEL_DIR}/panel"
 pm2 delete "${SERVICE_NAME}" 2>/dev/null || true; sleep 1
 LISTEN_HOST="${LISTEN_HOST:-0.0.0.0}" USE_SQLITE="${USE_SQLITE:-false}" USE_NEW_FRONTEND="${USE_NEW_FRONTEND:-true}" \
-  pm2 start server/index.js --name "${SERVICE_NAME}" --time --restart-delay=3000 --update-env 2>&1 | tail -3
+  pm2 start server/index.js --name "${SERVICE_NAME}" --time --restart-delay=3000 2>&1 | tail -3
 pm2 save --force >/dev/null 2>&1 || true
 eval "$(pm2 startup systemd -u root --hp /root 2>/dev/null | grep "^sudo")" 2>/dev/null || true
 sleep 2
