@@ -68,15 +68,14 @@ async function createUser(req, res) {
     c.naiveUsers.push({ username, password, nickname: nickname || '', createdAt: new Date().toISOString(), expiresAt });
   });
 
-  if (cfg.installed && cfg.stack.naive) {
-    writeCaddyfile(cfg);
-    await reloadNaive(process.env.TEST_MODE === '1');
-  }
-
   res.json({
     success: true,
     link: cfg.domain ? `naive+https://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${cfg.domain}:${cfg.port}#easy-xray-naive` : null,
   });
+  if (cfg.installed && cfg.stack.naive) {
+    writeCaddyfile(cfg);
+    reloadNaive(process.env.TEST_MODE === '1').catch(() => {});
+  }
 }
 
 async function deleteUser(req, res) {

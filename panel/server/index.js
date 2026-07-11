@@ -132,7 +132,7 @@ const { writeCaddyfile } = naiveRoutes;
 const { writeHysteriaConfig } = hysteriaRoutes;
 const { writeMieruConfig } = mieruRoutes;
 const { writeVlessConfig } = vlessRoutes;
-const { reloadNaive, restartHysteria: reloadHysteria, restartMieru: reloadMieru, restartVless: reloadVless } = require('./services/systemAdapter.js');
+const { reloadNaive, restartHysteria: reloadHysteria, restartMieru: reloadMieru, restartVless: reloadVless, runCommand } = require('./services/systemAdapter.js');
 
 //  INSTALL VIA WEBSOCKET
 // ═══════════════════════════════════════════════════════════
@@ -388,16 +388,18 @@ function handleInstallMieru(ws, data) {
   runScript(ws, 'install_mieru.sh', {
     MIERU_DOMAIN: domain, MIERU_USERNAME: username, MIERU_PASSWORD: password,
     PORT: String(cfg.mieruPort || 9443)
-  }, (code) => {
+  }, async (code) => {
     if (code === 0) {
       updateConfig(c => { c.installed = true; });
+      const linkPort = cfg.mieruPort || 9443;
+      let link = `mierus://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${domain}?profile=default&port=${linkPort}&protocol=TCP&multiplexing=MULTIPLEXING_HIGH`;
+      const { code: tpCode, stdout } = await runCommand('mita', ['export', 'traffic-pattern']);
+      if (tpCode === 0) {
+        const tp = stdout.trim();
+        if (tp) link += `&traffic-pattern=${encodeURIComponent(tp)}`;
+      }
       sendLog(ws, '✅ mieru готов!', 'done', 100, 'success');
-      ws.send(JSON.stringify({
-        type: 'install_done',
-        links: {
-          mieru: `mieru://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${domain}:${cfg.port || 443}#${encodeURIComponent(username)}`
-        }
-      }));
+      ws.send(JSON.stringify({ type: 'install_done', links: { mieru: link } }));
     } else {
       ws.send(JSON.stringify({ type: 'install_error', message: `Exit code: ${code}` }));
     }

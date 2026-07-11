@@ -129,7 +129,7 @@ export function UsersPage() {
   const makeLink = (u: User) => {
     if (proxyType === 'naive') return `naive+https://${encodeURIComponent(u.username)}:${encodeURIComponent(u.password)}@${domain}:${port}#easy-xray-naive`;
     if (proxyType === 'hysteria') return `hysteria2://${encodeURIComponent(u.username)}:${encodeURIComponent(u.password)}@${domain}:${port}?sni=${domain}&insecure=0#easy-xray-hys`;
-    if (proxyType === 'mieru') return `mieru://${encodeURIComponent(u.username)}:${encodeURIComponent(u.password)}@${domain}:${mieruPort}#${encodeURIComponent(u.nickname || u.username)}`;
+    if (proxyType === 'mieru') return `mierus://${encodeURIComponent(u.username)}:${encodeURIComponent(u.password)}@${domain}?profile=default&port=${mieruPort}&protocol=TCP&multiplexing=MULTIPLEXING_HIGH`;
     if (proxyType === 'vless') {
       const vuuid = u.uuid || '';
       return `vless://${encodeURIComponent(vuuid)}@${domain}:${vlessPort}?encryption=none&security=reality&sni=${domain}&fp=chrome&type=xhttp&path=/xhttp&mode=packet-up&noGRPCHeader=true&xmux.maxConcurrency=32-64&pbk=${vlessPbk}#${encodeURIComponent(u.nickname || u.username)}`;

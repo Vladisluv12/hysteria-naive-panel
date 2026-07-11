@@ -5,7 +5,7 @@ const { loadConfig } = require('../services/storageFactory.js');
 const { updateConfig } = require('../services/atomicUpdate.js');
 const { buildMieruConfigObject } = require('../services/configBuilder.js');
 const { isValidUsername, isValidPassword, isValidExpireDays, computeExpiresAt, isExpired, remainingSeconds } = require('../utils/validators.js');
-const { restartMieru } = require('../services/systemAdapter.js');
+const { restartMieru, runCommand } = require('../services/systemAdapter.js');
 const { AtomicFileTransaction } = require('../services/atomicConfig.js');
 
 function testPath(systemPath) {
@@ -16,6 +16,17 @@ function testPath(systemPath) {
 }
 
 const MIERU_CONFIG_PATH = testPath('/etc/mita/server.json');
+
+let _tpCache = '';
+
+async function getTrafficPattern() {
+  if (_tpCache) return _tpCache;
+  const { code, stdout } = await runCommand('mita', ['export', 'traffic-pattern']);
+  if (code === 0) _tpCache = stdout.trim();
+  return _tpCache;
+}
+
+function clearTPCache() { _tpCache = ''; }
 
 function writeMieruConfig(cfg) {
   if (!cfg || !cfg.stack || !cfg.stack.mieru || !cfg.domain) return false;
@@ -57,17 +68,19 @@ async function createUser(req, res) {
     c.mieruUsers.push({ username, password, nickname: nickname || '', createdAt: new Date().toISOString(), expiresAt });
   });
 
-  if (cfg.installed && cfg.stack.mieru) {
-    const wrote = writeMieruConfig(cfg);
-    if (wrote) await restartMieru();
-  }
   const linkPort = cfg.mieruPort || cfg.port;
-  res.json({
-    success: true,
-    link: cfg.domain
-      ? `mieru://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${cfg.domain}:${linkPort}#${encodeURIComponent(nickname || username)}`
-      : null
-  });
+  let link = cfg.domain
+    ? `mierus://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${cfg.domain}?profile=default&port=${linkPort}&protocol=TCP&multiplexing=MULTIPLEXING_HIGH`
+    : null;
+  if (link && cfg.installed) {
+    const tp = await getTrafficPattern();
+    if (tp) link += `&traffic-pattern=${encodeURIComponent(tp)}`;
+  }
+  res.json({ success: true, link });
+  // перезагрузка в фоне — не блокируем ответ
+  if (cfg.installed && cfg.stack.mieru && writeMieruConfig(cfg)) {
+    restartMieru().catch(() => {});
+  }
 }
 
 async function deleteUser(req, res) {

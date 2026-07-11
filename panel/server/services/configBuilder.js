@@ -164,6 +164,18 @@ function buildMieruConfigObject(cfg) {
     users,
     loggingLevel: 'INFO',
     mtu: 1400,
+    trafficPattern: {
+      unlockAll: true,
+      nonce: {
+        type: 'NONCE_TYPE_PRINTABLE',
+        minLen: 4,
+        maxLen: 8,
+      },
+      padding: {
+        maxMiddlePaddingLen: 64,
+        maxEndPaddingLen: 128,
+      },
+    },
   };
 
   const acl = loadAcl();

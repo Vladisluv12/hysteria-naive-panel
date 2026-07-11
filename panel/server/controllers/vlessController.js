@@ -63,10 +63,6 @@ async function createUser(req, res) {
     c.vlessUsers.push({ username, password, uuid, nickname: nickname || '', createdAt: new Date().toISOString(), expiresAt });
   });
 
-  if (cfg.installed && cfg.stack.vless) {
-    const wrote = writeVlessConfig(cfg);
-    if (wrote) await restartVless();
-  }
   const linkPort = cfg.vlessPort || cfg.port;
   const linkUsername = encodeURIComponent(nickname || username);
   const pbk = cfg.vlessRealityPublicKey || '';
@@ -77,6 +73,10 @@ async function createUser(req, res) {
       ? `vless://${uuid}@${cfg.domain}:${linkPort}?encryption=${encryption}&security=reality&sni=${cfg.domain}&fp=chrome&type=xhttp&path=/xhttp&mode=packet-up&noGRPCHeader=true&xmux.maxConcurrency=32-64&pbk=${pbk}#${linkUsername}`
       : null
   });
+  if (cfg.installed && cfg.stack.vless) {
+    const wrote = writeVlessConfig(cfg);
+    if (wrote) restartVless().catch(() => {});
+  }
 }
 
 async function deleteUser(req, res) {

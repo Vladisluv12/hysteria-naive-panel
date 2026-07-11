@@ -61,16 +61,16 @@ async function createUser(req, res) {
     c.hy2Users.push({ username, password, nickname: nickname || '', createdAt: new Date().toISOString(), expiresAt });
   });
 
-  if (cfg.installed && cfg.stack.hy2) {
-    writeHysteriaConfig(cfg);
-    await restartHysteria();
-  }
   res.json({
     success: true,
     link: cfg.domain
       ? `hysteria2://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${cfg.domain}:${cfg.port}?sni=${cfg.domain}&insecure=0#easy-xray-hys`
       : null
   });
+  if (cfg.installed && cfg.stack.hy2) {
+    writeHysteriaConfig(cfg);
+    restartHysteria().catch(() => {});
+  }
 }
 
 async function deleteUser(req, res) {

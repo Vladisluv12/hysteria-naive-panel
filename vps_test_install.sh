@@ -1022,7 +1022,7 @@ if [[ $INSTALL_HY2 -eq 1 ]]; then
   echo -e "${CYAN}   Hysteria2:   hysteria2://default:${HY2_PASS}@${DOMAIN}:${PROXY_PORT}?sni=${DOMAIN}&insecure=${_INSECURE}#VPS-Test${RESET}"
   echo -e "${PURPLE}${BOLD}║   Pass: ${HY2_PASS}${RESET}"
 fi
-echo -e "${CYAN}   mieru:       mieru://${MIERU_USER}:${MIERU_PASS}@${DOMAIN}:${MIERU_PORT}#VPS-Test${RESET}"
+echo -e "${CYAN}   mieru:       mierus://${MIERU_USER}:${MIERU_PASS}@${DOMAIN}?profile=default&port=${MIERU_PORT}&protocol=TCP&multiplexing=MULTIPLEXING_HIGH${RESET}"
 _VLESS_ENC_PARAM="none"; [[ -n "${VLESS_ENCRYPTION_STR:-}" ]] && _VLESS_ENC_PARAM="${VLESS_ENCRYPTION_STR}"
 if [[ -n "${VLESS_REALITY_PUBLIC:-}" ]]; then
   echo -e "${CYAN}   VLESS:       vless://${VLESS_UUID}@${DOMAIN}:${VLESS_PORT}?encryption=${_VLESS_ENC_PARAM}&security=reality&sni=${DOMAIN}&fp=chrome&type=xhttp&path=/xhttp&mode=packet-up&pbk=${VLESS_REALITY_PUBLIC}#VPS-Test${RESET}"
