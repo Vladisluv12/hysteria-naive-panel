@@ -129,16 +129,11 @@ function execSyncSafe(command, options = {}) {
 }
 
 function findCertFile(domain) {
-  const fs = require('fs');
-  const selfsignedCert = '/etc/ssl/selfsigned/server.crt';
-  const selfsignedKey = '/etc/ssl/selfsigned/server.key';
-  if (fs.existsSync(selfsignedCert) && fs.existsSync(selfsignedKey)) {
-    return { cert: selfsignedCert, key: selfsignedKey, ca: '' };
-  }
   const roots = [
     '/var/lib/caddy/.local/share/caddy/certificates',
     '/root/.local/share/caddy/certificates'
   ];
+  const fs = require('fs');
   for (const root of roots) {
     if (!fs.existsSync(root)) continue;
     const result = execSyncSafe(`find "${root}" -type f -name "${domain}.crt" 2>/dev/null | head -1`);
