@@ -130,6 +130,7 @@ function execSyncSafe(command, options = {}) {
 
 function findCertFile(domain) {
   const roots = [
+    '/caddy/certificates',
     '/var/lib/caddy/.local/share/caddy/certificates',
     '/root/.local/share/caddy/certificates'
   ];
