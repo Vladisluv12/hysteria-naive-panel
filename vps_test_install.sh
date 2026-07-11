@@ -28,6 +28,30 @@ command -v apt-get &>/dev/null || { log_err "Ubuntu/Debian only"; exit 1; }
 OS_ID=$(grep -E '^ID=' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"')
 log_info "OS: ${OS_ID:-unknown}"
 
+# ── DNS: enable DNS-over-TLS if plain DNS is DPI-filtered ─────────────
+if ! getent hosts github.com >/dev/null 2>&1; then
+  log_warn "github.com not resolving — DPI may be filtering DNS. Enabling DNS-over-TLS..."
+  if curl -fsS --connect-timeout 5 https://1.1.1.1/ >/dev/null 2>&1; then
+    mkdir -p /etc/systemd/resolved.conf.d
+    cat > /etc/systemd/resolved.conf.d/99-dot.conf << 'DOTEOF'
+[Resolve]
+DNS=1.1.1.1#cloudflare-dns.com 1.0.0.1#cloudflare-dns.com 2606:4700:4700::1111#cloudflare-dns.com
+DNSOverTLS=yes
+DOTEOF
+    systemctl restart systemd-resolved 2>/dev/null || true
+    sleep 2
+    if getent hosts github.com >/dev/null 2>&1; then
+      log_ok "DNS-over-TLS enabled — github.com resolved"
+    else
+      log_warn "DNS-over-TLS failed, continuing anyway"
+    fi
+  else
+    log_warn "1.1.1.1 not reachable, skipping DoT setup"
+  fi
+else
+  log_info "DNS OK — github.com resolves"
+fi
+
 MACHINE_ARCH="$(uname -m)"
 case "$MACHINE_ARCH" in
   x86_64)  GO_ARCH="amd64";  HY_ARCH="amd64"  ;;
