@@ -8,6 +8,7 @@ const router = express.Router();
 
 router.get('/naive/users', requireAuth, naiveController.listUsers);
 router.post('/naive/users', requireAuth, naiveController.createUser);
+router.get('/naive/users/:username/link', requireAuth, naiveController.getUserLink);
 router.delete('/naive/users/:username', requireAuth, naiveController.deleteUser);
 router.patch('/naive/users/:username', requireAuth, naiveController.updateUser);
 

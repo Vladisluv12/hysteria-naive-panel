@@ -8,6 +8,7 @@ const router = express.Router();
 
 router.get('/vless/users', requireAuth, vlessController.listUsers);
 router.post('/vless/users', requireAuth, vlessController.createUser);
+router.get('/vless/users/:username/link', requireAuth, vlessController.getUserLink);
 router.delete('/vless/users/:username', requireAuth, vlessController.deleteUser);
 router.patch('/vless/users/:username', requireAuth, vlessController.updateUser);
 

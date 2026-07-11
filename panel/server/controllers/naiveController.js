@@ -78,6 +78,20 @@ async function createUser(req, res) {
   }
 }
 
+function getUserLink(req, res) {
+  const { username } = req.params;
+  const cfg = loadConfig();
+  const user = (cfg.naiveUsers || []).find(u => u.username === username);
+  if (!user) return res.json({ success: false, message: 'Не найден' });
+
+  res.json({
+    success: true,
+    link: cfg.domain
+      ? `naive+https://${encodeURIComponent(user.username)}:${encodeURIComponent(user.password)}@${cfg.domain}:${cfg.port}#easy-xray-naive`
+      : null,
+  });
+}
+
 async function deleteUser(req, res) {
   const { username } = req.params;
   const before = loadConfig().naiveUsers.length;
@@ -116,4 +130,4 @@ async function updateUser(req, res) {
   res.json({ success: true, expiresAt });
 }
 
-module.exports = { listUsers, createUser, deleteUser, updateUser, writeCaddyfile };
+module.exports = { listUsers, createUser, getUserLink, deleteUser, updateUser, writeCaddyfile };

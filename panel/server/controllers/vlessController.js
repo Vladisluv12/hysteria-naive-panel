@@ -79,6 +79,25 @@ async function createUser(req, res) {
   }
 }
 
+function getUserLink(req, res) {
+  const { username } = req.params;
+  const cfg = loadConfig();
+  const user = (cfg.vlessUsers || []).find(u => u.username === username);
+  if (!user) return res.json({ success: false, message: 'Не найден' });
+
+  const linkPort = cfg.vlessPort || cfg.port;
+  const linkUsername = encodeURIComponent(user.nickname || user.username);
+  const pbk = cfg.vlessRealityPublicKey || '';
+  const encryption = encodeURIComponent(cfg.vlessEncryption || 'none');
+
+  res.json({
+    success: true,
+    link: cfg.domain && pbk
+      ? `vless://${user.uuid}@${cfg.domain}:${linkPort}?encryption=${encryption}&security=reality&sni=${cfg.domain}&fp=chrome&type=xhttp&path=/xhttp&mode=packet-up&noGRPCHeader=true&xmux.maxConcurrency=32-64&pbk=${pbk}#${linkUsername}`
+      : null,
+  });
+}
+
 async function deleteUser(req, res) {
   const { username } = req.params;
   const before = loadConfig().vlessUsers.length;
@@ -117,4 +136,4 @@ async function updateUser(req, res) {
   res.json({ success: true, expiresAt });
 }
 
-module.exports = { listUsers, createUser, deleteUser, updateUser, writeVlessConfig };
+module.exports = { listUsers, createUser, getUserLink, deleteUser, updateUser, writeVlessConfig };

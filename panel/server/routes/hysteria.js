@@ -8,6 +8,7 @@ const router = express.Router();
 
 router.get('/hy2/users', requireAuth, hysteriaController.listUsers);
 router.post('/hy2/users', requireAuth, hysteriaController.createUser);
+router.get('/hy2/users/:username/link', requireAuth, hysteriaController.getUserLink);
 router.delete('/hy2/users/:username', requireAuth, hysteriaController.deleteUser);
 router.patch('/hy2/users/:username', requireAuth, hysteriaController.updateUser);
 

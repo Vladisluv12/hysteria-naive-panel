@@ -73,6 +73,20 @@ async function createUser(req, res) {
   }
 }
 
+function getUserLink(req, res) {
+  const { username } = req.params;
+  const cfg = loadConfig();
+  const user = (cfg.hy2Users || []).find(u => u.username === username);
+  if (!user) return res.json({ success: false, message: 'Не найден' });
+
+  res.json({
+    success: true,
+    link: cfg.domain
+      ? `hysteria2://${encodeURIComponent(user.username)}:${encodeURIComponent(user.password)}@${cfg.domain}:${cfg.port}?sni=${cfg.domain}&insecure=0#easy-xray-hys`
+      : null,
+  });
+}
+
 async function deleteUser(req, res) {
   const { username } = req.params;
   const before = loadConfig().hy2Users.length;
@@ -111,4 +125,4 @@ async function updateUser(req, res) {
   res.json({ success: true, expiresAt });
 }
 
-module.exports = { listUsers, createUser, deleteUser, updateUser, writeHysteriaConfig };
+module.exports = { listUsers, createUser, getUserLink, deleteUser, updateUser, writeHysteriaConfig };

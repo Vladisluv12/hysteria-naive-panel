@@ -83,6 +83,23 @@ async function createUser(req, res) {
   }
 }
 
+async function getUserLink(req, res) {
+  const { username } = req.params;
+  const cfg = loadConfig();
+  const user = (cfg.mieruUsers || []).find(u => u.username === username);
+  if (!user) return res.json({ success: false, message: 'Не найден' });
+
+  const linkPort = cfg.mieruPort || cfg.port;
+  let link = cfg.domain
+    ? `mierus://${encodeURIComponent(user.username)}:${encodeURIComponent(user.password)}@${cfg.domain}?profile=default&port=${linkPort}&protocol=TCP&multiplexing=MULTIPLEXING_HIGH`
+    : null;
+  if (link && cfg.installed) {
+    const tp = await getTrafficPattern();
+    if (tp) link += `&traffic-pattern=${encodeURIComponent(tp)}`;
+  }
+  res.json({ success: true, link });
+}
+
 async function deleteUser(req, res) {
   const { username } = req.params;
   const before = loadConfig().mieruUsers.length;
@@ -121,4 +138,4 @@ async function updateUser(req, res) {
   res.json({ success: true, expiresAt });
 }
 
-module.exports = { listUsers, createUser, deleteUser, updateUser, writeMieruConfig };
+module.exports = { listUsers, createUser, getUserLink, deleteUser, updateUser, writeMieruConfig };
