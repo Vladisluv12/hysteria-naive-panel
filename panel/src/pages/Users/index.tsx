@@ -48,8 +48,8 @@ export function UsersPage() {
   const proxyTypeRef = useRef(proxyType);
   proxyTypeRef.current = proxyType;
 
-  const loadUsers = useCallback(async () => {
-    setLoading(true);
+  const loadUsers = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     const requestProxyType = proxyType;
     try {
       const api = API_MAP[proxyType];
@@ -64,7 +64,7 @@ export function UsersPage() {
       setMieruPort(config.mieruPort || config.port);
       setVlessPort(config.vlessPort || config.port);
       setVlessPbk(config.vlessRealityPublicKey || '');
-      setLoading(false);
+      if (!silent) setLoading(false);
 
       // Traffic can be slow (xray statsquery) or hang mid-restart — fetch it
       // in the background so it never blocks the table from showing.
@@ -78,7 +78,7 @@ export function UsersPage() {
     } catch (err) {
       if (requestProxyType !== proxyTypeRef.current) return;
       addToast(err instanceof Error ? err.message : 'Failed to load', 'error');
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [proxyType, addToast]);
 
@@ -106,7 +106,7 @@ export function UsersPage() {
     const res = await api.createUser({ ...data, expireDays: undefined });
     if (!res.success) throw new Error(res.message || 'Create failed');
     addToast(`User ${data.nickname || data.username} created`, 'success');
-    loadUsers();
+    loadUsers(true);
   };
 
   const handleDelete = async (username: string) => {
@@ -114,7 +114,7 @@ export function UsersPage() {
       const api = API_MAP[proxyType];
       await api.deleteUser(username);
       addToast(`User ${username} deleted`, 'success');
-      loadUsers();
+      loadUsers(true);
     } catch (err) {
       addToast(err instanceof Error ? err.message : 'Delete failed', 'error');
     }
@@ -129,7 +129,7 @@ export function UsersPage() {
       if (!res.success) throw new Error(res.message || 'Extend failed');
       addToast(`User ${extendUser.username} updated`, 'success');
       setExtendUser(null);
-      loadUsers();
+      loadUsers(true);
     } catch (err) {
       addToast(err instanceof Error ? err.message : 'Extend failed', 'error');
     }

@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { UsersPage } from './index';
 import { UserTable } from './components/UserTable';
 import { AuthProvider } from '../../contexts/AuthContext';
 import { ToastProvider } from '../../contexts/ToastContext';
 import * as systemApi from '../../api/system';
+import * as naiveApi from '../../api/naive';
 
 vi.mock('../../api/auth', () => ({
   me: vi.fn().mockResolvedValue({ username: 'admin', role: 'admin' }),
@@ -39,6 +40,31 @@ describe('UsersPage', () => {
   it('renders add user button', async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText('+ Добавить пользователя')).toBeDefined());
+  });
+
+  it('does not blank the table behind a Loading spinner when refreshing after creating a user', async () => {
+    vi.mocked(naiveApi.createUser).mockResolvedValue({ success: true, link: 'naive+https://x' });
+    // Make the post-create refresh take a moment (like a real network round
+    // trip), so a spurious Loading flash would have time to show up.
+    vi.mocked(naiveApi.listUsers).mockImplementation(() => new Promise(resolve => {
+      setTimeout(() => resolve({ users: [{ username: 'user1', password: 'pass1', nickname: 'User One', expiresAt: '2026-12-31', expired: false, createdAt: '2026-01-01', remainingSec: 86400 }] }), 50);
+    }));
+
+    renderPage();
+    await waitFor(() => expect(screen.getByText('User One')).toBeDefined());
+
+    fireEvent.click(screen.getByText('+ Добавить пользователя'));
+    fireEvent.click(screen.getByText('Создать'));
+    await waitFor(() => expect(naiveApi.createUser).toHaveBeenCalled());
+
+    // The table (and its existing data) must stay visible the whole time —
+    // the post-create refresh should update in place, not show a full-page
+    // Loading spinner that hides the table while the refresh is in flight.
+    expect(screen.queryByText('Loading...')).toBeNull();
+    expect(screen.getByText('User One')).toBeDefined();
+
+    await waitFor(() => expect(vi.mocked(naiveApi.listUsers).mock.calls.length).toBeGreaterThanOrEqual(2));
+    expect(screen.queryByText('Loading...')).toBeNull();
   });
 });
 
