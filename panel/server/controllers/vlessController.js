@@ -7,7 +7,7 @@ const { updateConfig } = require('../services/atomicUpdate.js');
 const { buildVlessConfigObject } = require('../services/configBuilder.js');
 const { isValidUsername, isValidPassword, isValidExpireDays, computeExpiresAt, isExpired, remainingSeconds } = require('../utils/validators.js');
 const { restartVless } = require('../services/systemAdapter.js');
-const { AtomicFileTransaction } = require('../services/atomicConfig.js');
+const { AtomicFileTransaction, xrayValidator } = require('../services/atomicConfig.js');
 const { enqueue } = require('../services/syncService.js');
 
 function testPath(systemPath) {
@@ -31,7 +31,7 @@ function writeVlessConfig(cfg) {
 
   const newContent = JSON.stringify(configObj, null, 2);
   const tx = new AtomicFileTransaction(VLESS_CONFIG_PATH);
-  return tx.execute(newContent, () => true);
+  return tx.execute(newContent, xrayValidator);
 }
 
 function enrichUser(u) {

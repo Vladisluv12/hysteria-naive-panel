@@ -82,6 +82,22 @@ function caddyValidator(tmpPath) {
   }
 }
 
+function xrayValidator(tmpPath) {
+  const { execSync } = require('child_process');
+  try {
+    execSync(`xray run -test -config ${tmpPath}`, { stdio: 'pipe', timeout: 10000 });
+    return true;
+  } catch (validateErr) {
+    const output = ((validateErr && validateErr.stdout) ? validateErr.stdout.toString() : '')
+      + ((validateErr && validateErr.stderr) ? validateErr.stderr.toString() : '');
+    if (output && /Failed to start|infra\/conf|error/i.test(output)) {
+      console.error(`[xrayValidator] ${output.slice(0, 500)}`);
+      return false;
+    }
+    return true;
+  }
+}
+
 function yamlSelfValidator(yamlContent) {
   const yaml = require('js-yaml');
   try {
@@ -96,4 +112,4 @@ function yamlSelfValidator(yamlContent) {
   }
 }
 
-module.exports = { AtomicFileTransaction, caddyValidator, yamlSelfValidator };
+module.exports = { AtomicFileTransaction, caddyValidator, yamlSelfValidator, xrayValidator };
