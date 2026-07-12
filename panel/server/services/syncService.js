@@ -63,6 +63,12 @@ function drain() {
   })();
 }
 
+function guardedTask(protocol, fn) {
+  return fn().catch(e => {
+    console.error(`[syncService] ${protocol} sync task failed:`, e.message);
+  });
+}
+
 async function syncAll() {
   let protocols;
   try {
@@ -72,37 +78,43 @@ async function syncAll() {
   }
   if (protocols.length === 0) return;
 
-  const { loadConfig } = require('./storageFactory.js');
-  const { reloadNaive, restartHysteria, restartMieru, restartVless } = require('./systemAdapter.js');
+  let cfg, s;
+  try {
+    const { loadConfig } = require('./storageFactory.js');
+    cfg = loadConfig();
+    s = cfg && cfg.stack;
+  } catch (e) {
+    console.error('[syncService] loadConfig failed, skipping this sync tick:', e.message);
+    return;
+  }
 
-  const cfg = loadConfig();
-  const s = cfg && cfg.stack;
+  const { reloadNaive, restartHysteria, restartMieru, restartVless } = require('./systemAdapter.js');
   const tasks = [];
 
   if (protocols.includes('naive') && s && s.naive) {
-    tasks.push((async () => {
+    tasks.push(guardedTask('naive', async () => {
       const { writeCaddyfile } = require('../controllers/naiveController.js');
       writeCaddyfile(cfg);
       await reloadNaive();
-    })());
+    }));
   }
   if (protocols.includes('hy2') && s && s.hy2) {
-    tasks.push((async () => {
+    tasks.push(guardedTask('hy2', async () => {
       const { writeHysteriaConfig } = require('../controllers/hysteriaController.js');
       if (writeHysteriaConfig(cfg)) await restartHysteria();
-    })());
+    }));
   }
   if (protocols.includes('mieru') && s && s.mieru) {
-    tasks.push((async () => {
+    tasks.push(guardedTask('mieru', async () => {
       const { writeMieruConfig } = require('../controllers/mieruController.js');
       if (writeMieruConfig(cfg)) await restartMieru();
-    })());
+    }));
   }
   if (protocols.includes('vless') && s && s.vless) {
-    tasks.push((async () => {
+    tasks.push(guardedTask('vless', async () => {
       const { writeVlessConfig } = require('../controllers/vlessController.js');
       if (writeVlessConfig(cfg)) await restartVless();
-    })());
+    }));
   }
   await Promise.all(tasks);
 }

@@ -45,30 +45,39 @@ export function UsersPage() {
   const [trafficByUser, setTrafficByUser] = useState<Record<string, UserTraffic>>({});
   const [overflows, setOverflows] = useState(false);
   const pageRef = useRef<HTMLDivElement>(null);
+  const proxyTypeRef = useRef(proxyType);
+  proxyTypeRef.current = proxyType;
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
+    const requestProxyType = proxyType;
     try {
       const api = API_MAP[proxyType];
       const [u, config] = await Promise.all([
         api.listUsers(),
         systemApi.getConfig(),
       ]);
+      if (requestProxyType !== proxyTypeRef.current) return;
       setUsers(u.users);
       setDomain(config.domain || '');
       setPort(config.port);
       setMieruPort(config.mieruPort || config.port);
       setVlessPort(config.vlessPort || config.port);
       setVlessPbk(config.vlessRealityPublicKey || '');
+      setLoading(false);
 
-      try {
-        const traffic = await systemApi.getTraffic();
-        const pu = traffic?.perUser?.[TRAFFIC_KEY[proxyType]]?.users;
-        if (pu) setTrafficByUser(pu);
-      } catch { /* traffic not critical */ }
+      // Traffic can be slow (xray statsquery) or hang mid-restart — fetch it
+      // in the background so it never blocks the table from showing.
+      systemApi.getTraffic()
+        .then(traffic => {
+          if (requestProxyType !== proxyTypeRef.current) return;
+          const pu = traffic?.perUser?.[TRAFFIC_KEY[proxyType]]?.users;
+          if (pu) setTrafficByUser(pu);
+        })
+        .catch(() => { /* traffic not critical */ });
     } catch (err) {
+      if (requestProxyType !== proxyTypeRef.current) return;
       addToast(err instanceof Error ? err.message : 'Failed to load', 'error');
-    } finally {
       setLoading(false);
     }
   }, [proxyType, addToast]);

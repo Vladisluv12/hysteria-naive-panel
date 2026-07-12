@@ -130,6 +130,17 @@ app.use('/api', vlessRoutes);
 const { runCommand } = require('./services/systemAdapter.js');
 const { enqueue, startSync } = require('./services/syncService.js');
 
+// ─── Process-level safety net ───────────────────────────────
+// Defense-in-depth: syncAll() already guards each per-protocol task, but
+// this catches anything unexpected anywhere else in the process so a single
+// bad tick/request can never take down the whole panel (all protocols).
+process.on('unhandledRejection', (reason) => {
+  console.error('[process] unhandled rejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[process] uncaught exception:', err);
+});
+
 //  INSTALL VIA WEBSOCKET
 // ═══════════════════════════════════════════════════════════
 wss.on('connection', (ws, req) => {

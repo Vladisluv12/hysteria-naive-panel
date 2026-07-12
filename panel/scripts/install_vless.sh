@@ -241,6 +241,13 @@ XRAYEOF
 
 log "✅ Конфиг /etc/xray/config.json создан (REALITY)"
 
+# Symlink /usr/local/etc/xray/config.json → /etc/xray/config.json
+# This handles the case where the official XTLS install script
+# overrides the systemd service to use /usr/local/etc/xray/config.json
+mkdir -p /usr/local/etc/xray
+ln -sf /etc/xray/config.json /usr/local/etc/xray/config.json
+log "✅ Симлинк /usr/local/etc/xray/config.json → /etc/xray/config.json"
+
 # ══════════════════════════════════════════════════════
 step 6
 log "▶ Systemd сервис Xray..."

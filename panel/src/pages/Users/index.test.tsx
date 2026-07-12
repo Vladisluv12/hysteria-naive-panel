@@ -142,4 +142,16 @@ describe('UsersPage traffic', () => {
     const dashes = screen.getAllByText('—');
     expect(dashes.length).toBeGreaterThan(0);
   });
+
+  it('shows the user table immediately instead of hanging on a slow/stuck traffic request', async () => {
+    // Traffic never resolves (e.g. xray is mid-restart and statsquery hangs).
+    vi.mocked(systemApi.getTraffic).mockImplementation(() => new Promise(() => {}));
+
+    renderPage();
+    // The table (and its data) must appear without waiting for traffic.
+    await waitFor(() => {
+      expect(screen.getByText('User One')).toBeDefined();
+    });
+    expect(screen.queryByText('Loading...')).toBeNull();
+  });
 });
