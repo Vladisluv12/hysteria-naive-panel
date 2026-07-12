@@ -321,27 +321,22 @@ describe('buildMieruConfigObject', () => {
     expect(out.egress.rules[2]).toEqual({ domainNames: ['*'], action: 'DIRECT' });
   });
 
-  test('ACL blockGeosite → egress REJECT rules', () => {
+  test('ACL blockGeosite is ignored for mieru — mita has no geosite: category syntax', () => {
+    // mieru's egress.rules only match literal domainNames/ipRanges (see
+    // github.com/enfein/mieru docs/server-install.md); a "geosite:xxx"
+    // string would just never match any real domain.
     saveAcl({ enabled: true, blockDomains: [], blockGeosite: ['netflix', 'youtube'] });
     const out = buildMieruConfigObject(makeMieruCfg());
-    expect(out.egress).toBeDefined();
-    expect(out.egress.rules).toHaveLength(3); // 2 geosite + catch-all
-    expect(out.egress.rules[0]).toEqual({ domainNames: ['geosite:netflix'], action: 'REJECT' });
-    expect(out.egress.rules[1]).toEqual({ domainNames: ['geosite:youtube'], action: 'REJECT' });
-    expect(out.egress.rules[2]).toEqual({ domainNames: ['*'], action: 'DIRECT' });
+    expect(out.egress).toBeUndefined();
   });
 
-  test('ACL blockGeoip → egress REJECT rules', () => {
+  test('ACL blockGeoip is ignored for mieru — mita has no geoip: category syntax', () => {
     saveAcl({ enabled: true, blockDomains: [], blockGeoip: ['cn', 'ru'] });
     const out = buildMieruConfigObject(makeMieruCfg());
-    expect(out.egress).toBeDefined();
-    expect(out.egress.rules).toHaveLength(3); // 2 geoip + catch-all
-    expect(out.egress.rules[0]).toEqual({ domainNames: ['geoip:cn'], action: 'REJECT' });
-    expect(out.egress.rules[1]).toEqual({ domainNames: ['geoip:ru'], action: 'REJECT' });
-    expect(out.egress.rules[2]).toEqual({ domainNames: ['*'], action: 'DIRECT' });
+    expect(out.egress).toBeUndefined();
   });
 
-  test('ACL all block types combined → egress rules in order', () => {
+  test('ACL blockDomains still applies when blockGeosite/blockGeoip are also set', () => {
     saveAcl({
       enabled: true,
       blockDomains: ['vk.com'],
@@ -350,11 +345,9 @@ describe('buildMieruConfigObject', () => {
     });
     const out = buildMieruConfigObject(makeMieruCfg());
     expect(out.egress).toBeDefined();
-    expect(out.egress.rules).toHaveLength(4); // domain + geosite + geoip + catch-all
+    expect(out.egress.rules).toHaveLength(2); // domain + catch-all only
     expect(out.egress.rules[0]).toEqual({ domainNames: ['vk.com'], action: 'REJECT' });
-    expect(out.egress.rules[1]).toEqual({ domainNames: ['geosite:netflix'], action: 'REJECT' });
-    expect(out.egress.rules[2]).toEqual({ domainNames: ['geoip:cn'], action: 'REJECT' });
-    expect(out.egress.rules[3]).toEqual({ domainNames: ['*'], action: 'DIRECT' });
+    expect(out.egress.rules[1]).toEqual({ domainNames: ['*'], action: 'DIRECT' });
   });
 
   test('no egress when ACL disabled even with domains set', () => {
@@ -367,20 +360,6 @@ describe('buildMieruConfigObject', () => {
     saveAcl({ enabled: true, blockDomains: [], blockGeosite: [], blockGeoip: [] });
     const out = buildMieruConfigObject(makeMieruCfg());
     expect(out.egress).toBeUndefined();
-  });
-
-  test('filters invalid geosite categories', () => {
-    saveAcl({ enabled: true, blockGeosite: ['netflix', 'nonexistent'] });
-    const out = buildMieruConfigObject(makeMieruCfg());
-    expect(out.egress.rules).toHaveLength(2); // netflix + catch-all (nonexistent filtered)
-    expect(out.egress.rules[0]).toEqual({ domainNames: ['geosite:netflix'], action: 'REJECT' });
-  });
-
-  test('filters invalid geoip countries', () => {
-    saveAcl({ enabled: true, blockGeoip: ['cn', 'zz'] });
-    const out = buildMieruConfigObject(makeMieruCfg());
-    expect(out.egress.rules).toHaveLength(2); // cn + catch-all (zz filtered)
-    expect(out.egress.rules[0]).toEqual({ domainNames: ['geoip:cn'], action: 'REJECT' });
   });
 
   test('normalizes domains (strips http://, /path, www.)', () => {

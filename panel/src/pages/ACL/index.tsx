@@ -87,7 +87,6 @@ function generateNaiveAclPreview(params: {
 function generateMieruAclPreview(params: {
   enabled: boolean;
   blockDomains: string[];
-  blockGeosite: string[];
 }): string {
   if (!params.enabled) return '(ACL выключен)';
   const rules: string[] = [];
@@ -95,7 +94,6 @@ function generateMieruAclPreview(params: {
     const domain = d.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
     if (domain && domain.length <= 253) rules.push(`  REJECT domain: ${domain}`);
   });
-  params.blockGeosite.forEach(c => rules.push(`  REJECT geosite: ${c}`));
   if (rules.length === 0) return '(нет правил)';
   return 'egress.rules:\n' + rules.join('\n') + '\n  DIRECT *';
 }
@@ -228,8 +226,7 @@ export function AclPage() {
   const mieruAclPreview = useMemo(() => generateMieruAclPreview({
     enabled,
     blockDomains: blockDomains.split('\n').map(d => d.trim()).filter(Boolean),
-    blockGeosite: blockGeosite.split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
-  }), [enabled, blockDomains, blockGeosite]);
+  }), [enabled, blockDomains]);
 
   const vlessAclPreview = useMemo(() => generateVlessAclPreview({
     blockPrivateIPs,
@@ -372,6 +369,7 @@ export function AclPage() {
           <p className={styles.tuningDesc}>
             Через запятую. Доступно {geositeList.length} категорий из geosite.dat.
             Пример: <code>google, youtube, netflix</code>
+            <br />Не поддерживается для mieru (mita) — там работают только конкретные домены.
           </p>
           <div className={styles.formGroup}>
             <textarea
@@ -413,6 +411,7 @@ export function AclPage() {
           <p className={styles.tuningDesc}>
             Через запятую (коды стран ISO 3166-1). Доступно {geoipList.length} стран из geoip.dat.
             Пример: <code>ru, cn, ir</code>
+            <br />Не поддерживается для mieru (mita) — там работают только конкретные домены.
           </p>
           <div className={styles.formGroup}>
             <textarea
@@ -477,6 +476,14 @@ export function AclPage() {
               VLESS (Xray)
             </button>
           </div>
+          {previewTab === 'mieru' && (
+            <p className={styles.tuningDesc} style={{ color: 'var(--warning, #c99a2e)' }}>
+              mita (mieru) не поддерживает блокировку по Geosite-категориям и странам Geoip —
+              его egress-правила понимают только конкретные домены и IP-диапазоны (CIDR), без
+              синтаксиса <code>geosite:</code>/<code>geoip:</code>. Для mieru применяется только
+              блокировка доменов ниже; секции «Geosite категорий» и «Geoip стран» на этот протокол не влияют.
+            </p>
+          )}
           <pre className={styles.aclPreview}>
             {previewTab === 'hy2'
               ? (aclPreview || '(пусто)')

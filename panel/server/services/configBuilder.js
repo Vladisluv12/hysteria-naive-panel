@@ -182,30 +182,22 @@ function buildMieruConfigObject(cfg) {
     },
   };
 
+  // mieru (mita)'s egress.rules only matches literal domainNames / ipRanges
+  // (see https://github.com/enfein/mieru docs/server-install.md) — there is
+  // no "geosite:"/"geoip:" category syntax like Xray/Caddy have. Emitting
+  // those prefixed strings as literal domainNames silently matches nothing,
+  // so geosite/geoip blocking is not supported for mieru; only blockDomains
+  // (literal domain names) is applied here.
   const acl = loadAcl();
   const hasBlockDomains = (acl.blockDomains || []).length > 0;
-  const hasBlockGeosite = (acl.blockGeosite || []).length > 0;
-  const hasBlockGeoip = (acl.blockGeoip || []).length > 0;
 
-  if (acl.enabled && (hasBlockDomains || hasBlockGeosite || hasBlockGeoip)) {
+  if (acl.enabled && hasBlockDomains) {
     const rules = [];
 
     (acl.blockDomains || []).filter(Boolean).forEach(d => {
       const domain = String(d).trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '');
       if (domain.length > 0 && domain.length <= 253) {
         rules.push({ domainNames: [domain], action: 'REJECT' });
-      }
-    });
-
-    (acl.blockGeosite || []).forEach(c => {
-      if (c && GEOSITE_CATEGORIES.includes(c)) {
-        rules.push({ domainNames: [`geosite:${c}`], action: 'REJECT' });
-      }
-    });
-
-    (acl.blockGeoip || []).forEach(c => {
-      if (c && GEOIP_COUNTRIES.includes(c)) {
-        rules.push({ domainNames: [`geoip:${c}`], action: 'REJECT' });
       }
     });
 

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { AclPage } from './index';
 import { AuthProvider } from '../../contexts/AuthContext';
@@ -75,5 +76,18 @@ describe('AclPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Предпросмотр ACL')).toBeDefined();
     });
+  });
+
+  it('warns that geosite/geoip blocking does not apply to mieru, only domains do', async () => {
+    renderPage();
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText('Предпросмотр ACL')).toBeDefined());
+    await user.click(screen.getByText('mieru'));
+    await waitFor(() => {
+      expect(screen.getAllByText(/не поддерживается для mieru|не поддерживает блокировку по Geosite/i).length).toBeGreaterThan(0);
+    });
+    // The generated preview itself must not claim geosite/geoip rules exist for mieru.
+    expect(screen.queryByText(/geosite:\s*netflix/i)).toBeNull();
+    expect(screen.queryByText(/geoip:\s*cn/i)).toBeNull();
   });
 });
