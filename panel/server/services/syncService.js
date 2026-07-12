@@ -73,7 +73,7 @@ async function syncAll() {
   if (protocols.length === 0) return;
 
   const { loadConfig } = require('./storageFactory.js');
-  const { writeCaddyfile, reloadNaive, restartHysteria, restartMieru, restartVless } = require('./systemAdapter.js');
+  const { reloadNaive, restartHysteria, restartMieru, restartVless } = require('./systemAdapter.js');
 
   const cfg = loadConfig();
   const s = cfg && cfg.stack;
@@ -81,6 +81,7 @@ async function syncAll() {
 
   if (protocols.includes('naive') && s && s.naive) {
     tasks.push((async () => {
+      const { writeCaddyfile } = require('../controllers/naiveController.js');
       writeCaddyfile(cfg);
       await reloadNaive();
     })());
