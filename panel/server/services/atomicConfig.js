@@ -68,9 +68,13 @@ class AtomicFileTransaction {
 }
 
 function caddyValidator(tmpPath) {
+  // naive's forward_proxy build ships as the caddy-naive binary, not the
+  // stock caddy binary — calling `caddy` here silently no-ops (command not
+  // found never matches the error/adapt/parse check below), so this never
+  // actually validated anything in production.
   const { execSync } = require('child_process');
   try {
-    execSync(`caddy validate --config ${tmpPath}`, { stdio: 'pipe', timeout: 10000 });
+    execSync(`caddy-naive validate --config ${tmpPath}`, { stdio: 'pipe', timeout: 10000 });
     return true;
   } catch (validateErr) {
     const stderr = (validateErr && validateErr.stderr) ? validateErr.stderr.toString() : '';
