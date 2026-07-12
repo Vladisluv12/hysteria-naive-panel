@@ -76,7 +76,7 @@ export function UserTable({ users, trafficByUser, onExtend, onDelete, onCopyLink
                   <div className={styles.actions}>
                     <button className={`${styles.smallBtn} ${styles.extendBtn}`} onClick={() => onExtend(u.username, u.expiresAt)}>Продлить</button>
                     {onDownloadConfig && (
-                      <button className={styles.smallBtn} onClick={() => onDownloadConfig(u.username)} title="Clash/mihomo-конфиг для сторонних клиентов (Karing, Clash Verge и т.д.)">Конфиг</button>
+                      <button className={`${styles.smallBtn} ${styles.extendBtn}`} onClick={() => onDownloadConfig(u.username)} title="Clash/mihomo-конфиг для сторонних клиентов (Karing, Clash Verge и т.д.)">Конфиг</button>
                     )}
                     <button className={`${styles.smallBtn} ${styles.deleteBtn}`} onClick={() => onDelete(u.username)}>Удалить</button>
                   </div>
