@@ -76,7 +76,6 @@ EMAIL="${EMAIL:-}"
 if [[ $AUTO_MODE -eq 1 ]]; then
   INSTALL_NAIVE=1; INSTALL_HY2=1; INSTALL_MIERU=1; INSTALL_VLESS=1
   USE_SQLITE="${USE_SQLITE:-false}"
-  USE_NEW_FRONTEND="${USE_NEW_FRONTEND:-true}"
   PANEL_ACCESS="${PANEL_ACCESS:-nginx}"
   MASQUERADE_MODE="${MASQUERADE_MODE:-local}"
   MASQUERADE_URL="${MASQUERADE_URL:-}"
@@ -119,7 +118,7 @@ if [[ $AUTO_MODE -eq 1 ]]; then
     { log_warn "MASQUERADE_URL invalid, using default"; MASQUERADE_URL="https://www.iana.org"; }
   TLS_MODE="${TLS_MODE:-selfsigned}"
   EMAIL="${EMAIL:-}"
-  log_info "Auto mode: ${DOMAIN} | TLS=${TLS_MODE} | Port=${PROXY_PORT} | mieru=${MIERU_PORT} | VLESS=${VLESS_PORT} | zapret2=${USE_ZAPRET2} | SQLite=${USE_SQLITE} | React=${USE_NEW_FRONTEND} | Access=${PANEL_ACCESS}"
+  log_info "Auto mode: ${DOMAIN} | TLS=${TLS_MODE} | Port=${PROXY_PORT} | mieru=${MIERU_PORT} | VLESS=${VLESS_PORT} | zapret2=${USE_ZAPRET2} | SQLite=${USE_SQLITE} | Access=${PANEL_ACCESS}"
 else
   # ── Interactive mode ─────────────────────────────────────────────────
   INSTALL_NAIVE=1; INSTALL_HY2=1; INSTALL_MIERU=1; INSTALL_VLESS=1
@@ -128,9 +127,6 @@ else
   echo -e "\n${BOLD}Storage:${RESET} ${CYAN}1)${RESET} JSON (default)  ${CYAN}2)${RESET} SQLite"
   read -rp "Choice [1/2]: " STORAGE_MODE; STORAGE_MODE="${STORAGE_MODE:-1}"
   [[ "$STORAGE_MODE" == "2" ]] && USE_SQLITE=true || USE_SQLITE=false
-
-  echo -e "\n${BOLD}React frontend:${RESET} ${CYAN}1)${RESET} Yes (default)  ${CYAN}2)${RESET} No"
-  read -rp "Choice [1/2]: " _FRONT; [[ "${_FRONT:-1}" == "2" ]] && USE_NEW_FRONTEND=false || USE_NEW_FRONTEND=true
 
   echo -e "\n${BOLD}Panel access:${RESET} ${CYAN}1)${RESET} Nginx :8080  ${CYAN}2)${RESET} Direct :3000  ${CYAN}3)${RESET} SSH-only"
   read -rp "Choice [1/2/3]: " ACCESS_MODE; ACCESS_MODE="${ACCESS_MODE:-1}"
@@ -460,15 +456,10 @@ cd "${PANEL_DIR}/panel"
 npm install --omit=dev 2>&1 | grep -v "^npm warn" | tail -3 || true
 mkdir -p "${PANEL_DIR}/panel/data"
 
-if [[ "${USE_NEW_FRONTEND:-true}" == "true" ]]; then
-  log_info "Building React frontend..."
-  npm install 2>&1 | grep -v "^npm warn" | tail -5 || true
-  NODE_ENV=production npm run build 2>&1 | tail -5 || {
-    log_warn "Frontend build failed, falling back to legacy HTML"
-    USE_NEW_FRONTEND=false
-  }
-  [[ -d "${PANEL_DIR}/panel/dist" ]] && log_ok "React frontend built -> dist/"
-fi
+log_info "Building frontend..."
+npm install 2>&1 | grep -v "^npm warn" | tail -5 || true
+NODE_ENV=production npm run build 2>&1 | tail -5 || { log_err "Frontend build failed"; exit 1; }
+[[ -d "${PANEL_DIR}/panel/dist" ]] && log_ok "Frontend built -> dist/"
 log_ok "Panel installed"
 
 
@@ -612,7 +603,7 @@ fi
 log_step "[11] Starting panel (PM2)..."
 cd "${PANEL_DIR}/panel"
 pm2 delete "${SERVICE_NAME}" 2>/dev/null || true; sleep 1
-LISTEN_HOST="${LISTEN_HOST:-0.0.0.0}" USE_SQLITE="${USE_SQLITE:-false}" USE_NEW_FRONTEND="${USE_NEW_FRONTEND:-true}" \
+LISTEN_HOST="${LISTEN_HOST:-0.0.0.0}" USE_SQLITE="${USE_SQLITE:-false}" \
   pm2 start server/index.js --name "${SERVICE_NAME}" --time --restart-delay=3000 2>&1 | tail -3
 pm2 save --force >/dev/null 2>&1 || true
 eval "$(pm2 startup systemd -u root --hp /root 2>/dev/null | grep "^sudo")" 2>/dev/null || true
@@ -624,7 +615,7 @@ else
   log_warn "PM2 failed, trying systemd fallback..."
   cat > /etc/systemd/system/proxygate.service << SVCBEOF
 [Unit]
-Description=Panel Naive + Hy2 (fallback)
+Description=ProxyGate (fallback)
 After=network.target
 [Service]
 Type=simple
@@ -636,7 +627,6 @@ Environment=NODE_ENV=production
 Environment=PORT=${INTERNAL_PORT}
 Environment=LISTEN_HOST=${LISTEN_HOST:-0.0.0.0}
 Environment=USE_SQLITE=${USE_SQLITE:-false}
-Environment=USE_NEW_FRONTEND=${USE_NEW_FRONTEND:-true}
 StandardOutput=journal
 StandardError=journal
 [Install]

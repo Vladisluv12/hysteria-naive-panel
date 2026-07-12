@@ -32,7 +32,6 @@ sudo DOMAIN="vpn.example.com" NAIVE_USER="u1" NAIVE_PASS="p1" HY2_PASS="p2" bash
 | `EMAIL` | — | Email для Let's Encrypt |
 | `PROXY_PORT` | `8443` | Порт прокси |
 | `USE_SQLITE` | `false` | SQLite вместо JSON |
-| `USE_NEW_FRONTEND` | `true` | React-фронтенд |
 | `PANEL_ACCESS` | `nginx` | `nginx` / `direct` / `ssh-only` |
 | `MASQUERADE_MODE` | `local` | `local` или `mirror` |
 | `MASQUERADE_URL` | — | URL для режима mirror |

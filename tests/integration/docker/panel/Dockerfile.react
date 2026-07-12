@@ -17,6 +17,5 @@ RUN cd /app/node_modules/better-sqlite3 && \
     node /usr/local/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js rebuild && \
     node -e "try{require('better-sqlite3');console.log('better-sqlite3 OK')}catch(e){console.error('REQUIRE FAILED:',e.message);process.exit(1)}"
 ENV NODE_ENV=production
-ENV USE_NEW_FRONTEND=true
 EXPOSE 3000
 CMD ["node", "server/index.js"]

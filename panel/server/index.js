@@ -93,9 +93,7 @@ const sessionMiddleware = session({
 });
 app.use(sessionMiddleware);
 
-const frontendDir = process.env.USE_NEW_FRONTEND === 'true'
-  ? path.join(__dirname, '..', 'dist')
-  : path.join(__dirname, '..', 'public');
+const frontendDir = path.join(__dirname, '..', 'dist');
 
 // Static middleware before API routes, not requiring session
 app.use(express.static(frontendDir));

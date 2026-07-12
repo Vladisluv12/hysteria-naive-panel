@@ -481,7 +481,6 @@ acl:
 | `LISTEN_HOST` | `0.0.0.0` | Backend bind address (`127.0.0.1` for SSH-only) |
 | `NODE_ENV` | - | Set to `production` in deployment |
 | `USE_SQLITE` | `false` | Use SQLite instead of JSON files |
-| `USE_NEW_FRONTEND` | `true` | Use React frontend (vs legacy) |
 | `TEST_MODE` | `false` | Enable test mode (skips systemctl calls) |
 | `TEST_CONFIG_DIR` | - | Override config directory for tests |
 

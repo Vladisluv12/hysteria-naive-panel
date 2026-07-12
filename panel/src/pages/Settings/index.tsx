@@ -99,9 +99,6 @@ export function SettingsPage() {
                 <span className={styles.infoVal}>NaiveProxy + Hysteria2</span>
               </div>
             </div>
-            <div className={styles.supportBtns}>
-              <a className={`${styles.btn} ${styles.btnFull} ${styles.btnTg}`} href="https://t.me/rixxx_channel" target="_blank" rel="noopener">Подписывайся в Telegram</a>
-            </div>
           </div>
         </div>
 

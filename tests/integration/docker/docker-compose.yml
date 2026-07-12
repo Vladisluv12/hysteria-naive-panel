@@ -157,7 +157,6 @@ services:
       PORT: 3000
       LISTEN_HOST: 0.0.0.0
       TEST_MODE: "1"
-      USE_NEW_FRONTEND: "true"
       TEST_CONFIG_DIR: /config-share
     volumes:
       - panel-data-react:/app/data
