@@ -1,13 +1,32 @@
 'use strict';
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { updateConfig, updateUsers } from '../services/atomicUpdate.js';
-import { loadConfig, saveConfig, loadUsers, saveUsers, defaultConfig } from '../services/storage.js';
+import path from 'path';
+import fs from 'fs';
+import os from 'os';
 import bcrypt from 'bcryptjs';
+import { createRequire } from 'module';
 
+const require = createRequire(import.meta.url);
 const ADMIN_HASH = bcrypt.hashSync('admin', 10);
 
+// This test writes production-shaped config/user files on every run — it
+// MUST be sandboxed via TEST_CONFIG_DIR (and SQLITE_DB_DIR, since
+// atomicUpdate.js goes through storageFactory.js, which can route to
+// sqliteStorage.js). Without this, a real box's data/config.json gets
+// silently overwritten with a blank default config on every test run.
+let updateConfig, updateUsers, loadConfig, saveConfig, loadUsers, saveUsers, defaultConfig;
+
 beforeEach(() => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'atomicupdate-test-'));
+  process.env.TEST_CONFIG_DIR = tmpDir;
+  process.env.SQLITE_DB_DIR = tmpDir;
+  for (const key of Object.keys(require.cache || {})) {
+    if (key.includes(`${path.sep}panel${path.sep}server${path.sep}`)) delete require.cache[key];
+  }
+  ({ updateConfig, updateUsers } = require('../services/atomicUpdate.js'));
+  ({ loadConfig, saveConfig, loadUsers, saveUsers, defaultConfig } = require('../services/storage.js'));
+
   saveConfig(defaultConfig());
   saveUsers({ admin: { password: ADMIN_HASH, role: 'admin' } });
 });
