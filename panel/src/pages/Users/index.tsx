@@ -166,7 +166,14 @@ export function UsersPage() {
       {loading ? (
         <div className={styles.loading}>Loading...</div>
       ) : (
-        <UserTable users={users} trafficByUser={trafficByUser} onExtend={(username, expiry) => setExtendUser({ username, expiry })} onDelete={handleDelete} onCopyLink={makeLink} />
+        <UserTable
+          users={users}
+          trafficByUser={trafficByUser}
+          onExtend={(username, expiry) => setExtendUser({ username, expiry })}
+          onDelete={handleDelete}
+          onCopyLink={makeLink}
+          onDownloadConfig={proxyType === 'mieru' ? (username) => window.open(mieruApi.getUserClashConfigUrl(username), '_blank') : undefined}
+        />
       )}
       <div className={styles.toolbar} style={{ marginTop: overflows ? 0 : 16, display: overflows ? 'none' : undefined }}>
         <span style={{ color: '#888', fontSize: 14 }}>{users.length} user{users.length !== 1 ? 's' : ''}</span>

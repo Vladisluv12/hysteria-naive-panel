@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { UsersPage } from './index';
 import { UserTable } from './components/UserTable';
 import { AuthProvider } from '../../contexts/AuthContext';
@@ -17,6 +17,15 @@ vi.mock('../../api/naive', () => ({
   createUser: vi.fn(), deleteUser: vi.fn(), updateUser: vi.fn(),
 }));
 vi.mock('../../api/hysteria', () => ({
+  listUsers: vi.fn().mockResolvedValue({ users: [] }),
+  createUser: vi.fn(), deleteUser: vi.fn(), updateUser: vi.fn(),
+}));
+vi.mock('../../api/mieru', () => ({
+  listUsers: vi.fn().mockResolvedValue({ users: [{ username: 'mieruuser', password: 'mpass', nickname: '', expiresAt: null, expired: false, createdAt: '2026-01-01', remainingSec: 0 }] }),
+  createUser: vi.fn(), deleteUser: vi.fn(), updateUser: vi.fn(),
+  getUserClashConfigUrl: vi.fn((username: string) => `/api/mieru/users/${username}/clash-config`),
+}));
+vi.mock('../../api/vless', () => ({
   listUsers: vi.fn().mockResolvedValue({ users: [] }),
   createUser: vi.fn(), deleteUser: vi.fn(), updateUser: vi.fn(),
 }));
@@ -108,6 +117,20 @@ describe('UserTable', () => {
     expect(dashes.length).toBe(6);
   });
 
+  it('does not render the config download button when onDownloadConfig is not passed', () => {
+    renderUserTable();
+    expect(screen.queryByText('Конфиг')).toBeNull();
+  });
+
+  it('renders the config download button and calls onDownloadConfig with the username when passed', () => {
+    const onDownloadConfig = vi.fn();
+    renderUserTable({ onDownloadConfig });
+    const buttons = screen.getAllByText('Конфиг');
+    expect(buttons.length).toBe(2); // one per user (alice, bob)
+    fireEvent.click(buttons[0]);
+    expect(onDownloadConfig).toHaveBeenCalledWith('alice');
+  });
+
   it('shows — for missing trafficByUser entry even when other users have data', () => {
     renderUserTable({
       trafficByUser: {
@@ -179,5 +202,37 @@ describe('UsersPage traffic', () => {
       expect(screen.getByText('User One')).toBeDefined();
     });
     expect(screen.queryByText('Loading...')).toBeNull();
+  });
+});
+
+function renderPageAtRoute(initialPath: string) {
+  return render(
+    <MemoryRouter initialEntries={[initialPath]}>
+      <AuthProvider>
+        <ToastProvider>
+          <Routes>
+            <Route path="/users/*" element={<UsersPage />} />
+          </Routes>
+        </ToastProvider>
+      </AuthProvider>
+    </MemoryRouter>
+  );
+}
+
+describe('UsersPage mieru Clash config download', () => {
+  it('shows a "Конфиг" download button only on the mieru tab, linking to the clash-config endpoint', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    const { unmount } = renderPageAtRoute('/users/naive');
+    await waitFor(() => expect(screen.getByText('User One')).toBeDefined());
+    expect(screen.queryByText('Конфиг')).toBeNull();
+    unmount();
+
+    renderPageAtRoute('/users/mieru');
+    await waitFor(() => expect(screen.getByText('mieruuser')).toBeDefined());
+    fireEvent.click(screen.getByText('Конфиг'));
+    expect(openSpy).toHaveBeenCalledWith('/api/mieru/users/mieruuser/clash-config', '_blank');
+
+    openSpy.mockRestore();
   });
 });

@@ -16,3 +16,11 @@ export function deleteUser(username: string): Promise<DeleteUserResponse> {
 export function updateUser(username: string, data: { expireDays?: number }): Promise<UpdateUserResponse> {
   return patch(`/api/mieru/users/${encodeURIComponent(username)}`, data);
 }
+
+// mieru's own share link isn't a universal GUI import format — third-party
+// clients (Clash Verge Rev, mihomo, Karing, etc.) import mieru as a Clash-
+// style proxy config file instead. Session auth is cookie-based, so a plain
+// same-origin navigation to this URL is enough to trigger the download.
+export function getUserClashConfigUrl(username: string): string {
+  return `/api/mieru/users/${encodeURIComponent(username)}/clash-config`;
+}

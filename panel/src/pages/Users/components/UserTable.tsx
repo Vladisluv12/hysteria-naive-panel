@@ -19,6 +19,7 @@ interface UserTableProps {
   onExtend: (username: string, currentExpiry: string | null) => void;
   onDelete: (username: string) => void;
   onCopyLink: (user: NaiveUser | HysteriaUser) => string;
+  onDownloadConfig?: (username: string) => void;
 }
 
 function getDaysLeft(expiresAt: string | null): number | null {
@@ -34,7 +35,7 @@ function getBadge(daysLeft: number | null, expired: boolean): { label: string; c
   return { label: `${daysLeft} дн.`, cls: styles.badgeOk };
 }
 
-export function UserTable({ users, trafficByUser, onExtend, onDelete, onCopyLink }: UserTableProps) {
+export function UserTable({ users, trafficByUser, onExtend, onDelete, onCopyLink, onDownloadConfig }: UserTableProps) {
   const list = Array.isArray(users) ? users : [];
 
   return (
@@ -74,6 +75,9 @@ export function UserTable({ users, trafficByUser, onExtend, onDelete, onCopyLink
                 <td className={styles.td}>
                   <div className={styles.actions}>
                     <button className={`${styles.smallBtn} ${styles.extendBtn}`} onClick={() => onExtend(u.username, u.expiresAt)}>Продлить</button>
+                    {onDownloadConfig && (
+                      <button className={styles.smallBtn} onClick={() => onDownloadConfig(u.username)} title="Clash/mihomo-конфиг для сторонних клиентов (Karing, Clash Verge и т.д.)">Конфиг</button>
+                    )}
                     <button className={`${styles.smallBtn} ${styles.deleteBtn}`} onClick={() => onDelete(u.username)}>Удалить</button>
                   </div>
                 </td>
