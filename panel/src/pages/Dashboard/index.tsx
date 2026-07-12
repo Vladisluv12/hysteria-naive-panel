@@ -5,35 +5,71 @@ import { useToast } from '../../contexts/ToastContext';
 import type { SystemStatus, TrafficResponse } from '../../types/api';
 import styles from './styles.module.css';
 
+type ServiceKind = 'naive' | 'hy2' | 'mieru' | 'vless';
+
+function RefreshIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+    </svg>
+  );
+}
+
 export function DashboardPage() {
   const { mustChangePassword } = useAuth();
   const { addToast } = useToast();
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [traffic, setTraffic] = useState<TrafficResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [serviceActive, setServiceActive] = useState<Record<ServiceKind, boolean | null>>({
+    naive: null, hy2: null, mieru: null, vless: null,
+  });
+  const [checking, setChecking] = useState<Record<ServiceKind, boolean>>({
+    naive: false, hy2: false, mieru: false, vless: false,
+  });
+
+  const checkService = useCallback(async (kind: ServiceKind) => {
+    setChecking(prev => ({ ...prev, [kind]: true }));
+    try {
+      const res = await systemApi.getServiceStatus(kind);
+      setServiceActive(prev => ({ ...prev, [kind]: res.active }));
+    } catch {
+      setServiceActive(prev => ({ ...prev, [kind]: null }));
+    } finally {
+      setChecking(prev => ({ ...prev, [kind]: false }));
+    }
+  }, []);
 
   const loadData = useCallback(async () => {
     try {
-      const [s, t] = await Promise.all([
-        systemApi.getStatus(),
-        systemApi.getTraffic().catch(() => null),
-      ]);
+      const s = await systemApi.getStatus();
       setStatus(s);
-      setTraffic(t);
+      setLoading(false);
+
+      // Each block checks its own live status independently — a slow or
+      // hung systemctl call for one protocol never blocks the others or
+      // the initial page paint.
+      (['naive', 'hy2', 'mieru', 'vless'] as ServiceKind[]).forEach(kind => {
+        if (s.stack?.[kind]) checkService(kind);
+      });
+
+      // Traffic can be slow (xray statsquery) — fetch it in the background
+      // so it never blocks the dashboard from showing.
+      systemApi.getTraffic().then(setTraffic).catch(() => setTraffic(null));
     } catch (err) {
       addToast(err instanceof Error ? err.message : 'Failed to load', 'error');
-    } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, [addToast, checkService]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const handleServiceAction = async (kind: string, action: string) => {
+  const handleServiceAction = async (kind: ServiceKind, action: string) => {
     try {
       await systemApi.serviceAction(kind, action);
       addToast(`${action} ${kind} — success`, 'success');
-      loadData();
+      checkService(kind);
     } catch (err) {
       addToast(err instanceof Error ? err.message : 'Action failed', 'error');
     }
@@ -58,10 +94,24 @@ export function DashboardPage() {
 
   if (loading) return <div className={styles.loading}>Loading...</div>;
 
-  const caddyActive = status.naive?.active ?? false;
-  const hy2Active = status.hy2?.active ?? false;
-  const mieruActive = status.mieru?.active ?? false;
-  const vlessActive = status.vless?.active ?? false;
+  function StatusIndicator({ kind }: { kind: ServiceKind }) {
+    const active = serviceActive[kind];
+    const label = active === true ? 'active' : active === false ? 'inactive' : 'проверка...';
+    return (
+      <div className={styles.status}>
+        <span className={`${styles.dot} ${active ? styles.dotGreen : styles.dotGray}`} />
+        {label}
+        <button
+          className={styles.statusRefreshBtn}
+          onClick={() => checkService(kind)}
+          disabled={checking[kind]}
+          title="Обновить статус"
+        >
+          <RefreshIcon />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.page}>
@@ -92,10 +142,7 @@ export function DashboardPage() {
                 <div className={styles.cardSubtitle}>TCP/{status.port} · Caddy</div>
               </div>
             </div>
-            <div className={styles.status}>
-              <span className={`${styles.dot} ${caddyActive ? styles.dotGreen : styles.dotGray}`} />
-              {caddyActive ? 'active' : (status.naive ? 'inactive' : '—')}
-            </div>
+            <StatusIndicator kind="naive" />
           </div>
           <div className={styles.cardBody}>
             <div className={styles.installed}>
@@ -123,10 +170,7 @@ export function DashboardPage() {
                 <div className={styles.cardSubtitle}>UDP/{status.port} · QUIC</div>
               </div>
             </div>
-            <div className={styles.status}>
-              <span className={`${styles.dot} ${hy2Active ? styles.dotGreen : styles.dotGray}`} />
-              {hy2Active ? 'active' : (status.hy2 ? 'inactive' : '—')}
-            </div>
+            <StatusIndicator kind="hy2" />
           </div>
           <div className={styles.cardBody}>
             <div className={styles.installed}>
@@ -155,10 +199,7 @@ export function DashboardPage() {
                 <div className={styles.cardSubtitle}>TCP/{status.mieruPort || status.port} · Go proxy</div>
               </div>
             </div>
-            <div className={styles.status}>
-              <span className={`${styles.dot} ${mieruActive ? styles.dotGreen : styles.dotGray}`} />
-              {mieruActive ? 'active' : (status.mieru ? 'inactive' : '—')}
-            </div>
+            <StatusIndicator kind="mieru" />
           </div>
           <div className={styles.cardBody}>
             <div className={styles.installed}>
@@ -188,10 +229,7 @@ export function DashboardPage() {
                 <div className={styles.cardSubtitle}>TCP/{status.vlessPort || status.port} · Xray</div>
               </div>
             </div>
-            <div className={styles.status}>
-              <span className={`${styles.dot} ${vlessActive ? styles.dotGreen : styles.dotGray}`} />
-              {vlessActive ? 'active' : (status.vless ? 'inactive' : '—')}
-            </div>
+            <StatusIndicator kind="vless" />
           </div>
           <div className={styles.cardBody}>
             <div className={styles.installed}>
@@ -279,12 +317,6 @@ export function DashboardPage() {
                   <span className={styles.trafficLabel}>Активных</span>
                   <span className={styles.trafficValue}>{traffic.connections?.naive ?? '—'}</span>
                 </div>
-                {traffic.perUser?.naive?.users && Object.entries(traffic.perUser.naive.users).map(([user, u]) => (
-                  <div key={user} className={styles.trafficRow}>
-                    <span className={styles.trafficLabel}>{user}</span>
-                    <span className={styles.trafficValue}>{u.totalFormatted}</span>
-                  </div>
-                ))}
               </div>
               <div className={styles.trafficGroup}>
                 <div className={styles.trafficTitle}>Hysteria2 (UDP)</div>
@@ -300,12 +332,6 @@ export function DashboardPage() {
                   <span className={styles.trafficLabel}>Активных</span>
                   <span className={styles.trafficValue}>{traffic.connections?.hy2 ?? '—'}</span>
                 </div>
-                {traffic.perUser?.hy2?.users && Object.entries(traffic.perUser.hy2.users).map(([user, u]) => (
-                  <div key={user} className={styles.trafficRow}>
-                    <span className={styles.trafficLabel}>{user}</span>
-                    <span className={styles.trafficValue}>{u.totalFormatted}</span>
-                  </div>
-                ))}
               </div>
               {traffic.perProto?.mieru && (
               <div className={styles.trafficGroup}>
@@ -322,12 +348,6 @@ export function DashboardPage() {
                   <span className={styles.trafficLabel}>Активных</span>
                   <span className={styles.trafficValue}>{traffic.connections?.mieru ?? '—'}</span>
                 </div>
-                {traffic.perUser?.mieru?.users && Object.entries(traffic.perUser.mieru.users).map(([user, u]) => (
-                  <div key={user} className={styles.trafficRow}>
-                    <span className={styles.trafficLabel}>{user}</span>
-                    <span className={styles.trafficValue}>{u.totalFormatted}</span>
-                  </div>
-                ))}
               </div>
               )}
               {traffic.perProto?.vless && (
@@ -345,12 +365,6 @@ export function DashboardPage() {
                   <span className={styles.trafficLabel}>Активных</span>
                   <span className={styles.trafficValue}>{traffic.connections?.vless ?? '—'}</span>
                 </div>
-                {traffic.perUser?.vless?.users && Object.entries(traffic.perUser.vless.users).map(([user, u]) => (
-                  <div key={user} className={styles.trafficRow}>
-                    <span className={styles.trafficLabel}>{user}</span>
-                    <span className={styles.trafficValue}>{u.totalFormatted}</span>
-                  </div>
-                ))}
               </div>
               )}
             </div>

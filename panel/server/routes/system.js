@@ -9,6 +9,7 @@ const router = express.Router();
 router.get('/config', requireAuth, systemController.getConfig);
 router.get('/system/version', requireAuth, systemController.getVersion);
 router.get('/status', requireAuth, systemController.getStatus);
+router.get('/status/service/:kind', requireAuth, systemController.getServiceStatus);
 router.get('/traffic', requireAuth, systemController.getTraffic);
 router.post('/service/:kind/:action', requireAuth, systemController.serviceAction);
 

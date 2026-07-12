@@ -55,10 +55,17 @@ export interface SystemStatus {
   port: number;
   mieruPort?: number;
   vlessPort?: number;
-  naive: { active: boolean; usersCount: number } | null;
-  hy2: { active: boolean; usersCount: number } | null;
-  mieru?: { active: boolean; usersCount: number } | null;
-  vless?: { active: boolean; usersCount: number } | null;
+  // active is always null here — getStatus() no longer checks live service
+  // status (that was a shell-out per protocol blocking the whole page).
+  // Each dashboard block fetches its own active state via getServiceStatus.
+  naive: { active: boolean | null; usersCount: number } | null;
+  hy2: { active: boolean | null; usersCount: number } | null;
+  mieru?: { active: boolean | null; usersCount: number } | null;
+  vless?: { active: boolean | null; usersCount: number } | null;
+}
+
+export interface ServiceStatusResponse {
+  active: boolean;
 }
 
 export interface Config {

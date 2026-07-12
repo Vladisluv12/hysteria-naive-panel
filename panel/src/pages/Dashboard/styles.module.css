@@ -86,6 +86,22 @@
   white-space: nowrap;
 }
 
+.statusRefreshBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  margin-left: 2px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: color var(--transition), transform var(--transition);
+}
+.statusRefreshBtn:hover:not(:disabled) { color: var(--text-primary); transform: rotate(90deg); }
+.statusRefreshBtn:disabled { opacity: 0.4; cursor: default; }
+
 .dot {
   width: 8px;
   height: 8px;

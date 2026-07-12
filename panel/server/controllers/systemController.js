@@ -23,18 +23,24 @@ function getVersion(req, res) {
   res.json({ version: FALLBACK, source: 'fallback' });
 }
 
-async function getStatus(req, res) {
+function kindToUnit(kind) {
+  return kind === 'naive' ? 'naive'
+    : kind === 'hy2' ? 'hysteria'
+    : kind === 'mieru' ? 'mita'
+    : kind === 'vless' ? 'xray'
+    : kind === 'warp' ? 'warp' : null;
+}
+
+// Deliberately does NOT check live service status (systemctl is-active) —
+// that's a shell-out per protocol and was making the whole dashboard wait
+// on all of them before rendering anything. Each dashboard block fetches
+// its own "active" state independently via getServiceStatus below, so a
+// slow/hung service check only stalls that one block, not the page.
+function getStatus(req, res) {
   const cfg = loadConfig();
   if (!cfg.installed) {
     return res.json({ installed: false, stack: cfg.stack || { naive: false, hy2: false, mieru: false, vless: false } });
   }
-  const [naiveActive, hy2Active, mieruActive, vlessActive, warpActive] = await Promise.all([
-    cfg.stack.naive ? serviceIsActive('naive') : Promise.resolve(null),
-    cfg.stack.hy2 ? serviceIsActive('hysteria') : Promise.resolve(null),
-    cfg.stack.mieru ? serviceIsActive('mita') : Promise.resolve(null),
-    cfg.stack.vless ? serviceIsActive('xray') : Promise.resolve(null),
-    serviceIsActive('warp'),
-  ]);
   const arch = cfg.arch || require('os').arch();
   let serverIp = cfg.serverIp;
   if (!serverIp) {
@@ -57,12 +63,20 @@ async function getStatus(req, res) {
     port: cfg.port,
     mieruPort: cfg.mieruPort || cfg.port,
     vlessPort: cfg.vlessPort || cfg.port,
-    naive: cfg.stack.naive ? { active: naiveActive, usersCount: (cfg.naiveUsers || []).length } : null,
-    hy2:   cfg.stack.hy2   ? { active: hy2Active,   usersCount: (cfg.hy2Users || []).length }   : null,
-    mieru: cfg.stack.mieru ? { active: mieruActive, usersCount: (cfg.mieruUsers || []).length } : null,
-    vless: cfg.stack.vless ? { active: vlessActive, usersCount: (cfg.vlessUsers || []).length } : null,
-    warp:  { active: warpActive },
+    naive: cfg.stack.naive ? { active: null, usersCount: (cfg.naiveUsers || []).length } : null,
+    hy2:   cfg.stack.hy2   ? { active: null, usersCount: (cfg.hy2Users || []).length }   : null,
+    mieru: cfg.stack.mieru ? { active: null, usersCount: (cfg.mieruUsers || []).length } : null,
+    vless: cfg.stack.vless ? { active: null, usersCount: (cfg.vlessUsers || []).length } : null,
   });
+}
+
+async function getServiceStatus(req, res) {
+  const { kind } = req.params;
+  const unit = kindToUnit(kind);
+  if (!unit) return res.status(400).json({ error: 'bad kind' });
+
+  const active = await serviceIsActive(unit);
+  res.json({ active });
 }
 
 async function getTrafficHandler(req, res) {
@@ -77,15 +91,11 @@ async function getTrafficHandler(req, res) {
 async function serviceActionHandler(req, res) {
   const { kind, action } = req.params;
   if (!['start', 'stop', 'restart'].includes(action)) return res.status(400).json({ error: 'bad action' });
-  const unit = kind === 'naive' ? 'naive'
-    : kind === 'hy2' ? 'hysteria'
-    : kind === 'mieru' ? 'mita'
-    : kind === 'vless' ? 'xray'
-    : kind === 'warp' ? 'warp' : null;
+  const unit = kindToUnit(kind);
   if (!unit) return res.status(400).json({ error: 'bad kind' });
 
   const result = await serviceAction(action, unit);
   res.json({ success: result.success, active: result.active });
 }
 
-module.exports = { getConfig, getVersion, getStatus, getTraffic: getTrafficHandler, serviceAction: serviceActionHandler };
+module.exports = { getConfig, getVersion, getStatus, getServiceStatus, getTraffic: getTrafficHandler, serviceAction: serviceActionHandler };

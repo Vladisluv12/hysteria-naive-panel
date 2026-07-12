@@ -1,8 +1,12 @@
 import { get, post } from './client';
-import type { SystemStatus, Config, VersionInfo, TrafficResponse } from '../types/api';
+import type { SystemStatus, Config, VersionInfo, TrafficResponse, ServiceStatusResponse } from '../types/api';
 
 export function getStatus(): Promise<SystemStatus> {
   return get('/api/status');
+}
+
+export function getServiceStatus(kind: string): Promise<ServiceStatusResponse> {
+  return get(`/api/status/service/${kind}`);
 }
 
 export function getConfig(): Promise<Config> {
