@@ -47,4 +47,17 @@ describe('DiagnosticsPage', () => {
       expect(screen.getByText('Порты и сервисы')).toBeDefined();
     });
   });
+
+  it('can switch to Panel tab and fetches panel (pm2) logs via kind=panel', async () => {
+    const diagApi = await import('../../api/diagnostics');
+    vi.mocked(diagApi.getLogs).mockResolvedValue({ unit: 'pm2', output: '[syncService] vless sync task failed: ...' });
+
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByText('Панель'));
+    await waitFor(() => {
+      expect(diagApi.getLogs).toHaveBeenCalledWith('panel');
+      expect(screen.getByText((content: string) => content.includes('vless sync task failed'))).toBeDefined();
+    });
+  });
 });

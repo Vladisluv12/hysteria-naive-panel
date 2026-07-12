@@ -3,7 +3,7 @@ import * as diagApi from '../../api/diagnostics';
 import { useToast } from '../../contexts/ToastContext';
 import styles from './styles.module.css';
 
-type Tab = 'caddy' | 'hysteria' | 'mieru' | 'vless' | 'ports' | 'config';
+type Tab = 'caddy' | 'hysteria' | 'mieru' | 'vless' | 'panel' | 'ports' | 'config';
 
 export function DiagnosticsPage() {
   const { addToast } = useToast();
@@ -20,7 +20,7 @@ export function DiagnosticsPage() {
     setLoading(true);
     const load = async () => {
       try {
-        if (tab === 'caddy' || tab === 'hysteria' || tab === 'mieru' || tab === 'vless') {
+        if (tab === 'caddy' || tab === 'hysteria' || tab === 'mieru' || tab === 'vless' || tab === 'panel') {
           const kind = tab === 'caddy' ? 'caddy' : tab === 'hysteria' ? 'hysteria' : tab;
           const res = await diagApi.getLogs(kind);
           setLogs(res.output);
@@ -51,6 +51,7 @@ export function DiagnosticsPage() {
     { key: 'hysteria', label: 'Hysteria' },
     { key: 'mieru', label: 'mieru' },
     { key: 'vless', label: 'VLESS' },
+    { key: 'panel', label: 'Панель' },
     { key: 'ports', label: 'Порты' },
     { key: 'config', label: 'Конфиг' },
   ];
@@ -67,7 +68,7 @@ export function DiagnosticsPage() {
 
       {loading ? <div className={styles.loading}>Загрузка...</div> : (
         <>
-          {(tab === 'caddy' || tab === 'hysteria' || tab === 'mieru' || tab === 'vless') && (
+          {(tab === 'caddy' || tab === 'hysteria' || tab === 'mieru' || tab === 'vless' || tab === 'panel') && (
             <div className={styles.card}>
               <div className={styles.cardBody}>
                 <pre className={styles.logBox}>{logs || 'Нет логов'}</pre>
