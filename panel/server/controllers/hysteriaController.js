@@ -10,7 +10,7 @@ const { isValidUsername, isValidPassword, isValidExpireDays, computeExpiresAt, i
 const { restartHysteria, findCertFile } = require('../services/systemAdapter.js');
 const { AtomicFileTransaction, yamlSelfValidator } = require('../services/atomicConfig.js');
 const { HY2_ACL_PATH, testPath } = require('../services/aclBuilder.js');
-const { markDirty } = require('../services/syncService.js');
+const { enqueue } = require('../services/syncService.js');
 
 function writeHysteriaConfig(cfg) {
   if (!cfg.stack.hy2 || !cfg.domain) return false;
@@ -68,7 +68,7 @@ async function createUser(req, res) {
       ? `hysteria2://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${cfg.domain}:${cfg.port}?sni=${cfg.domain}&insecure=0#easy-xray-hys`
       : null
   });
-  if (cfg.installed && cfg.stack.hy2) markDirty('hy2');
+  if (cfg.installed && cfg.stack.hy2) enqueue('hy2', 'create', username);
 }
 
 function getUserLink(req, res) {
@@ -92,7 +92,7 @@ async function deleteUser(req, res) {
     c.hy2Users = c.hy2Users.filter(u => u.username !== username);
   });
   if (cfg.hy2Users.length === before) return res.json({ success: false, message: 'Не найден' });
-  if (cfg.installed && cfg.stack.hy2) markDirty('hy2');
+  if (cfg.installed && cfg.stack.hy2) enqueue('hy2', 'delete', username);
   res.json({ success: true });
 }
 
@@ -113,7 +113,7 @@ async function updateUser(req, res) {
     }
   });
 
-  if (cfg.installed && cfg.stack.hy2) markDirty('hy2');
+  if (cfg.installed && cfg.stack.hy2) enqueue('hy2', 'update', username);
   res.json({ success: true, expiresAt });
 }
 

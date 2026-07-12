@@ -7,7 +7,7 @@ const { buildMieruConfigObject } = require('../services/configBuilder.js');
 const { isValidUsername, isValidPassword, isValidExpireDays, computeExpiresAt, isExpired, remainingSeconds } = require('../utils/validators.js');
 const { restartMieru, runCommand } = require('../services/systemAdapter.js');
 const { AtomicFileTransaction } = require('../services/atomicConfig.js');
-const { markDirty } = require('../services/syncService.js');
+const { enqueue } = require('../services/syncService.js');
 
 function testPath(systemPath) {
   if (process.env.TEST_CONFIG_DIR) {
@@ -78,7 +78,7 @@ async function createUser(req, res) {
     if (tp) link += `&traffic-pattern=${encodeURIComponent(tp)}`;
   }
   res.json({ success: true, link });
-  if (cfg.installed && cfg.stack.mieru) markDirty('mieru');
+  if (cfg.installed && cfg.stack.mieru) enqueue('mieru', 'create', username);
 }
 
 async function getUserLink(req, res) {
@@ -105,7 +105,7 @@ async function deleteUser(req, res) {
     c.mieruUsers = c.mieruUsers.filter(u => u.username !== username);
   });
   if (cfg.mieruUsers.length === before) return res.json({ success: false, message: 'Не найден' });
-  if (cfg.installed && cfg.stack.mieru) markDirty('mieru');
+  if (cfg.installed && cfg.stack.mieru) enqueue('mieru', 'delete', username);
   res.json({ success: true });
 }
 
@@ -126,7 +126,7 @@ async function updateUser(req, res) {
     }
   });
 
-  if (cfg.installed && cfg.stack.mieru) markDirty('mieru');
+  if (cfg.installed && cfg.stack.mieru) enqueue('mieru', 'update', username);
   res.json({ success: true, expiresAt });
 }
 

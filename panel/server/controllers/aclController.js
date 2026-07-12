@@ -6,7 +6,7 @@ const {
   downloadGeoDatasets, geoDatasetsExist,
   GEOSITE_CATEGORIES, GEOIP_COUNTRIES,
 } = require('../services/aclBuilder.js');
-const { markDirty } = require('../services/syncService.js');
+const { enqueue } = require('../services/syncService.js');
 
 function getAcl(req, res) {
   const acl = loadAcl();
@@ -56,10 +56,10 @@ async function updateAcl(req, res) {
 
   const cfg = loadConfig();
   const installed = cfg.installed && cfg.stack;
-  if (installed && cfg.stack.hy2)   markDirty('hy2');
-  if (installed && cfg.stack.naive)  markDirty('naive');
-  if (installed && cfg.stack.vless)  markDirty('vless');
-  if (installed && cfg.stack.mieru)  markDirty('mieru');
+  if (installed && cfg.stack.hy2)   enqueue('hy2', 'acl', null);
+  if (installed && cfg.stack.naive)  enqueue('naive', 'acl', null);
+  if (installed && cfg.stack.vless)  enqueue('vless', 'acl', null);
+  if (installed && cfg.stack.mieru)  enqueue('mieru', 'acl', null);
 
   res.json({ success: true, ...acl, geoSetsExist: geoDatasetsExist() });
 }
@@ -74,10 +74,10 @@ async function geoUpdate(req, res) {
     writeAclFile();
     const cfg = loadConfig();
     const installed = cfg.installed && cfg.stack;
-    if (installed && cfg.stack.hy2)   markDirty('hy2');
-    if (installed && cfg.stack.naive)  markDirty('naive');
-    if (installed && cfg.stack.vless)  markDirty('vless');
-    if (installed && cfg.stack.mieru)  markDirty('mieru');
+    if (installed && cfg.stack.hy2)   enqueue('hy2', 'acl', null);
+    if (installed && cfg.stack.naive)  enqueue('naive', 'acl', null);
+    if (installed && cfg.stack.vless)  enqueue('vless', 'acl', null);
+    if (installed && cfg.stack.mieru)  enqueue('mieru', 'acl', null);
 
     res.json({ success: true, geoip: result.geoip, geosite: result.geosite });
   } catch (e) {
