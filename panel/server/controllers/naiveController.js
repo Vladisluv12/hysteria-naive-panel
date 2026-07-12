@@ -9,6 +9,7 @@ const { isValidUsername, isValidPassword, isValidExpireDays, computeExpiresAt, i
 const { reloadNaive } = require('../services/systemAdapter.js');
 const { AtomicFileTransaction, caddyValidator } = require('../services/atomicConfig.js');
 const { extractCustomBlocks } = require('../caddyfile.js');
+const { markDirty } = require('../services/syncService.js');
 
 function testPath(systemPath) {
   if (process.env.TEST_CONFIG_DIR) {
@@ -72,10 +73,7 @@ async function createUser(req, res) {
     success: true,
     link: cfg.domain ? `naive+https://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${cfg.domain}:${cfg.port}#easy-xray-naive` : null,
   });
-  if (cfg.installed && cfg.stack.naive) {
-    writeCaddyfile(cfg);
-    reloadNaive(process.env.TEST_MODE === '1').catch(() => {});
-  }
+  if (cfg.installed && cfg.stack.naive) markDirty('naive');
 }
 
 function getUserLink(req, res) {
@@ -99,10 +97,7 @@ async function deleteUser(req, res) {
     c.naiveUsers = c.naiveUsers.filter(u => u.username !== username);
   });
   if (cfg.naiveUsers.length === before) return res.json({ success: false, message: 'Не найден' });
-  if (cfg.installed && cfg.stack.naive) {
-    writeCaddyfile(cfg);
-    await reloadNaive(process.env.TEST_MODE === '1');
-  }
+  if (cfg.installed && cfg.stack.naive) markDirty('naive');
   res.json({ success: true });
 }
 
@@ -123,10 +118,7 @@ async function updateUser(req, res) {
     }
   });
 
-  if (cfg.installed && cfg.stack.naive) {
-    writeCaddyfile(cfg);
-    await reloadNaive(process.env.TEST_MODE === '1');
-  }
+  if (cfg.installed && cfg.stack.naive) markDirty('naive');
   res.json({ success: true, expiresAt });
 }
 

@@ -8,6 +8,7 @@ const { buildVlessConfigObject } = require('../services/configBuilder.js');
 const { isValidUsername, isValidPassword, isValidExpireDays, computeExpiresAt, isExpired, remainingSeconds } = require('../utils/validators.js');
 const { restartVless } = require('../services/systemAdapter.js');
 const { AtomicFileTransaction } = require('../services/atomicConfig.js');
+const { markDirty } = require('../services/syncService.js');
 
 function testPath(systemPath) {
   if (process.env.TEST_CONFIG_DIR) {
@@ -73,10 +74,7 @@ async function createUser(req, res) {
       ? `vless://${uuid}@${cfg.domain}:${linkPort}?encryption=${encryption}&security=reality&sni=${cfg.domain}&fp=chrome&type=xhttp&path=/xhttp&mode=packet-up&noGRPCHeader=true&xmux.maxConcurrency=32-64&pbk=${pbk}#${linkUsername}`
       : null
   });
-  if (cfg.installed && cfg.stack.vless) {
-    const wrote = writeVlessConfig(cfg);
-    if (wrote) restartVless().catch(() => {});
-  }
+  if (cfg.installed && cfg.stack.vless) markDirty('vless');
 }
 
 function getUserLink(req, res) {
@@ -105,10 +103,7 @@ async function deleteUser(req, res) {
     c.vlessUsers = c.vlessUsers.filter(u => u.username !== username);
   });
   if (cfg.vlessUsers.length === before) return res.json({ success: false, message: 'Не найден' });
-  if (cfg.installed && cfg.stack.vless) {
-    const wrote = writeVlessConfig(cfg);
-    if (wrote) await restartVless();
-  }
+  if (cfg.installed && cfg.stack.vless) markDirty('vless');
   res.json({ success: true });
 }
 
@@ -129,10 +124,7 @@ async function updateUser(req, res) {
     }
   });
 
-  if (cfg.installed && cfg.stack.vless) {
-    const wrote = writeVlessConfig(cfg);
-    if (wrote) await restartVless();
-  }
+  if (cfg.installed && cfg.stack.vless) markDirty('vless');
   res.json({ success: true, expiresAt });
 }
 

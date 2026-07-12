@@ -127,12 +127,8 @@ app.use('/api', mieruRoutes);
 const vlessRoutes = require('./routes/vless.js');
 app.use('/api', vlessRoutes);
 
-// ── Экспорт для expireChecker ──
-const { writeCaddyfile } = naiveRoutes;
-const { writeHysteriaConfig } = hysteriaRoutes;
-const { writeMieruConfig } = mieruRoutes;
-const { writeVlessConfig } = vlessRoutes;
-const { reloadNaive, restartHysteria: reloadHysteria, restartMieru: reloadMieru, restartVless: reloadVless, runCommand } = require('./services/systemAdapter.js');
+const { runCommand } = require('./services/systemAdapter.js');
+const { markDirty, startSync } = require('./services/syncService.js');
 
 //  INSTALL VIA WEBSOCKET
 // ═══════════════════════════════════════════════════════════
@@ -507,23 +503,11 @@ async function expireChecker() {
     const vlessExpired = (cfg.vlessUsers || []).filter(isExpired).length;
     if (naiveExpired === 0 && hy2Expired === 0 && mieruExpired === 0 && vlessExpired === 0) return;
 
-    console.log(`[expire-check] naive=${naiveExpired} hy2=${hy2Expired} mieru=${mieruExpired} vless=${vlessExpired} — обновляю конфиги`);
-    if (cfg.stack.naive && naiveExpired > 0) {
-      writeCaddyfile(cfg);
-      await reloadNaive();
-    }
-    if (cfg.stack.hy2 && hy2Expired > 0) {
-      writeHysteriaConfig(cfg);
-      await reloadHysteria();
-    }
-    if (cfg.stack.mieru && mieruExpired > 0) {
-      writeMieruConfig(cfg);
-      await reloadMieru();
-    }
-    if (cfg.stack.vless && vlessExpired > 0) {
-      writeVlessConfig(cfg);
-      await reloadVless();
-    }
+    console.log(`[expire-check] naive=${naiveExpired} hy2=${hy2Expired} mieru=${mieruExpired} vless=${vlessExpired} — отмечаю dirty`);
+    if (cfg.stack.naive && naiveExpired > 0) markDirty('naive');
+    if (cfg.stack.hy2 && hy2Expired > 0) markDirty('hy2');
+    if (cfg.stack.mieru && mieruExpired > 0) markDirty('mieru');
+    if (cfg.stack.vless && vlessExpired > 0) markDirty('vless');
   } catch (e) {
     console.error('[expire-check] error:', e.message);
   }
@@ -557,6 +541,7 @@ if (process.env.NODE_ENV !== 'test') {
       console.log(`║   SSH-only mode (доступ через ssh -L)         ║`);
     }
     console.log(`╚═══════════════════════════════════════════════╝\n`);
+    startSync(30000);
   });
 }
 

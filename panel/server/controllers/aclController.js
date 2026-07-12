@@ -6,29 +6,7 @@ const {
   downloadGeoDatasets, geoDatasetsExist,
   GEOSITE_CATEGORIES, GEOIP_COUNTRIES,
 } = require('../services/aclBuilder.js');
-const { restartHysteria, reloadNaive, restartVless, restartMieru } = require('../services/systemAdapter.js');
-const { writeHysteriaConfig } = require('./hysteriaController.js');
-const { writeCaddyfile: writeNaiveCaddyfile } = require('./naiveController.js');
-const { writeMieruConfig } = require('./mieruController.js');
-const { buildVlessConfigObject } = require('../services/configBuilder.js');
-const { AtomicFileTransaction } = require('../services/atomicConfig.js');
-const fs = require('fs');
-
-const VLESS_CONFIG_PATH = '/etc/xray/config.json';
-
-async function rebuildXrayConfig() {
-  try {
-    const cfg = loadConfig();
-    if (!cfg.installed || !cfg.stack || !cfg.stack.vless) return;
-    const configObj = buildVlessConfigObject(cfg);
-    if (!configObj) return;
-    const tx = new AtomicFileTransaction(VLESS_CONFIG_PATH);
-    const ok = tx.execute(JSON.stringify(configObj, null, 2), () => true);
-    if (ok) await restartVless();
-  } catch (e) {
-    console.error('[acl] xray rebuild error:', e.message);
-  }
-}
+const { markDirty } = require('../services/syncService.js');
 
 function getAcl(req, res) {
   const acl = loadAcl();
@@ -77,33 +55,11 @@ async function updateAcl(req, res) {
   writeAclFile();
 
   const cfg = loadConfig();
-  if (cfg.installed && cfg.stack.hy2) {
-    try {
-      writeHysteriaConfig(cfg);
-      await restartHysteria();
-    } catch (e) {
-      console.error('[acl] restart failed after save:', e.message);
-    }
-  }
-  if (cfg.installed && cfg.stack.naive) {
-    try {
-      writeNaiveCaddyfile(cfg);
-      await reloadNaive(process.env.TEST_MODE === '1');
-    } catch (e) {
-      console.error('[acl] caddy reload failed after save:', e.message);
-    }
-  }
-  if (cfg.installed && cfg.stack.vless) {
-    await rebuildXrayConfig();
-  }
-  if (cfg.installed && cfg.stack.mieru) {
-    try {
-      const wrote = writeMieruConfig(cfg);
-      if (wrote) await restartMieru();
-    } catch (e) {
-      console.error('[acl] mieru rebuild failed after save:', e.message);
-    }
-  }
+  const installed = cfg.installed && cfg.stack;
+  if (installed && cfg.stack.hy2)   markDirty('hy2');
+  if (installed && cfg.stack.naive)  markDirty('naive');
+  if (installed && cfg.stack.vless)  markDirty('vless');
+  if (installed && cfg.stack.mieru)  markDirty('mieru');
 
   res.json({ success: true, ...acl, geoSetsExist: geoDatasetsExist() });
 }
@@ -117,33 +73,11 @@ async function geoUpdate(req, res) {
 
     writeAclFile();
     const cfg = loadConfig();
-    if (cfg.installed && cfg.stack.hy2) {
-      try {
-        writeHysteriaConfig(cfg);
-        await restartHysteria();
-      } catch (e) {
-        console.error('[acl] restart failed after geo update:', e.message);
-      }
-    }
-    if (cfg.installed && cfg.stack.naive) {
-      try {
-        writeNaiveCaddyfile(cfg);
-        await reloadNaive(process.env.TEST_MODE === '1');
-      } catch (e) {
-        console.error('[acl] caddy reload failed after geo update:', e.message);
-      }
-    }
-    if (cfg.installed && cfg.stack.vless) {
-      await rebuildXrayConfig();
-    }
-    if (cfg.installed && cfg.stack.mieru) {
-      try {
-        const wrote = writeMieruConfig(cfg);
-        if (wrote) await restartMieru();
-      } catch (e) {
-        console.error('[acl] mieru rebuild failed after geo update:', e.message);
-      }
-    }
+    const installed = cfg.installed && cfg.stack;
+    if (installed && cfg.stack.hy2)   markDirty('hy2');
+    if (installed && cfg.stack.naive)  markDirty('naive');
+    if (installed && cfg.stack.vless)  markDirty('vless');
+    if (installed && cfg.stack.mieru)  markDirty('mieru');
 
     res.json({ success: true, geoip: result.geoip, geosite: result.geosite });
   } catch (e) {

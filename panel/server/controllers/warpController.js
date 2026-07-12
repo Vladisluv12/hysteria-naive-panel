@@ -7,7 +7,7 @@ const path = require('path');
 const { loadConfig: loadPanelConfig } = require('../services/storageFactory.js');
 const { buildVlessConfigObject } = require('../services/configBuilder.js');
 const { AtomicFileTransaction } = require('../services/atomicConfig.js');
-const { restartVless } = require('../services/systemAdapter.js');
+const { markDirty } = require('../services/syncService.js');
 
 const execFileAsync = promisify(execFile);
 
@@ -100,12 +100,7 @@ async function rebuildXrayConfig() {
   try {
     const cfg = loadPanelConfig();
     if (!cfg.installed || !cfg.stack || !cfg.stack.vless) return;
-    const configObj = buildVlessConfigObject(cfg);
-    if (!configObj) return;
-    const newContent = JSON.stringify(configObj, null, 2);
-    const tx = new AtomicFileTransaction(VLESS_CONFIG_PATH);
-    const ok = tx.execute(newContent, () => true);
-    if (ok) await restartVless();
+    markDirty('vless');
   } catch (e) {
     console.error('[warpController] rebuildXrayConfig error:', e.message);
   }
