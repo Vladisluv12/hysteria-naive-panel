@@ -813,6 +813,50 @@ WATCHSVCEOF
     systemctl enable caddy-cert-watcher.path >/dev/null 2>&1 || true
     systemctl start  caddy-cert-watcher.path >/dev/null 2>&1 || true
     log_ok "caddy-cert-watcher configured"
+
+    # Monthly renewal: open port 80, renew cert, close port 80
+    cat > /usr/local/bin/renew-certs.sh << RENEWEOF
+#!/bin/bash
+set -e
+CERT_DIR="/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${DOMAIN}"
+ufw allow 80/tcp 2>/dev/null
+ufw reload 2>/dev/null
+curl -s -X POST http://127.0.0.1:2019/renew 2>/dev/null || true
+pkill -HUP caddy-naive 2>/dev/null || true
+for i in \$(seq 1 30); do
+  [[ -f "\${CERT_DIR}/${DOMAIN}.crt" ]] && break
+  sleep 2
+done
+ufw delete allow 80/tcp 2>/dev/null
+ufw reload 2>/dev/null
+RENEWEOF
+    chmod +x /usr/local/bin/renew-certs.sh
+
+    cat > /etc/systemd/system/renew-certs.service << 'RTEOF'
+[Unit]
+Description=Open port 80, renew TLS certs, close port 80
+After=network.target
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/renew-certs.sh
+StandardOutput=journal
+RTEOF
+
+    cat > /etc/systemd/system/renew-certs.timer << 'TTEOF'
+[Unit]
+Description=Monthly TLS cert renewal
+[Timer]
+OnCalendar=monthly
+Persistent=true
+RandomizedDelaySec=1h
+[Install]
+WantedBy=timers.target
+TTEOF
+
+    systemctl daemon-reload
+    systemctl enable renew-certs.timer >/dev/null 2>&1 || true
+    systemctl start  renew-certs.timer >/dev/null 2>&1 || true
+    log_ok "renew-certs.timer: monthly renewal"
   fi
 fi
 
