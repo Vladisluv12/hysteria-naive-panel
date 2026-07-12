@@ -7,8 +7,8 @@ export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a
 
 REPO_URL="https://github.com/Vladisluv12/hysteria-naive-panel"
 REPO_BRANCH="${REPO_BRANCH:-main}"
-PANEL_DIR="/opt/panel-naive-hy2"
-SERVICE_NAME="panel-naive-hy2"
+PANEL_DIR="/opt/proxygate"
+SERVICE_NAME="proxygate"
 INTERNAL_PORT=3000
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
@@ -576,7 +576,7 @@ if [[ "${ACCESS_MODE:-1}" == "1" && "$SSH_ONLY" != "1" ]]; then
   command -v nginx >/dev/null 2>&1 || apt-get install -y nginx -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" 2>&1 | tail -5
   if command -v nginx >/dev/null 2>&1; then
     mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
-    cat > /etc/nginx/sites-available/panel-naive-hy2 << NGXEOF
+    cat > /etc/nginx/sites-available/proxygate << NGXEOF
 server {
     listen 8080;
     server_name _;
@@ -594,7 +594,7 @@ server {
     }
 }
 NGXEOF
-    ln -sf /etc/nginx/sites-available/panel-naive-hy2 /etc/nginx/sites-enabled/panel-naive-hy2 2>/dev/null || true
+    ln -sf /etc/nginx/sites-available/proxygate /etc/nginx/sites-enabled/proxygate 2>/dev/null || true
     rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
     if nginx -t 2>&1 | grep -q "successful"; then
       systemctl restart nginx 2>/dev/null || true
@@ -622,7 +622,7 @@ if pm2 describe "${SERVICE_NAME}" 2>/dev/null | grep -q online; then
   log_ok "Panel online (PM2)"
 else
   log_warn "PM2 failed, trying systemd fallback..."
-  cat > /etc/systemd/system/panel-naive-hy2.service << SVCBEOF
+  cat > /etc/systemd/system/proxygate.service << SVCBEOF
 [Unit]
 Description=Panel Naive + Hy2 (fallback)
 After=network.target
@@ -643,10 +643,10 @@ StandardError=journal
 WantedBy=multi-user.target
 SVCBEOF
   systemctl daemon-reload
-  systemctl enable panel-naive-hy2 >/dev/null 2>&1 || true
-  systemctl restart panel-naive-hy2 2>&1 || true
+  systemctl enable proxygate >/dev/null 2>&1 || true
+  systemctl restart proxygate 2>&1 || true
   sleep 2
-  systemctl is-active --quiet panel-naive-hy2 && log_ok "Panel online (systemd)" || log_err "Panel failed"
+  systemctl is-active --quiet proxygate && log_ok "Panel online (systemd)" || log_err "Panel failed"
 fi
 
 

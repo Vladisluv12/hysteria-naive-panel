@@ -1,7 +1,7 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════
-#  Cloudflare WARP via wgcf — by RIXXX
-#  Panel Naive + Hysteria2 by RIXXX
+#  Cloudflare WARP via wgcf — by ProxyGate
+#  ProxyGate
 #  ENV: USE_WARP (0/1)
 # ═══════════════════════════════════════════════════════
 

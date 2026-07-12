@@ -1,11 +1,11 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════════════
 #  Build Caddy + forwardproxy-traffic (per-user traffic counters)
-#  Panel Naive + Hysteria2 by RIXXX
+#  ProxyGate
 #
 #  Собирает Caddy с кастомным модулем forwardproxy,
 #  который считает RX/TX трафик по каждому пользователю
-#  и пишет статистику в /etc/rixxx-panel/naive_users.json
+#  и пишет статистику в /etc/proxygate/naive_users.json
 #
 #  Использование:
 #    sudo bash build_caddy_traffic.sh                                    # из ~/projects/forwardproxy-traffic
@@ -181,12 +181,12 @@ if [[ -f "$CADDYFILE" ]]; then
     log_info "Добавляем traffic_file в Caddyfile..."
     if grep -q "probe_resistance" "$CADDYFILE"; then
       indent=$(grep 'probe_resistance' "$CADDYFILE" | sed 's/\(^[[:space:]]*\).*/\1/')
-      sed -i "/probe_resistance/a\\${indent}traffic_file /etc/rixxx-panel/naive_users.json" "$CADDYFILE"
+      sed -i "/probe_resistance/a\\${indent}traffic_file /etc/proxygate/naive_users.json" "$CADDYFILE"
     fi
     if ! grep -q "traffic_file" "$CADDYFILE"; then
       # fallback: вставляем перед закрывающей скобкой forward_proxy блока
       sed -i '/forward_proxy {/,/^[[:space:]]*}/ {
-        /^[[:space:]]*}/i\    traffic_file /etc/rixxx-panel/naive_users.json
+        /^[[:space:]]*}/i\    traffic_file /etc/proxygate/naive_users.json
       }' "$CADDYFILE"
     fi
     if /usr/bin/caddy validate --config "$CADDYFILE" 2>&1; then
@@ -200,7 +200,7 @@ if [[ -f "$CADDYFILE" ]]; then
 fi
 
 # ── Создаём директорию для JSON ──────────────────────────────────────
-mkdir -p /etc/rixxx-panel
+mkdir -p /etc/proxygate
 
 # ── Перезапуск Caddy ─────────────────────────────────────────────────
 log "Перезапуск Caddy..."
@@ -233,8 +233,8 @@ fi
 # ── Проверяем что файл статистики создаётся ─────────────────────────
 log "Ожидание первого flush статистики (до 10с)..."
 for i in $(seq 1 10); do
-  if [[ -f /etc/rixxx-panel/naive_users.json ]]; then
-    log_ok "Статистика пишется: $(wc -c < /etc/rixxx-panel/naive_users.json) байт"
+  if [[ -f /etc/proxygate/naive_users.json ]]; then
+    log_ok "Статистика пишется: $(wc -c < /etc/proxygate/naive_users.json) байт"
     break
   fi
   sleep 1
@@ -246,7 +246,7 @@ done
 log ""
 log "╔══════════════════════════════════════════════════════════════╗"
 log "║   ✅ Caddy + forwardproxy-traffic собран и запущен!         ║"
-log "║   Статистика: /etc/rixxx-panel/naive_users.json"
+log "║   Статистика: /etc/proxygate/naive_users.json"
 log "║   Резервная копия: ${BACKUP:-нет}"
 log "║   Версия: $CADDY_VER"
 log "╚══════════════════════════════════════════════════════════════╝"

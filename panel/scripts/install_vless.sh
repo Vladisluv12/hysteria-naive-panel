@@ -1,6 +1,6 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════
-#  VLESS (Xray) Auto-Installer — by RIXXX (multi-arch)
+#  VLESS (Xray) Auto-Installer — by ProxyGate (multi-arch)
 #  Panel Naive + Hysteria2 + mieru + VLESS
 #  ENV: VLESS_DOMAIN, VLESS_USERNAME, VLESS_PASSWORD, VLESS_UUID
 # ═══════════════════════════════════════════════════════
@@ -47,7 +47,7 @@ log "▶ Сетевой тюнинг..."
 # ══════════════════════════════════════════════════════
 
 modprobe tcp_bbr 2>/dev/null || true
-cat > /etc/sysctl.d/99-rixxx-tune.conf << 'SYSCTLEOF'
+cat > /etc/sysctl.d/99-proxygate-tune.conf << 'SYSCTLEOF'
 net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 net.core.rmem_max=16777216

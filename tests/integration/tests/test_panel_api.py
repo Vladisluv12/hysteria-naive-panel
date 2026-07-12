@@ -73,8 +73,8 @@ class TestAuthScenarios:
         data = resp.json()
         assert data["success"] is True
         assert "mustChangePassword" in data
-        assert "rixxx_sid" in c.session.cookies
-        assert c.session.cookies["rixxx_sid"] != ""
+        assert "proxygate_sid" in c.session.cookies
+        assert c.session.cookies["proxygate_sid"] != ""
 
         me = c.get_me()
         assert me["username"] == "admin"
@@ -148,14 +148,14 @@ class TestAuthScenarios:
     def test_tampered_cookie_401(self, docker_services):
         r = requests.get(
             f"{PANEL_URL}/api/config",
-            cookies={"rixxx_sid": "invalid_session_id"}
+            cookies={"proxygate_sid": "invalid_session_id"}
         )
         assert r.status_code == 401
 
     def test_empty_cookie_401(self, docker_services):
         r = requests.get(
             f"{PANEL_URL}/api/config",
-            cookies={"rixxx_sid": ""}
+            cookies={"proxygate_sid": ""}
         )
         assert r.status_code == 401
 

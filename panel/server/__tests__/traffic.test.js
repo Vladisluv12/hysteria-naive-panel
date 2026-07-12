@@ -5,7 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { formatBytes } from '../traffic.js';
 
-const TMP_DIR = '/tmp/rixxx-traffic-test';
+const TMP_DIR = '/tmp/proxygate-traffic-test';
 
 beforeEach(() => {
   fs.mkdirSync(TMP_DIR, { recursive: true });

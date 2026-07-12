@@ -95,10 +95,6 @@ export function SettingsPage() {
                 <span className={styles.infoVal}>{version?.version ?? '—'}</span>
               </div>
               <div className={styles.infoRow}>
-                <span className={styles.infoKey}>Автор</span>
-                <span className={styles.infoVal}>RIXXX</span>
-              </div>
-              <div className={styles.infoRow}>
                 <span className={styles.infoKey}>Стек</span>
                 <span className={styles.infoVal}>NaiveProxy + Hysteria2</span>
               </div>

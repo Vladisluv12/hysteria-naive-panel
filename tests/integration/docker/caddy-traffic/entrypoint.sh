@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-mkdir -p /etc/caddy /tmp /etc/rixxx-panel
+mkdir -p /etc/caddy /tmp /etc/proxygate
 cp /seed/Caddyfile /etc/caddy/Caddyfile
 
 exec caddy run --config /etc/caddy/Caddyfile

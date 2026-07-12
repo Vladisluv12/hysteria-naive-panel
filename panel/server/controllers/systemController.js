@@ -10,7 +10,7 @@ function getConfig(req, res) {
 }
 
 function getVersion(req, res) {
-  const VERSION_FILE = '/etc/rixxx-panel/version';
+  const VERSION_FILE = '/etc/proxygate/version';
   const FALLBACK = '1.0.0';
   try {
     if (fs.existsSync(VERSION_FILE)) {

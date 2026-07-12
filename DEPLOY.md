@@ -1,11 +1,11 @@
-# Деплой и откат RIXXX Panel (Naive + Hysteria2)
+# Деплой и откат ProxyGate
 
 ---
 
 ## Структура на сервере
 
 ```
-/opt/panel-naive-hy2/panel/          ← панель (Node.js + React)
+/opt/proxygate/panel/          ← панель (Node.js + React)
 ├── data/
 │   ├── panel.db                     ← SQLite (пользователи, мета-таблица)
 │   └── config.json                  ← конфиг (домен, creds, список юзеров)
@@ -28,7 +28,7 @@
 
 | Сервис       | Менеджер | Имя в PM2 / systemd        |
 |-------------|----------|-----------------------------|
-| Панель       | PM2      | `panel-naive-hy2`           |
+| Панель       | PM2      | `proxygate`           |
 | NaiveProxy   | systemd  | `naive.service`             |
 | Hysteria2    | systemd  | `hysteria.service`          |
 | WARP (опц.)  | systemd  | `warp.service`              |
@@ -42,8 +42,8 @@ BACKUP_DIR="/root/panel-backup-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 
 # Данные панели (БД + конфиг)
-cp -a /opt/panel-naive-hy2/panel/data/panel.db "$BACKUP_DIR/"
-cp -a /opt/panel-naive-hy2/panel/data/config.json "$BACKUP_DIR/"
+cp -a /opt/proxygate/panel/data/panel.db "$BACKUP_DIR/"
+cp -a /opt/proxygate/panel/data/config.json "$BACKUP_DIR/"
 
 # Конфиги сервисов
 cp /etc/naive/Caddyfile "$BACKUP_DIR/"
@@ -58,7 +58,7 @@ cp /etc/systemd/system/caddy-cert-watcher.service "$BACKUP_DIR/" 2>/dev/null || 
 cp /var/lib/naive/traffic.json "$BACKUP_DIR/" 2>/dev/null || true
 
 # Полный бэкап панели (на случай кривого деплоя)
-tar czf "$BACKUP_DIR/panel-full.tar.gz" -C /opt/panel-naive-hy2 panel/
+tar czf "$BACKUP_DIR/panel-full.tar.gz" -C /opt/proxygate panel/
 
 echo "Бэкап: $BACKUP_DIR"
 ls -la "$BACKUP_DIR/"
@@ -71,7 +71,7 @@ ls -la "$BACKUP_DIR/"
 ### Вариант А — через git (рекомендуется)
 
 ```bash
-cd /opt/panel-naive-hy2
+cd /opt/proxygate
 git pull origin main
 
 # Собрать фронтенд (если есть изменения в React)
@@ -80,7 +80,7 @@ npm ci --omit=dev          # только prod-зависимости
 npm run build              # tsc + vite build → dist/
 
 # Перезапустить
-pm2 restart panel-naive-hy2
+pm2 restart proxygate
 pm2 save
 ```
 
@@ -100,17 +100,17 @@ tar czf /tmp/panel-deploy.tar.gz \
 На сервере:
 ```bash
 # Остановить панель
-pm2 stop panel-naive-hy2
+pm2 stop proxygate
 
 # Распаковать
-cd /opt/panel-naive-hy2/panel
+cd /opt/proxygate/panel
 tar xzf /tmp/panel-deploy.tar.gz
 
 # Зависимости (только если изменился package.json)
 npm ci --omit=dev
 
 # Запустить
-pm2 start panel-naive-hy2
+pm2 start proxygate
 pm2 save
 ```
 
@@ -168,7 +168,7 @@ systemctl restart hysteria
 # Статус сервисов
 systemctl is-active naive && echo "Naive: OK" || echo "Naive: DOWN"
 systemctl is-active hysteria && echo "Hy2: OK" || echo "Hy2: DOWN"
-pm2 status panel-naive-hy2
+pm2 status proxygate
 
 # Быстрая проверка панели
 curl -s http://127.0.0.1:3000/api/me | head -c 100
@@ -194,18 +194,18 @@ curl -Ik https://vpn.example.com:8443 2>&1 | head -5
 BACKUP_DIR="/root/panel-backup-YYYYMMDD-HHMMSS"   # подставить свою папку
 
 # Восстановить данные
-cp "$BACKUP_DIR/panel.db" /opt/panel-naive-hy2/panel/data/
-cp "$BACKUP_DIR/config.json" /opt/panel-naive-hy2/panel/data/
+cp "$BACKUP_DIR/panel.db" /opt/proxygate/panel/data/
+cp "$BACKUP_DIR/config.json" /opt/proxygate/panel/data/
 
 # Или полностью восстановить панель из полного бэкапа
-pm2 stop panel-naive-hy2
-rm -rf /opt/panel-naive-hy2/panel
-tar xzf "$BACKUP_DIR/panel-full.tar.gz" -C /opt/panel-naive-hy2/
+pm2 stop proxygate
+rm -rf /opt/proxygate/panel
+tar xzf "$BACKUP_DIR/panel-full.tar.gz" -C /opt/proxygate/
 
 # Запустить
-cd /opt/panel-naive-hy2/panel
+cd /opt/proxygate/panel
 npm ci --omit=dev
-pm2 start panel-naive-hy2
+pm2 start proxygate
 pm2 save
 ```
 
@@ -246,14 +246,14 @@ systemctl start caddy-cert-watcher.path 2>/dev/null || true
 ### Откат через git
 
 ```bash
-cd /opt/panel-naive-hy2
+cd /opt/proxygate
 git log --oneline -10          # найти нужный коммит
 git checkout <commit-hash>     # откат к конкретному коммиту
 
 cd panel
 npm ci --omit=dev
 npm run build
-pm2 restart panel-naive-hy2
+pm2 restart proxygate
 pm2 save
 ```
 
@@ -339,4 +339,4 @@ systemctl daemon-reload
 | WARP конфиги | `/etc/wireguard/` | Не перезаписываются кодом |
 | Cert-watcher | `/etc/systemd/system/caddy-cert-watcher.*` | Не перезаписывается кодом |
 | ACL правила | `/etc/hysteria/acl.rules` | Не перезаписываются кодом |
-| Скрипт тюнинга | `/etc/sysctl.d/99-panel-tuning.conf` | Sysctl persistence, не трогается |
+| Скрипт тюнинга | `/etc/sysctl.d/99-proxygate-tuning.conf` | Sysctl persistence, не трогается |

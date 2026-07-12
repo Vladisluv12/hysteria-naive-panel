@@ -23,7 +23,7 @@ function renderLogin() {
 describe('LoginPage', () => {
   it('renders login form', async () => {
     renderLogin();
-    expect(await screen.findByText('RIXXX Panel')).toBeDefined();
+    expect(await screen.findByText('ProxyGate')).toBeDefined();
     expect(screen.getByLabelText('Username')).toBeDefined();
     expect(screen.getByLabelText('Password')).toBeDefined();
     expect(screen.getByRole('button', { name: 'Sign In' })).toBeDefined();

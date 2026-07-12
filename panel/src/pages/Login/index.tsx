@@ -38,10 +38,9 @@ export function LoginPage() {
       </div>
       <form className={styles.card} onSubmit={handleSubmit}>
         <div className={styles.logo}>
-          <div className={styles.logoIcon}>R</div>
+          <div className={styles.logoIcon}>P</div>
           <div>
-            <div className={styles.logoTitle}>RIXXX Panel</div>
-            <div className={styles.logoSub}>Naive + Hysteria2</div>
+            <div className={styles.logoTitle}>ProxyGate</div>
           </div>
         </div>
         <div className={styles.heading}>Welcome back</div>

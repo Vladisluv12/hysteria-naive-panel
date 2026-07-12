@@ -1,6 +1,6 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════════════
-#  Panel Naive + Hysteria2 by RIXXX — Полный установщик
+#  ProxyGate — Полный установщик
 #  Устанавливает: панель управления + NaiveProxy (Caddy) + Hysteria2
 #  Запуск:
 #    bash <(curl -fsSL https://raw.githubusercontent.com/Vladisluv12/hysteria-naive-panel/main/install.sh)
@@ -14,8 +14,8 @@ export NEEDRESTART_SUSPEND=1
 
 REPO_URL="https://github.com/Vladisluv12/hysteria-naive-panel"
 REPO_BRANCH="${REPO_BRANCH:-main}"
-PANEL_DIR="/opt/panel-naive-hy2"
-SERVICE_NAME="panel-naive-hy2"
+PANEL_DIR="/opt/proxygate"
+SERVICE_NAME="proxygate"
 INTERNAL_PORT=3000
 
 # ── Colors ──────────────────────────────────────────────────────────────
@@ -27,7 +27,7 @@ header() {
   clear
   echo ""
   echo -e "${PURPLE}${BOLD}╔══════════════════════════════════════════════════════════╗${RESET}"
-  echo -e "${PURPLE}${BOLD}║   Panel Naive + Hysteria2 by RIXXX — Установщик          ║${RESET}"
+  echo -e "${PURPLE}${BOLD}║   ProxyGate — Установщик                                 ║${RESET}"
   echo -e "${PURPLE}${BOLD}╚══════════════════════════════════════════════════════════╝${RESET}"
   echo ""
 }
@@ -307,8 +307,8 @@ log_ok "Система подготовлена"
 # ── Б2. BBR + UDP-буферы ────────────────────────────────────────────────
 next_step "Включение BBR и UDP-оптимизации..."
 
-cat > /etc/sysctl.d/99-rixxx-tune.conf << 'SYSCTLEOF'
-# by RIXXX — сетевой тюнинг для Naive (TCP) + Hy2 (UDP)
+cat > /etc/sysctl.d/99-proxygate-tune.conf << 'SYSCTLEOF'
+# ProxyGate — сетевой тюнинг для Naive (TCP) + Hy2 (UDP)
 net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 # UDP буферы для Hysteria2 (рекомендация apernet)
@@ -489,7 +489,7 @@ HTMLEOF
   # эти правки ломали Caddy (серт не получается, сервис не стартует).
   cat > /etc/systemd/system/caddy.service << 'SVCEOF'
 [Unit]
-Description=Caddy with NaiveProxy (by RIXXX)
+Description=Caddy with NaiveProxy (ProxyGate)
 Documentation=https://caddyserver.com/docs/
 After=network.target network-online.target
 Requires=network-online.target
@@ -594,7 +594,7 @@ if [[ $INSTALL_HY2 -eq 1 ]]; then
 
   cat > /etc/hysteria/config.yaml << HYCFGEOF
 # ═══════════════════════════════════════════════
-#  Hysteria2 config — by RIXXX
+#  Hysteria2 config — ProxyGate
 #  https://v2.hysteria.network/
 # ═══════════════════════════════════════════════
 
@@ -758,7 +758,7 @@ HYBWEOF
 
   cat > /etc/systemd/system/hysteria-server.service << HYSVCEOF
 [Unit]
-Description=Hysteria2 Server (by RIXXX)
+Description=Hysteria2 Server (ProxyGate)
 Documentation=https://v2.hysteria.network/
 ${HY_UNIT_AFTER}
 ${HY_UNIT_WANTS}
@@ -1004,9 +1004,9 @@ else
   log_warn "PM2 не запустил панель. Пробуем systemd-fallback..."
 
   # Fallback: создаём systemd-юнит и запускаем напрямую через Node.js
-  cat > /etc/systemd/system/panel-naive-hy2.service << SVCFALLBACKEOF
+  cat > /etc/systemd/system/proxygate.service << SVCFALLBACKEOF
 [Unit]
-Description=Panel Naive + Hy2 by RIXXX (fallback)
+Description=ProxyGate (fallback)
 After=network.target
 
 [Service]
@@ -1026,13 +1026,13 @@ StandardError=journal
 WantedBy=multi-user.target
 SVCFALLBACKEOF
   systemctl daemon-reload
-  systemctl enable panel-naive-hy2 >/dev/null 2>&1 || true
-  systemctl restart panel-naive-hy2 2>&1 || true
+  systemctl enable proxygate >/dev/null 2>&1 || true
+  systemctl restart proxygate 2>&1 || true
   sleep 2
-  if systemctl is-active --quiet panel-naive-hy2; then
+  if systemctl is-active --quiet proxygate; then
     log_ok "Панель запущена через systemd (fallback)"
   else
-    log_err "Панель не стартовала. Диагностика: journalctl -u panel-naive-hy2 -n 50"
+    log_err "Панель не стартовала. Диагностика: journalctl -u proxygate -n 50"
   fi
 fi
 
@@ -1043,7 +1043,7 @@ if curl -fsS --max-time 5 "http://127.0.0.1:${INTERNAL_PORT}/" >/dev/null 2>&1; 
 else
   log_warn "Панель НЕ отвечает на порту ${INTERNAL_PORT}!"
   log_info "  pm2 logs ${SERVICE_NAME} --lines 30   — логи через PM2"
-  log_info "  journalctl -u panel-naive-hy2 -n 30   — логи через systemd"
+  log_info "  journalctl -u proxygate -n 30   — логи через systemd"
   log_info "  cd ${PANEL_DIR}/panel && node server/index.js   — запуск вручную для отладки"
 fi
 
@@ -1065,7 +1065,7 @@ if [[ "$ACCESS_MODE" == "1" ]]; then
   log_info "Настройка Nginx (8080 → 3000)..."
   # На всякий случай гарантируем директории (на Ubuntu 24 иногда отсутствуют после minimal)
   mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
-  cat > /etc/nginx/sites-available/panel-naive-hy2 << NGINXEOF
+  cat > /etc/nginx/sites-available/proxygate << NGINXEOF
 server {
     listen 8080;
     server_name _;
@@ -1084,8 +1084,8 @@ server {
     }
 }
 NGINXEOF
-  ln -sf /etc/nginx/sites-available/panel-naive-hy2 \
-    /etc/nginx/sites-enabled/panel-naive-hy2 2>/dev/null || true
+  ln -sf /etc/nginx/sites-available/proxygate \
+    /etc/nginx/sites-enabled/proxygate 2>/dev/null || true
   rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
 
   # Валидация и запуск Nginx с детальным выводом ошибок
@@ -1163,7 +1163,7 @@ elif [[ "$ACCESS_MODE" == "3" && -n "$PANEL_DOMAIN" ]]; then
     mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
     apt-get install -y -qq python3-certbot-nginx 2>&1 | tail -3 || log_warn "certbot-nginx не установлен, попробуем без него"
 
-    cat > /etc/nginx/sites-available/panel-naive-hy2 << NGINXEOF
+    cat > /etc/nginx/sites-available/proxygate << NGINXEOF
 server {
     listen 80;
     server_name ${PANEL_DOMAIN};
@@ -1178,8 +1178,8 @@ server {
     }
 }
 NGINXEOF
-    ln -sf /etc/nginx/sites-available/panel-naive-hy2 \
-      /etc/nginx/sites-enabled/panel-naive-hy2 2>/dev/null || true
+    ln -sf /etc/nginx/sites-available/proxygate \
+      /etc/nginx/sites-enabled/proxygate 2>/dev/null || true
     rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
     nginx -t >/dev/null 2>&1 && systemctl restart nginx && systemctl enable nginx >/dev/null 2>&1 || true
 
@@ -1423,7 +1423,7 @@ fi
 if [[ $INSTALL_HY2 -eq 1 ]]; then
   # ВАЖНО: при userpass-авторизации в URI auth = username:password
   # (см. https://v2.hysteria.network/docs/developers/URI-Scheme/)
-  HY2_LINK="hysteria2://default:${HY2_PASS}@${PROXY_DOMAIN}:443?sni=${PROXY_DOMAIN}&insecure=0#RIXXX"
+  HY2_LINK="hysteria2://default:${HY2_PASS}@${PROXY_DOMAIN}:443?sni=${PROXY_DOMAIN}&insecure=0#ProxyGate"
   echo -e "${PURPLE}${BOLD}║                                                               ║${RESET}"
   echo -e "${PURPLE}${BOLD}║   ⚡  Hysteria2                                               ║${RESET}"
   echo -e "${PURPLE}${BOLD}║   Домен:  ${PROXY_DOMAIN}                                     ║${RESET}"
@@ -1446,10 +1446,10 @@ echo ""
 # пытаться повторно применять миграции, которые install.sh уже сделал.
 # Должно совпадать с TARGET_VERSION в update.sh.
 PANEL_PATCH_VERSION="1.0.0"
-mkdir -p /etc/rixxx-panel
-echo "$PANEL_PATCH_VERSION" > /etc/rixxx-panel/version
-chmod 644 /etc/rixxx-panel/version
-log_info "Версия патчей: ${PANEL_PATCH_VERSION} (см. /etc/rixxx-panel/version)"
+mkdir -p /etc/proxygate
+echo "$PANEL_PATCH_VERSION" > /etc/proxygate/version
+chmod 644 /etc/proxygate/version
+log_info "Версия патчей: ${PANEL_PATCH_VERSION} (см. /etc/proxygate/version)"
 log_info "Для будущих обновлений: bash <(curl -fsSL https://raw.githubusercontent.com/Vladisluv12/hysteria-naive-panel/main/update.sh)"
 echo ""
 

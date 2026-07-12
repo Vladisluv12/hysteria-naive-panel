@@ -1,4 +1,4 @@
-# Panel Naive + Hysteria2 by RIXXX
+# ProxyGate
 
 > Веб-панель для управления **NaiveProxy** и **Hysteria2** на VPS
 
@@ -119,7 +119,7 @@ sudo DOMAIN="vpn.example.com" NAIVE_USER="u1" NAIVE_PASS="p1" HY2_PASS="p2" bash
 |---|---|---|
 | NaiveProxy | `naive.service` | `/usr/local/bin/caddy-naive` |
 | Hysteria2 | `hysteria.service` | `/usr/local/bin/hysteria` |
-| Панель | `panel-naive-hy2` (PM2) | `server/index.js` |
+| Панель | `proxygate` (PM2) | `server/index.js` |
 | WARP (опц.) | `warp.service` | `/usr/bin/wg-quick` |
 
 ---
@@ -129,8 +129,8 @@ sudo DOMAIN="vpn.example.com" NAIVE_USER="u1" NAIVE_PASS="p1" HY2_PASS="p2" bash
 ```bash
 # Панель
 pm2 status
-pm2 logs panel-naive-hy2
-pm2 restart panel-naive-hy2
+pm2 logs proxygate
+pm2 restart proxygate
 
 # NaiveProxy
 systemctl status naive
@@ -235,7 +235,7 @@ hysteria2://PASSWORD@your.domain.com:443?sni=your.domain.com
 ## Структура файлов на сервере
 
 ```
-/opt/panel-naive-hy2/            # Репозиторий
+/opt/proxygate/            # Репозиторий
 ├── vps_test_install.sh          # Основной установщик
 ├── install.sh                   # Установщик (legacy)
 ├── update.sh                    # Обновления и миграции

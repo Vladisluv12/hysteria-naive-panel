@@ -1,6 +1,6 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════════════
-#  Panel Naive + Hysteria2 by RIXXX — Update Script
+#  ProxyGate — Update Script
 #  Применяет инкрементальные патчи поверх существующей установки.
 #  НЕ трогает: пользователей, сертификаты, домены, sysctl, активные сервисы.
 #
@@ -23,7 +23,7 @@
 #                         Caddyfile и Hy2 config, перезапускает сервисы.
 #    --repair             регенерация Caddyfile и /etc/hysteria/config.yaml из
 #                         config.json. Перед изменениями автоматически делает
-#                         бэкап в /etc/rixxx-panel/backups/YYYY-MM-DD/.
+#                         бэкап в /etc/proxygate/backups/YYYY-MM-DD/.
 #                         При невалидном результате — откат из бэкапа.
 #    --status             вывести состояние установки: версия, статус сервисов
 #                         (caddy/hysteria/panel), TLS-сертификаты, открытые
@@ -39,13 +39,13 @@ export DEBIAN_FRONTEND=noninteractive
 TARGET_VERSION="1.4.0"
 
 # ── Пути ────────────────────────────────────────────────────────────────
-PANEL_DIR="/opt/panel-naive-hy2"
+PANEL_DIR="/opt/proxygate"
 PANEL_CONFIG="${PANEL_DIR}/panel/data/config.json"
 CADDYFILE="/etc/caddy/Caddyfile"
 HY2_CONFIG="/etc/hysteria/config.yaml"
-PANEL_SERVICE_NAME="panel-naive-hy2"
+PANEL_SERVICE_NAME="proxygate"
 
-VERSION_DIR="/etc/rixxx-panel"
+VERSION_DIR="/etc/proxygate"
 VERSION_FILE="${VERSION_DIR}/version"
 
 # ── Флаги командной строки ──────────────────────────────────────────────
@@ -107,7 +107,7 @@ header() {
   clear 2>/dev/null || true
   echo ""
   echo -e "${PURPLE}${BOLD}╔══════════════════════════════════════════════════════════╗${RESET}"
-  echo -e "${PURPLE}${BOLD}║   Panel Naive + Hy2 by RIXXX — Update                    ║${RESET}"
+  echo -e "${PURPLE}${BOLD}║   ProxyGate — Update                                     ║${RESET}"
   echo -e "${PURPLE}${BOLD}║   Применение инкрементальных патчей                      ║${RESET}"
   echo -e "${PURPLE}${BOLD}╚══════════════════════════════════════════════════════════╝${RESET}"
   echo ""
@@ -267,8 +267,8 @@ migrate_listen_localhost() {
   log_info "${BOLD}SSH-only режим${RESET} теперь поддерживается."
   log_info "Чтобы скрыть панель от Интернета и оставить доступ только через SSH-туннель,"
   log_info "переустановите панель и выберите соответствующую опцию, либо отредактируйте"
-  log_info "  /etc/systemd/system/panel-naive-hy2.service (Environment=LISTEN_HOST=127.0.0.1)"
-  log_info "и перезапустите: systemctl restart panel-naive-hy2"
+  log_info "  /etc/systemd/system/proxygate.service (Environment=LISTEN_HOST=127.0.0.1)"
+  log_info "и перезапустите: systemctl restart proxygate"
   log_info "Восстановление публичного доступа: bash update.sh --expose <panel-domain>"
   echo ""
   return 0
@@ -327,7 +327,7 @@ migrate_masquerade_default() {
 #     вся новая инфраструктура (атомарная запись Caddyfile, --repair, --status,
 #     автобэкап, smoke-test в install.sh) живёт в коде update.sh / install.sh
 #     и не требует изменений в config.json.
-#   • Создаёт каталог /etc/rixxx-panel/backups/ заранее, чтобы первый --repair
+#   • Создаёт каталог /etc/proxygate/backups/ заранее, чтобы первый --repair
 #     не выводил предупреждение про отсутствие папки.
 #   • Информирует пользователя о новых возможностях.
 #
@@ -407,7 +407,7 @@ migrate_ssh_only_close_ports() {
   fi
 
   # 3) Гарантируем LISTEN_HOST=127.0.0.1 в systemd-юните (если он есть).
-  local SVC="/etc/systemd/system/panel-naive-hy2.service"
+  local SVC="/etc/systemd/system/proxygate.service"
   if [[ -f "$SVC" ]]; then
     if grep -q "Environment=LISTEN_HOST=" "$SVC"; then
       sed -i 's|Environment=LISTEN_HOST=.*|Environment=LISTEN_HOST=127.0.0.1|' "$SVC"
@@ -423,22 +423,22 @@ migrate_ssh_only_close_ports() {
   #    если процесс был запущен без него (или был запущен через ecosystem-файл).
   #    Делаем delete + start с префиксом env — это единственный надёжный способ.
   local restart_ok=0
-  if command -v pm2 >/dev/null 2>&1 && pm2 describe panel-naive-hy2 >/dev/null 2>&1; then
+  if command -v pm2 >/dev/null 2>&1 && pm2 describe proxygate >/dev/null 2>&1; then
     log_info "PM2: пересоздаю процесс панели с LISTEN_HOST=127.0.0.1..."
-    pm2 delete panel-naive-hy2 >/dev/null 2>&1 || true
+    pm2 delete proxygate >/dev/null 2>&1 || true
     sleep 1
     if [[ -d "$PANEL_DIR/panel" ]]; then
       (cd "$PANEL_DIR/panel" && \
         LISTEN_HOST=127.0.0.1 PORT=3000 pm2 start server/index.js \
-          --name panel-naive-hy2 --time --update-env >/dev/null 2>&1) || true
+          --name proxygate --time --update-env >/dev/null 2>&1) || true
       pm2 save --force >/dev/null 2>&1 || true
       log_ok "PM2: панель перезапущена с LISTEN_HOST=127.0.0.1"
       restart_ok=1
     else
       log_err "Не найден $PANEL_DIR/panel — не могу запустить панель"
     fi
-  elif systemctl is-active --quiet panel-naive-hy2 2>/dev/null; then
-    systemctl restart panel-naive-hy2 >/dev/null 2>&1 || true
+  elif systemctl is-active --quiet proxygate 2>/dev/null; then
+    systemctl restart proxygate >/dev/null 2>&1 || true
     log_ok "systemd: панель перезапущена"
     restart_ok=1
   fi
@@ -462,11 +462,11 @@ migrate_ssh_only_close_ports() {
     log_ok "Панель отвечает на http://127.0.0.1:3000 — SSH-туннель будет работать"
   else
     log_err "Панель НЕ отвечает на http://127.0.0.1:3000! SSH-туннель НЕ заработает."
-    log_info "Диагностика: pm2 logs panel-naive-hy2 --nostream --lines 30"
+    log_info "Диагностика: pm2 logs proxygate --nostream --lines 30"
     log_info "Ручной запуск:"
-    log_info "  cd $PANEL_DIR/panel && pm2 delete panel-naive-hy2"
+    log_info "  cd $PANEL_DIR/panel && pm2 delete proxygate"
     log_info "  LISTEN_HOST=127.0.0.1 PORT=3000 pm2 start server/index.js \\"
-    log_info "    --name panel-naive-hy2 --time --update-env"
+    log_info "    --name proxygate --time --update-env"
   fi
 
   # 6) Дополнительная проверка — внешний IP не должен отвечать (это и есть фикс).
@@ -962,7 +962,7 @@ do_ssh_only() {
   " && log_ok "config.json обновлён (sshOnly=1, listenHost=127.0.0.1, panelDomain сохранён)"
 
   # 7) systemd-юнит: Environment=LISTEN_HOST=127.0.0.1.
-  local SVC="/etc/systemd/system/panel-naive-hy2.service"
+  local SVC="/etc/systemd/system/proxygate.service"
   if [[ -f "$SVC" ]]; then
     if grep -q "Environment=LISTEN_HOST=" "$SVC"; then
       sed -i 's|Environment=LISTEN_HOST=.*|Environment=LISTEN_HOST=127.0.0.1|' "$SVC"
@@ -1014,7 +1014,7 @@ do_ssh_only() {
   else
     log_err "Панель НЕ отвечает на http://127.0.0.1:3000! Откат:"
     log_info "  bash update.sh --expose ${CUR_PANEL_DOMAIN:-<panel-domain>}"
-    log_info "  Или восстановите из бэкапа: ${BACKUP_DIR:-/etc/rixxx-panel/backups/}"
+    log_info "  Или восстановите из бэкапа: ${BACKUP_DIR:-/etc/proxygate/backups/}"
     return 1
   fi
 
@@ -1032,7 +1032,7 @@ do_ssh_only() {
 # ─────────────────────────────────────────────────────────────────────────
 # Утилита: auto_backup <tag>
 # ─────────────────────────────────────────────────────────────────────────
-# Делает снимок ключевых файлов в /etc/rixxx-panel/backups/YYYY-MM-DD-HHMMSS-<tag>/.
+# Делает снимок ключевых файлов в /etc/proxygate/backups/YYYY-MM-DD-HHMMSS-<tag>/.
 # Снимок включает: config.json, Caddyfile, /etc/hysteria/config.yaml,
 # systemd-юнит панели. Это даёт точку отката после --repair или ручных правок.
 # Никогда не падает: если файла нет — просто пропускает.
@@ -1103,7 +1103,7 @@ rollback_from_backup() {
 # Режим --repair: регенерация Caddyfile + Hy2 config из config.json.
 # ─────────────────────────────────────────────────────────────────────────
 # Алгоритм:
-#   1) auto_backup "repair" → /etc/rixxx-panel/backups/...
+#   1) auto_backup "repair" → /etc/proxygate/backups/...
 #   2) Регенерируем Caddyfile из config.json (NaiveProxy + панель + masquerade).
 #   3) Регенерируем /etc/hysteria/config.yaml (auth + masquerade + TLS-block).
 #   4) caddy validate. Если упал — rollback_from_backup, exit 1.

@@ -14,7 +14,7 @@ function testPath(systemPath) {
   return systemPath;
 }
 
-const TRAFFIC_FILE = testPath('/etc/rixxx-panel/traffic.json');
+const TRAFFIC_FILE = testPath('/etc/proxygate/traffic.json');
 const NAIVE_USERS_FILE = testPath('/var/lib/naive/traffic.json');
 const NET_DEV = '/proc/net/dev';
 

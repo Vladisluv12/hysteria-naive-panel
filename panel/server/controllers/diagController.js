@@ -29,7 +29,7 @@ async function getLogs(req, res) {
 
   let output;
   if (kind === 'panel') {
-    output = await runPm2Logs('panel-naive-hy2', lines);
+    output = await runPm2Logs('proxygate', lines);
   } else {
     output = await getJournalctl(unit, lines);
   }

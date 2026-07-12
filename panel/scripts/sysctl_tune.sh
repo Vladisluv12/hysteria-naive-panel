@@ -1,13 +1,13 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════
-#  Сетевой тюнинг (BBR + UDP buffers) — by RIXXX
+#  Сетевой тюнинг (BBR + UDP buffers) — by ProxyGate
 #  Вызывается из панели кнопкой "Применить оптимизации"
 # ═══════════════════════════════════════════════════════
 
 set -uo pipefail
 
-cat > /etc/sysctl.d/99-rixxx-tune.conf << 'SYSCTLEOF'
-# by RIXXX — Naive (TCP) + Hy2 (UDP) tuning
+cat > /etc/sysctl.d/99-proxygate-tune.conf << 'SYSCTLEOF'
+# by ProxyGate — Naive (TCP) + Hy2 (UDP) tuning
 net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 

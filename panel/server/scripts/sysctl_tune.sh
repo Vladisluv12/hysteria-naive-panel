@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONF="/etc/sysctl.d/99-panel-tuning.conf"
+CONF="/etc/sysctl.d/99-proxygate-tuning.conf"
 
 cat > "$CONF" << 'EOF'
-# RIXXX Panel — network tuning for proxy servers
+# ProxyGate — network tuning for proxy servers
 
 # BBR congestion control
 net.ipv4.tcp_congestion_control = bbr

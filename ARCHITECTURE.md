@@ -1,8 +1,8 @@
-# ARCHITECTURE.md — RIXXX Panel (Naive + Hysteria2)
+# ARCHITECTURE.md — ProxyGate
 
 ## System Overview
 
-RIXXX Panel is a web-based management interface for NaiveProxy and Hysteria2 proxy services. It provides a React frontend for managing users, viewing diagnostics, and controlling proxy services running on a VPS.
+ProxyGate Panel is a web-based management interface for NaiveProxy and Hysteria2 proxy services. It provides a React frontend for managing users, viewing diagnostics, and controlling proxy services running on a VPS.
 
 **Stack:**
 - Frontend: React 19 + TypeScript + Vite
@@ -28,7 +28,7 @@ RIXXX Panel is a web-based management interface for NaiveProxy and Hysteria2 pro
 | `caddy-cert-watcher.path` | Watches Caddy cert directory for changes | Conditional (shared cert mode) |
 | `caddy-cert-watcher.service` | Restarts hysteria on cert change | oneshot, triggered by path unit |
 
-> Note: `panel-naive-hy2.service` does not exist on the server (PM2 is used instead).
+> Note: `proxygate.service` does not exist on the server (PM2 is used instead).
 > `caddy-cert-watcher.*` units are only created when Hysteria2 shares Caddy's TLS certificate (see TLS modes below).
 > `warp.service` is only installed when `USE_WARP=1` is set during initial deployment.
 
@@ -36,7 +36,7 @@ RIXXX Panel is a web-based management interface for NaiveProxy and Hysteria2 pro
 
 | PM2 App Name | Description | Start Command |
 |--------------|-------------|---------------|
-| `panel-naive-hy2` | Panel backend (primary) | `pm2 start server/index.js --name panel-naive-hy2` |
+| `proxygate` | Panel backend (primary) | `pm2 start server/index.js --name proxygate` |
 
 ### Important Notes
 
@@ -79,7 +79,7 @@ WARP hides the server's real IP for specific services (IP detection, Google, etc
 
 ## Backend API Reference
 
-All endpoints are prefixed with `/api`. Authentication is required for most endpoints (session-based via `rixxx_sid` cookie).
+All endpoints are prefixed with `/api`. Authentication is required for most endpoints (session-based via `proxygate_sid` cookie).
 
 ### Authentication Routes (`/api`)
 
@@ -95,7 +95,7 @@ All endpoints are prefixed with `/api`. Authentication is required for most endp
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
 | `GET` | `/api/config` | Get full panel configuration | Yes |
-| `GET` | `/api/system/version` | Get panel version (from `/etc/rixxx-panel/version`) | Yes |
+| `GET` | `/api/system/version` | Get panel version (from `/etc/proxygate/version`) | Yes |
 | `GET` | `/api/status` | Get service status (installed, active, user counts) | Yes |
 | `GET` | `/api/traffic` | Get traffic statistics (daily, hourly, connections) | Yes |
 | `POST` | `/api/service/:kind/:action` | Control services (start/stop/restart) | Yes |
@@ -195,7 +195,7 @@ All endpoints are prefixed with `/api`. Authentication is required for most endp
 ### Panel Installation
 
 ```
-/opt/panel-naive-hy2/              # Main project directory (git repo)
+/opt/proxygate/              # Main project directory (git repo)
 ├── panel/                         # Panel application
 │   ├── server/                    # Backend (Express.js)
 │   │   ├── index.js               # Entry point
@@ -278,7 +278,7 @@ All endpoints are prefixed with `/api`. Authentication is required for most endp
 
 1. **REST API:** Frontend makes HTTP requests to `/api/*` endpoints
 2. **WebSocket:** Real-time installation progress via WebSocket connection
-3. **Session:** Authentication via `rixxx_sid` cookie (express-session)
+3. **Session:** Authentication via `proxygate_sid` cookie (express-session)
 
 ### Backend → System Service Management
 
@@ -319,7 +319,7 @@ Hysteria2 ← /etc/hysteria/config.yaml
 
 ## Configuration Files
 
-### Panel Configuration (`/opt/panel-naive-hy2/panel/data/config.json`)
+### Panel Configuration (`/opt/proxygate/panel/data/config.json`)
 
 ```json
 {
@@ -359,7 +359,7 @@ Hysteria2 ← /etc/hysteria/config.yaml
 }
 ```
 
-### Admin Users (`/opt/panel-naive-hy2/panel/data/users.json`)
+### Admin Users (`/opt/proxygate/panel/data/users.json`)
 
 ```json
 {
@@ -563,11 +563,11 @@ panel/
 
 ## Version Information
 
-- **Panel Version:** Read from `/etc/rixxx-panel/version` (fallback: `1.0.0`) — file may not exist
+- **Panel Version:** Read from `/etc/proxygate/version` (fallback: `1.0.0`) — file may not exist
 - **Node.js:** Requires v18+
 - **NaiveProxy:** Built with xcaddy (custom binary at `/usr/local/bin/caddy-naive`)
 - **Hysteria2:** Latest from GitHub releases
 
 ---
 
-*This document serves as the definitive technical reference for the RIXXX Panel codebase.*
+*This document serves as the definitive technical reference for the ProxyGate Panel codebase.*

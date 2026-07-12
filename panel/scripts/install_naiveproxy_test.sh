@@ -1,7 +1,7 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════
 #  NaiveProxy Installer — LOCAL TEST MODE (self-signed)
-#  Panel Naive + Hysteria2 by RIXXX
+#  ProxyGate
 #  ENV: NAIVE_DOMAIN, NAIVE_LOGIN, NAIVE_PASSWORD
 #  (EMAIL не нужен — сертификат самоподписанный)
 # ═══════════════════════════════════════════════════════
@@ -56,7 +56,7 @@ step "bbr"
 log "▶ Включение BBR..."
 # ══════════════════════════════════════════════════════
 
-cat > /etc/sysctl.d/99-rixxx-tune.conf << 'SYSCTLEOF'
+cat > /etc/sysctl.d/99-proxygate-tune.conf << 'SYSCTLEOF'
 net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 net.core.rmem_max=16777216
@@ -248,7 +248,7 @@ sleep 1
 
 cat > /etc/systemd/system/caddy.service << 'SERVICEEOF'
 [Unit]
-Description=Caddy with NaiveProxy (by RIXXX)
+Description=Caddy with NaiveProxy (by ProxyGate)
 Documentation=https://caddyserver.com/docs/
 After=network.target network-online.target
 Requires=network-online.target

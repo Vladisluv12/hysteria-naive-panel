@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   Panel Naive + Hysteria2 by RIXXX — Backend
+   ProxyGate — Backend
    ═══════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -80,7 +80,7 @@ app.use(bodyParser.json({ limit: '256kb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '256kb' }));
 
 const sessionMiddleware = session({
-  name: 'rixxx_sid',
+  name: 'proxygate_sid',
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: true,
@@ -546,7 +546,7 @@ if (process.env.NODE_ENV !== 'test') {
   server.listen(PORT, LISTEN_HOST, () => {
     const isLocal = LISTEN_HOST === '127.0.0.1' || LISTEN_HOST === 'localhost';
     console.log(`\n╔═══════════════════════════════════════════════╗`);
-    console.log(`║   Panel Naive + Hysteria2 by RIXXX            ║`);
+    console.log(`║   ProxyGate                                   ║`);
     console.log(`║   Running on http://${LISTEN_HOST}:${PORT}${' '.repeat(Math.max(0, 14 - LISTEN_HOST.length))}║`);
     if (isLocal) {
       console.log(`║   SSH-only mode (доступ через ssh -L)         ║`);

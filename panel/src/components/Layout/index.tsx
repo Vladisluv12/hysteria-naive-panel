@@ -25,10 +25,9 @@ export function Layout() {
     <div className={styles.wrapper}>
       <aside className={styles.sidebar}>
         <div className={styles.logo}>
-          <div className={styles.logoIcon}>R</div>
+          <div className={styles.logoIcon}>P</div>
           <div className={styles.logoText}>
-            <div className={styles.logoTitle}>RIXXX Panel</div>
-            <div className={styles.logoSub}>Naive + Hysteria2</div>
+            <div className={styles.logoTitle}>ProxyGate</div>
           </div>
         </div>
         <nav className={styles.nav}>

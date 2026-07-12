@@ -1,7 +1,7 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════
-#  Hysteria2 Auto-Installer — by RIXXX (multi-arch)
-#  Panel Naive + Hysteria2 by RIXXX
+#  Hysteria2 Auto-Installer — by ProxyGate (multi-arch)
+#  ProxyGate
 #  ENV: HY_DOMAIN, HY_EMAIL, HY_PASSWORD, USE_CADDY_CERT (0/1)
 # ═══════════════════════════════════════════════════════
 
@@ -45,7 +45,7 @@ step 2
 log "▶ UDP-оптимизации..."
 # ══════════════════════════════════════════════════════
 
-cat > /etc/sysctl.d/99-rixxx-tune.conf << 'SYSCTLEOF'
+cat > /etc/sysctl.d/99-proxygate-tune.conf << 'SYSCTLEOF'
 net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 net.core.rmem_max=16777216
@@ -114,7 +114,7 @@ mkdir -p /etc/hysteria
 
 cat > /etc/hysteria/config.yaml << HYCFGEOF
 # ═══════════════════════════════════════════════
-#  Hysteria2 — by RIXXX
+#  Hysteria2 — by ProxyGate
 #  https://v2.hysteria.network/
 # ═══════════════════════════════════════════════
 
@@ -325,7 +325,7 @@ fi
 
 cat > /etc/systemd/system/hysteria-server.service << HYSVCEOF
 [Unit]
-Description=Hysteria2 Server (by RIXXX)
+Description=Hysteria2 Server (by ProxyGate)
 Documentation=https://v2.hysteria.network/
 ${HY_AFTER}
 ${HY_WANTS}

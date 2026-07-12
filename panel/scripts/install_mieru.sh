@@ -1,6 +1,6 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════
-#  mieru Auto-Installer v3 — by RIXXX (multi-arch)
+#  mieru Auto-Installer v3 — by ProxyGate (multi-arch)
 #  Panel Naive + Hysteria2 + mieru + VLESS
 #  ENV: MIERU_DOMAIN, MIERU_USERNAME, MIERU_PASSWORD
 # ═══════════════════════════════════════════════════════
@@ -44,7 +44,7 @@ step 2
 log "▶ Сетевой тюнинг..."
 # ══════════════════════════════════════════════════════
 
-cat > /etc/sysctl.d/99-rixxx-tune.conf << 'SYSCTLEOF'
+cat > /etc/sysctl.d/99-proxygate-tune.conf << 'SYSCTLEOF'
 net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 net.core.rmem_max=16777216

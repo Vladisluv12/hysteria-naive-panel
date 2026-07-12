@@ -1,7 +1,7 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════
 #  Hysteria2 Installer — LOCAL TEST MODE (self-signed)
-#  Panel Naive + Hysteria2 by RIXXX
+#  ProxyGate
 #  ENV: HY_DOMAIN, HY_PASSWORD
 #  (EMAIL не нужен — сертификат самоподписанный)
 # ═══════════════════════════════════════════════════════
@@ -44,7 +44,7 @@ step 2
 log "▶ UDP-оптимизации..."
 # ══════════════════════════════════════════════════════
 
-cat > /etc/sysctl.d/99-rixxx-tune.conf << 'SYSCTLEOF'
+cat > /etc/sysctl.d/99-proxygate-tune.conf << 'SYSCTLEOF'
 net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 net.core.rmem_max=16777216
@@ -128,7 +128,7 @@ log "✅ Сертификат: /etc/ssl/selfsigned/${DOMAIN}.{crt,key}"
 
 cat > /etc/hysteria/config.yaml << HYCFGEOF
 # ═══════════════════════════════════════════════
-#  Hysteria2 — LOCAL TEST (by RIXXX)
+#  Hysteria2 — LOCAL TEST (by ProxyGate)
 #  Самоподписанный сертификат, без ACME
 # ═══════════════════════════════════════════════
 listen: :443
@@ -252,7 +252,7 @@ fi
 
 cat > /etc/systemd/system/hysteria-server.service << HYSVCEOF
 [Unit]
-Description=Hysteria2 Server (by RIXXX — local test)
+Description=Hysteria2 Server (by ProxyGate — local test)
 Documentation=https://v2.hysteria.network/
 ${HY_AFTER}
 ${HY_WANTS}

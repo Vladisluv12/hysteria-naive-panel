@@ -1,6 +1,6 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════════════
-#  Panel Naive + Hysteria2 by RIXXX — Деинсталлятор
+#  ProxyGate — Деинсталлятор
 #  Полностью удаляет панель, Caddy, Hysteria2, Go, nginx (если ставился)
 #  и все связанные конфиги, сертификаты, systemd-юниты, UFW-правила.
 #
@@ -70,7 +70,7 @@ do_run() {
 clear 2>/dev/null || true
 echo ""
 echo -e "${RED}${BOLD}╔══════════════════════════════════════════════════════════╗${RESET}"
-echo -e "${RED}${BOLD}║   Panel Naive + Hy2 by RIXXX — Деинсталлятор             ║${RESET}"
+echo -e "${RED}${BOLD}║   ProxyGate — Деинсталлятор                              ║${RESET}"
 echo -e "${RED}${BOLD}╚══════════════════════════════════════════════════════════╝${RESET}"
 echo ""
 
@@ -84,14 +84,14 @@ fi
 echo -e "${RED}${BOLD}⚠  ВНИМАНИЕ: Это действие необратимо!${RESET}"
 echo ""
 echo -e "${BOLD}Будут удалены:${RESET}"
-echo -e "  • Панель управления и все её данные:   ${BOLD}/opt/panel-naive-hy2${RESET}"
+echo -e "  • Панель управления и все её данные:   ${BOLD}/opt/proxygate${RESET}"
 echo -e "  • Caddy + NaiveProxy:                   ${BOLD}/usr/bin/caddy${RESET}, ${BOLD}/etc/caddy${RESET}"
 echo -e "  • Hysteria2:                            ${BOLD}/usr/local/bin/hysteria${RESET}, ${BOLD}/etc/hysteria${RESET}"
 echo -e "  • Сертификаты Let's Encrypt / ZeroSSL:  ${BOLD}/var/lib/caddy${RESET}, ${BOLD}/root/.local/share/caddy${RESET}"
-echo -e "  • Юниты systemd:                        caddy, hysteria-server, panel-naive-hy2,"
+echo -e "  • Юниты systemd:                        caddy, hysteria-server, proxygate,"
 echo -e "                                          caddy-cert-watcher.path/.service, pm2-root"
 if [[ $KEEP_NGINX -eq 0 ]]; then
-echo -e "  • Nginx (если был установлен):          пакет + ${BOLD}/etc/nginx/sites-*/panel-naive-hy2${RESET}"
+echo -e "  • Nginx (если был установлен):          пакет + ${BOLD}/etc/nginx/sites-*/proxygate${RESET}"
 else
 echo -e "  ${YELLOW}• Nginx — пропущен (--keep-nginx), удалю только конфиг панели${RESET}"
 fi
@@ -101,9 +101,9 @@ else
 echo -e "  ${YELLOW}• Go — пропущен (--keep-go)${RESET}"
 fi
 echo -e "  • UFW-правила:                          allow/deny 80/443/8080/3000"
-echo -e "  • Сетевой тюнинг:                       ${BOLD}/etc/sysctl.d/99-rixxx-tune.conf${RESET}"
-echo -e "  • Версия патчей и автобэкапы:           ${BOLD}/etc/rixxx-panel${RESET}"
-echo -e "  • Камуфляжная страница:                 ${BOLD}/var/www/html/index.html${RESET} (если RIXXX-овая)"
+echo -e "  • Сетевой тюнинг:                       ${BOLD}/etc/sysctl.d/99-proxygate-tune.conf${RESET}"
+echo -e "  • Версия патчей и автобэкапы:           ${BOLD}/etc/proxygate${RESET}"
+echo -e "  • Камуфляжная страница:                 ${BOLD}/var/www/html/index.html${RESET} (если ProxyGate-овая)"
 echo ""
 echo -e "${GREEN}${BOLD}НЕ удаляется (используется системой/другими):${RESET}"
 echo -e "  ${GREEN}• Node.js, PM2 (npm-пакет), UFW (пакет)${RESET}"
@@ -138,7 +138,7 @@ echo ""
 # ── 1. PM2 — остановка панели + удаление startup-юнита ────────────────
 log_step "1. Остановка PM2-процессов панели..."
 if command -v pm2 >/dev/null 2>&1; then
-  do_run "pm2 delete panel-naive-hy2"  pm2 delete panel-naive-hy2
+  do_run "pm2 delete proxygate"  pm2 delete proxygate
   do_run "pm2 save --force"             pm2 save --force
   # PM2 startup-юнит создаётся install.sh через `pm2 startup systemd`.
   # Без его удаления systemd при ребуте будет пытаться поднять PM2,
@@ -155,18 +155,18 @@ else
   log_skip "PM2 не установлен — пропускаю"
 fi
 
-# ── 2. Systemd сервисы (caddy, hysteria-server, panel-naive-hy2, watcher) ──
+# ── 2. Systemd сервисы (caddy, hysteria-server, proxygate, watcher) ──
 log_step "2. Остановка и удаление systemd-сервисов..."
 # Полный список юнитов которые создаёт install.sh:
 #   • caddy.service              — основной Caddy
 #   • hysteria-server.service    — Hysteria2
-#   • panel-naive-hy2.service    — fallback systemd-юнит панели (когда PM2 не запустил)
+#   • proxygate.service    — fallback systemd-юнит панели (когда PM2 не запустил)
 #   • caddy-cert-watcher.path    — отслеживает обновление TLS-сертификата для Hy2
 #   • caddy-cert-watcher.service — перезапускает hysteria-server при ротации
 SVC_LIST=(
   "caddy"
   "hysteria-server"
-  "panel-naive-hy2"
+  "proxygate"
   "caddy-cert-watcher.path"
   "caddy-cert-watcher.service"
 )
@@ -190,8 +190,8 @@ log_ok "Systemd-сервисы удалены, daemon-reload выполнен"
 log_step "3. Удаление конфига Nginx и пакета (если был установлен)..."
 # Конфиг панели install.sh кладёт в sites-available + симлинк в sites-enabled.
 # Удаляем их в любом случае (даже с --keep-nginx), чтобы не мусорил.
-do_run "rm /etc/nginx/sites-available/panel-naive-hy2"  rm -f /etc/nginx/sites-available/panel-naive-hy2
-do_run "rm /etc/nginx/sites-enabled/panel-naive-hy2"    rm -f /etc/nginx/sites-enabled/panel-naive-hy2
+do_run "rm /etc/nginx/sites-available/proxygate"  rm -f /etc/nginx/sites-available/proxygate
+do_run "rm /etc/nginx/sites-enabled/proxygate"    rm -f /etc/nginx/sites-enabled/proxygate
 
 if [[ $KEEP_NGINX -eq 1 ]]; then
   log_skip "Пакет nginx сохранён (--keep-nginx). Удалён только конфиг панели."
@@ -229,8 +229,8 @@ do_run "rm -rf /etc/hysteria"  rm -rf /etc/hysteria
 # Если /var/www/html/index.html модифицирован пользователем — не трогаем папку.
 if [[ -f /var/www/html/index.html ]] && grep -q "Loading" /var/www/html/index.html 2>/dev/null \
    && [[ $(wc -l < /var/www/html/index.html 2>/dev/null || echo 0) -lt 50 ]]; then
-  do_run "rm /var/www/html/index.html (камуфляж RIXXX)"  rm -f /var/www/html/index.html
-  log_info "  Камуфляжная страница RIXXX удалена"
+  do_run "rm /var/www/html/index.html (камуфляж ProxyGate)"  rm -f /var/www/html/index.html
+  log_info "  Камуфляжная страница ProxyGate удалена"
 else
   log_skip "  /var/www/html/index.html не наша или модифицирована — не трогаю"
 fi
@@ -252,19 +252,19 @@ log_step "7. Удаление панели управления..."
 # Перед rm -rf проверяем что нет процессов которые держат файлы (PM2 уже убит,
 # но на всякий случай).
 if command -v lsof >/dev/null 2>&1; then
-  PIDS_HOLDING=$(lsof +D /opt/panel-naive-hy2 2>/dev/null | awk 'NR>1 {print $2}' | sort -u | head -10)
+  PIDS_HOLDING=$(lsof +D /opt/proxygate 2>/dev/null | awk 'NR>1 {print $2}' | sort -u | head -10)
   if [[ -n "$PIDS_HOLDING" ]]; then
-    log_warn "Процессы держат файлы в /opt/panel-naive-hy2: $PIDS_HOLDING — убиваю"
+    log_warn "Процессы держат файлы в /opt/proxygate: $PIDS_HOLDING — убиваю"
     for pid in $PIDS_HOLDING; do do_run "kill $pid" kill -TERM "$pid"; done
     sleep 1
   fi
 fi
-do_run "rm -rf /opt/panel-naive-hy2"  rm -rf /opt/panel-naive-hy2
+do_run "rm -rf /opt/proxygate"  rm -rf /opt/proxygate
 log_ok "Панель удалена"
 
 # ── 8. Версия патчей и автобэкапы ──────────────────────────────────────
-log_step "8. Удаление /etc/rixxx-panel (версия + автобэкапы)..."
-do_run "rm -rf /etc/rixxx-panel"  rm -rf /etc/rixxx-panel
+log_step "8. Удаление /etc/proxygate (версия + автобэкапы)..."
+do_run "rm -rf /etc/proxygate"  rm -rf /etc/proxygate
 log_ok "Версия и автобэкапы удалены"
 
 # ── 9. Go и кэш сборки (опционально) ───────────────────────────────────
@@ -302,27 +302,27 @@ else
 fi
 
 # ── 11. sysctl тюнинг ───────────────────────────────────────────────────
-log_step "11. Удаление sysctl-настроек RIXXX..."
-do_run "rm /etc/sysctl.d/99-rixxx-tune.conf"  rm -f /etc/sysctl.d/99-rixxx-tune.conf
+log_step "11. Удаление sysctl-настроек ProxyGate..."
+do_run "rm /etc/sysctl.d/99-proxygate-tune.conf"  rm -f /etc/sysctl.d/99-proxygate-tune.conf
 do_run "sysctl --system (применить откат)"     bash -c "sysctl --system >/dev/null 2>&1"
-log_ok "Sysctl-настройки RIXXX удалены"
+log_ok "Sysctl-настройки ProxyGate удалены"
 
 # ── 12. Финальная проверка остатков ────────────────────────────────────
 log_step "12. Проверка что ничего не осталось..."
 LEFTOVERS=()
 for path in \
-  "/opt/panel-naive-hy2" \
+  "/opt/proxygate" \
   "/etc/caddy" \
   "/etc/hysteria" \
-  "/etc/rixxx-panel" \
+  "/etc/proxygate" \
   "/usr/bin/caddy" \
   "/usr/local/bin/hysteria" \
   "/etc/systemd/system/caddy.service" \
   "/etc/systemd/system/hysteria-server.service" \
-  "/etc/systemd/system/panel-naive-hy2.service" \
+  "/etc/systemd/system/proxygate.service" \
   "/etc/systemd/system/caddy-cert-watcher.path" \
   "/etc/systemd/system/caddy-cert-watcher.service" \
-  "/etc/sysctl.d/99-rixxx-tune.conf"; do
+  "/etc/sysctl.d/99-proxygate-tune.conf"; do
   if [[ -e "$path" ]]; then
     LEFTOVERS+=("$path")
   fi
