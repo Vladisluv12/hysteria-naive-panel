@@ -96,7 +96,7 @@ export function SettingsPage() {
               </div>
               <div className={styles.infoRow}>
                 <span className={styles.infoKey}>Стек</span>
-                <span className={styles.infoVal}>NaiveProxy + Hysteria2</span>
+                <span className={styles.infoVal}>NaiveProxy + Hysteria2 + mieru + VLESS</span>
               </div>
             </div>
           </div>
@@ -118,7 +118,9 @@ export function SettingsPage() {
             <div className={styles.clientNote}>
               Формат ссылок:<br />
               <code>naive+https://LOGIN:PASSWORD@your.domain.com:PORT</code><br />
-              <code>hysteria2://PASSWORD@your.domain.com:PORT?sni=your.domain.com</code>
+              <code>hysteria2://PASSWORD@your.domain.com:PORT?sni=your.domain.com</code><br />
+              <code>mierus://LOGIN:PASSWORD@your.domain.com?profile=default&port=PORT&protocol=TCP</code> (предпочтительнее импортировать конфиг)<br />
+              <code>vless://UUID@your.domain.com:PORT?security=reality&sni=your.domain.com&pbk=PUBLIC_KEY</code>
             </div>
           </div>
         </div>
