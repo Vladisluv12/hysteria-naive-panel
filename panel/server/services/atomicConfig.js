@@ -89,7 +89,11 @@ function caddyValidator(tmpPath) {
 function xrayValidator(tmpPath) {
   const { execSync } = require('child_process');
   try {
-    execSync(`xray run -test -config ${tmpPath}`, { stdio: 'pipe', timeout: 10000 });
+    // -format=json is required: Xray infers config format from the file extension
+    // when omitted, and the atomic-write temp file is always named "<path>.new"
+    // (not ".json"), so auto-detection fails "Failed to get format of ..." even
+    // for valid configs and every write gets silently rolled back.
+    execSync(`xray run -test -format=json -config ${tmpPath}`, { stdio: 'pipe', timeout: 10000 });
     return true;
   } catch (validateErr) {
     const output = ((validateErr && validateErr.stdout) ? validateErr.stdout.toString() : '')
