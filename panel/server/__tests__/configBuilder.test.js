@@ -519,14 +519,17 @@ AllowedIPs = 0.0.0.0/0
     expect(out).not.toBeNull();
   });
 
-  test('routing rules order: WARP > ACL > api', () => {
+  test('routing rules order: api always first, before ACL/WARP rules', () => {
     saveAcl({ enabled: true, blockDomains: ['blocked.com'], blockGeosite: [], blockGeoip: [] });
     const out = buildVlessConfigObject(makeVlessCfg());
     const rules = out.routing.rules;
-    // ACL rules come before api rules
+    // The api inboundTag rule must be checked before any blocked/private-IP rule,
+    // otherwise loopback traffic to the StatsService API (127.0.0.1:10085) gets
+    // shadowed by the blockPrivateIPs 127.0.0.0/8 rule and stats collection breaks silently.
     const blockedIdx = rules.findIndex(r => r.outboundTag === 'blocked');
     const apiIdx = rules.findIndex(r => r.outboundTag === 'api');
-    expect(blockedIdx).toBeLessThan(apiIdx);
+    expect(apiIdx).toBe(0);
+    expect(apiIdx).toBeLessThan(blockedIdx);
   });
 
   test('uses vlessPort when set, falls back to port', () => {

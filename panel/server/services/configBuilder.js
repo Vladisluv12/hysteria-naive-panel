@@ -236,6 +236,11 @@ function buildVlessConfigObject(cfg) {
     return null;
   }
 
+  // Must stay first in routing.rules: API traffic is loopback (127.0.0.1:10085) and
+  // would otherwise be shadowed by the blockPrivateIPs 127.0.0.0/8 rule below, which
+  // silently breaks the panel's per-user traffic stats (xray api statsquery).
+  const apiRule = { type: 'field', inboundTag: ['api'], outboundTag: 'api' };
+
   const config = {
     log: { loglevel: 'warning' },
     stats: {},
@@ -279,7 +284,7 @@ function buildVlessConfigObject(cfg) {
       { protocol: 'freedom', tag: 'api' },
     ],
     routing: {
-      rules: [{ type: 'field', inboundTag: ['api'], outboundTag: 'api' }],
+      rules: [apiRule],
     },
   };
 
@@ -318,7 +323,7 @@ function buildVlessConfigObject(cfg) {
     config.outbounds.push({ protocol: 'blackhole', tag: 'blocked' });
     config.routing = {
       domainStrategy: 'IPIfNonMatch',
-      rules: [...aclRules, ...config.routing.rules],
+      rules: [apiRule, ...aclRules],
     };
   }
 
@@ -348,11 +353,11 @@ function buildVlessConfigObject(cfg) {
         outboundTag: 'warp',
       };
 
-      // Merge with existing routing rules
-      const existingRules = config.routing.rules || [];
+      // Merge with existing routing rules, keeping apiRule first
+      const otherRules = (config.routing.rules || []).filter(r => r !== apiRule);
       config.routing = {
         domainStrategy: 'IPIfNonMatch',
-        rules: [warpRule, ...existingRules],
+        rules: [apiRule, warpRule, ...otherRules],
       };
     }
   }
